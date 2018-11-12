@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package>
+  <name>basestation_gui_python</name>
+  <version>0.1.0</version>
+  <description>
+description
+  </description>
+  <maintainer email="subt1@gmail.com">subt1</maintainer>
+  <author>subt1</author>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+
+	<build_depend>rospy</build_depend>
+	<build_depend>mavros_msgs</build_depend>
+
+	<run_depend>rospy</run_depend>
+	<run_depend>mavros_msgs</run_depend>
+ 
+</package>
