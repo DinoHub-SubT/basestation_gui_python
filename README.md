@@ -1,5 +1,5 @@
 # how to install
-install using the following:
+install using the following (note this creates a new workspace basestation_ws):
 ```bash
 sudo apt-get install ros-kinetic-mavros
 sudo apt-get install python-tk
