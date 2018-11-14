@@ -5,8 +5,9 @@ import Tkinter as tk
 
 # license removed for brevity
 import rospy
-# from std_msgs.msg import Int32
+from std_msgs.msg import Int32
 from mavros_msgs.msg import Mavlink #sudo apt-get install ros-kinetic-mavros
+
 
 global root
 global pub
@@ -20,7 +21,10 @@ global button_bg_colour
 def talker():
 
     global pub
+    global pub2
     pub = rospy.Publisher('/mavlink/from', Mavlink, queue_size=10)
+    # pub = rospy.Publisher('/e_stop', Int32, queue_size=10)
+    pub2 = rospy.Publisher('/e_stop', Int32, queue_size=10)
     rospy.init_node('estop_gui', anonymous=True)
     rate = rospy.Rate(10) # 10hz
 
@@ -107,8 +111,12 @@ def colour_state():
 def buttons_process(number):
     print(number)
     msg = Mavlink()
+    msg_int = Int32()
+    msg_int.data = number
     msg.payload64 = [number]
     pub.publish(msg)
+    # pub.publish(msg_int)
+    pub2.publish(msg_int)
     global state
     state = number
     colour_state()
@@ -126,7 +134,7 @@ def button_callback1():
     button_no.pack(side=tk.LEFT)
 
 def hard_stop_callback():
-    buttons_process(1)
+    buttons_process(3)
     window_are_you_sure.destroy()
 
 def close_window_are_you_sure():
@@ -136,10 +144,10 @@ def button_callback2():
     buttons_process(2)
 
 def button_callback3():
-    buttons_process(3)
+    buttons_process(1)
 
 def button_callback4():
-    buttons_process(4)
+    buttons_process(0)
 
 
 if __name__ == '__main__':
