@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+
+# !!!
+# possibly need to run this first:
+# sudo chmod 666 /dev/ttyUSB0
+# TODO look for a more permanent solution...
+# !!!
+
 import serial
 import rospy
 from std_msgs.msg import Int32
@@ -37,6 +44,6 @@ def serial_to_estop():
 
 if __name__ == '__main__':
     try:
-        estop_to_serial()
+        serial_to_estop()
     except rospy.ROSInterruptException:
         pass
