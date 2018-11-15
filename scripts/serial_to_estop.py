@@ -18,15 +18,15 @@ def serial_to_estop():
 	pub = rospy.Publisher("/e_stop", Int32, queue_size=10)
 
 	# Listener loop
-    rate = rospy.Rate(10) # 10hz
-    while not rospy.is_shutdown():
-        line = ser.readline()
-        print line
-        # extract number and publish
-        msg = Int32()
-        msg.data = int(line)
-        pub.publish(msg)
-        rate.sleep()
+	rate = rospy.Rate(10) # 10hz
+	while not rospy.is_shutdown():
+		line = ser.readline()
+		print line
+		# extract number and publish
+		msg = Int32()
+		msg.data = int(line)
+		pub.publish(msg)
+		rate.sleep()
 
 	while not rospy.is_shutdown():
 		rate.sleep()
