@@ -7,7 +7,7 @@ from std_msgs.msg import Int32
 global ser
 
 def callback(msg):
-	ser.write(b'msg.data\n')     # write a string
+	ser.write(str(msg.data)+'\n')     # write a string
 
 def estop_to_serial():
 

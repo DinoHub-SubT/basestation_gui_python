@@ -95,16 +95,16 @@ def colour_state():
     button2.config(bg=button_bg_colour)
     button3.config(bg=button_bg_colour)
     button4.config(bg=button_bg_colour)
-    if state==1:
+    if state==3:
         button1.config(bg='red')
         button1.config(activebackground='red')
     if state==2:
         button2.config(bg='red')
         button2.config(activebackground='red')
-    if state==3:
+    if state==1:
         button3.config(bg='orange')
         button3.config(activebackground='orange')
-    if state==4:
+    if state==0:
         button4.config(bg='green')
         button4.config(activebackground='green')   
 
