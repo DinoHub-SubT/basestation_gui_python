@@ -6,11 +6,14 @@ import Tkinter as tk
 # license removed for brevity
 import rospy
 from std_msgs.msg import Int32
+from std_msgs.msg import String
 from mavros_msgs.msg import Mavlink #sudo apt-get install ros-kinetic-mavros
 
 
 global root
 global pub
+global pub2
+global pub3
 global button1
 global button2
 global button3
@@ -22,9 +25,11 @@ def talker():
 
     global pub
     global pub2
+    global pub3
     pub = rospy.Publisher('/mavlink/from', Mavlink, queue_size=10)
     # pub = rospy.Publisher('/e_stop', Int32, queue_size=10)
     pub2 = rospy.Publisher('/e_stop', Int32, queue_size=10)
+    pub3 = rospy.Publisher('/nuc_to_teensy2', String, queue_size=10)
     rospy.init_node('estop_gui', anonymous=True)
     rate = rospy.Rate(10) # 10hz
 
@@ -95,16 +100,16 @@ def colour_state():
     button2.config(bg=button_bg_colour)
     button3.config(bg=button_bg_colour)
     button4.config(bg=button_bg_colour)
-    if state==1:
+    if state==3:
         button1.config(bg='red')
         button1.config(activebackground='red')
     if state==2:
         button2.config(bg='red')
         button2.config(activebackground='red')
-    if state==3:
+    if state==1:
         button3.config(bg='orange')
         button3.config(activebackground='orange')
-    if state==4:
+    if state==0:
         button4.config(bg='green')
         button4.config(activebackground='green')   
 
@@ -115,8 +120,11 @@ def buttons_process(number):
     msg_int.data = number
     msg.payload64 = [number]
     pub.publish(msg)
+    msg_string = String()
+    msg_string.data = str(number)
     # pub.publish(msg_int)
     pub2.publish(msg_int)
+    pub3.publish(msg_string)
     global state
     state = number
     colour_state()
