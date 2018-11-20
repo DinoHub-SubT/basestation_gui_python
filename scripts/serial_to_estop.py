@@ -35,7 +35,7 @@ def serial_to_estop():
 			msg.data = int(line)
 			pub.publish(msg)
 		except ValueError:
-			print 'warning: unrecognised serial message received'
+			print ''
 		rate.sleep()
 
 	while not rospy.is_shutdown():
