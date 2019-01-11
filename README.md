@@ -20,6 +20,6 @@ source devel/setup.bash
 # how to run
 run using the following:
 ```bash
-rosrun basestation_gui_python gui.py
+rosrun basestation_gui_python main.py
 ```
 

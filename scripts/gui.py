@@ -1,167 +1,50 @@
 #!/usr/bin/env python
 import Tkinter as tk
-    
+from Tkinter import Tk, Label, Button, Frame
+import pdb
 
-
-# license removed for brevity
+from gui_to_ros import pub_estop
 import rospy
 from std_msgs.msg import Int32
-from std_msgs.msg import String
-from mavros_msgs.msg import Mavlink #sudo apt-get install ros-kinetic-mavros
 
 
-global root
-global pub
-global pub2
-global pub3
-global button1
-global button2
-global button3
-global button4
-global state
-global button_bg_colour
+# pdb.set_trace()
 
-def talker():
+class CommandGUI:
+    def __init__(self, master):
+        self.master = master
+        master.title("COMMAND CENTER")
 
-    global pub
-    global pub2
-    global pub3
-    pub = rospy.Publisher('/mavlink/from', Mavlink, queue_size=10)
-    # pub = rospy.Publisher('/e_stop', Int32, queue_size=10)
-    pub2 = rospy.Publisher('/e_stop', Int32, queue_size=10)
-    pub3 = rospy.Publisher('/nuc_to_teensy2', String, queue_size=10)
-    rospy.init_node('estop_gui', anonymous=True)
-    rate = rospy.Rate(10) # 10hz
+        #setup the various publishers
+        self.setupPubs()
 
-    global root
-    root = tk.Tk()
-    frame = tk.Frame(root)
-    frame.pack()
+        #setup the various sub-windows
+        self.setupCommandFrame(master, pubs = [self.estop_pub])
 
-    back = tk.Frame(master=root, width=500, height=200)
-    back.pack()
+    def setupPubs(self):
+        self.estop_pub = rospy.Publisher('/e_stop', Int32, queue_size=10)
+    
+    def setupCommandFrame(self, master, pubs):
+        '''
+        The frame for sending commands to the robots
+        '''
 
-    global button1
-    button1 = tk.Button(frame, 
-                       text="hard e-stop", 
-                       fg="black",
-                       command=button_callback1)
-    button1.pack(side=tk.LEFT)
+        #publishers to be used
+        [estop_pub] = pubs
 
-    global button2
-    button2 = tk.Button(frame, 
-                       text="soft e-stop", 
-                       fg="black",
-                       command=button_callback2)
-    button2.pack(side=tk.LEFT)
+        self.command_frame = Frame(master)
+        self.command_frame.grid()
 
-    global button3
-    button3 = tk.Button(frame, 
-                       text="pause", 
-                       fg="black",
-                       command=button_callback3)
-    button3.pack(side=tk.LEFT)
+        #e-stop for every robot
+        #TODO: make flexible in number of robots
+        self.estop_buts = []
+        #TODO: add window pop-up to this method to check fi they really want to hard e-stop
+        self.estop_buts.append(Button(self.command_frame, text="Hard e-stop", command = lambda: pub_estop(3, estop_pub)))
+        self.estop_buts.append(Button(self.command_frame, text="Soft e-stop", command = lambda: pub_estop(2, estop_pub))) 
+        self.estop_buts.append(Button(self.command_frame, text="Pause", command = lambda: pub_estop(1, estop_pub))) 
+        self.estop_buts.append(Button(self.command_frame, text="Resume", command = lambda: pub_estop(0, estop_pub)))  
 
-    global button4
-    button4 = tk.Button(frame, 
-                       text="resume", 
-                       fg="black",
-                       command=button_callback4)
-    button4.pack(side=tk.LEFT)
-
-
-    button_quit = tk.Button(frame, 
-                       text="QUIT", 
-                       fg="red",
-                       command=quit)
-    button_quit.pack(side=tk.LEFT)
-
-    global button_bg_colour
-    button_bg_colour = button_quit.cget("background")
-
-    root.after(50, check_exit) # 50ms timer before call function
-
-    root.mainloop()	
-
-
-    # while not rospy.is_shutdown():
-    #     hello_str = "hello world %s" % rospy.get_time()
-    #     rospy.loginfo(hello_str)
-    #     pub.publish(hello_str)
-    #     rate.sleep()
-
-def check_exit():
-    if rospy.is_shutdown():
-        root.destroy()
-    root.after(50, check_exit) # call again in 50 ms
-
-def colour_state():
-    button1.config(bg=button_bg_colour)
-    button2.config(bg=button_bg_colour)
-    button3.config(bg=button_bg_colour)
-    button4.config(bg=button_bg_colour)
-    if state==3:
-        button1.config(bg='red')
-        button1.config(activebackground='red')
-    if state==2:
-        button2.config(bg='red')
-        button2.config(activebackground='red')
-    if state==1:
-        button3.config(bg='orange')
-        button3.config(activebackground='orange')
-    if state==0:
-        button4.config(bg='green')
-        button4.config(activebackground='green')   
-
-def buttons_process(number):
-    print(number)
-    msg = Mavlink()
-    msg_int = Int32()
-    msg_int.data = number
-    msg.payload64 = [number]
-    pub.publish(msg)
-    msg_string = String()
-    msg_string.data = str(number)
-    # pub.publish(msg_int)
-    pub2.publish(msg_int)
-    pub3.publish(msg_string)
-    global state
-    state = number
-    colour_state()
-
-global window_are_you_sure
-
-def button_callback1():
-    # ask the user if they really want to hard e-stop
-    global window_are_you_sure
-    window_are_you_sure = tk.Toplevel(root)
-    label = tk.Label(window_are_you_sure, text="Are you sure?")
-    button_yes = tk.Button(window_are_you_sure, text="HARD STOP!!!", command=hard_stop_callback)
-    button_yes.pack(side=tk.LEFT)
-    button_no = tk.Button(window_are_you_sure, text="No, continue", command=close_window_are_you_sure)
-    button_no.pack(side=tk.LEFT)
-
-def hard_stop_callback():
-    buttons_process(3)
-    window_are_you_sure.destroy()
-
-def close_window_are_you_sure():
-    window_are_you_sure.destroy()
-
-def button_callback2():
-    buttons_process(2)
-
-def button_callback3():
-    buttons_process(1)
-
-def button_callback4():
-    buttons_process(0)
-
-
-if __name__ == '__main__':
-    try:
-        talker()
-    except rospy.ROSInterruptException:
-        pass
+        for button in self.estop_buts:
+            button.grid()
 
 
