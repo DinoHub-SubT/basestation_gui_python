@@ -23,3 +23,9 @@ run using the following:
 rosrun basestation_gui_python main.py
 ```
 
+
+# TODO
+Todos are scattered throughout the code. Do a grep to find them
+
+# Who to contact
+Bob DeBortoli: debortor@oregonstate.edu

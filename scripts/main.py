@@ -42,8 +42,9 @@ if __name__ == '__main__':
     rate = rospy.Rate(10) # 10hz
 
     #initialize the command gui
+    bot_labels = ['ground1', 'aerial1']
     root = Tk()
-    command_gui = CommandGUI(root)
+    command_gui = CommandGUI(root, bot_labels)
     root.after(50, close_gui) # 50ms timer. if rospy shuts down, close gui
     root.mainloop()
 
