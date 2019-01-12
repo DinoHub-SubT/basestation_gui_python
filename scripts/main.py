@@ -22,7 +22,8 @@ global state
 global button_bg_colour
 
 from Tkinter import Tk
-from gui import CommandGUI
+from command_gui import CommandGUI
+from application import GuiApp
 
 
 
@@ -37,12 +38,16 @@ def close_gui():
 
 if __name__ == '__main__':
     #TODO: insert license at beginning of every file
+    #TODO: do i want an application file which runs everything?
+    bot_labels = ['ground1', 'aerial1']
 
     rospy.init_node('command_gui', anonymous=True)
     rate = rospy.Rate(10) # 10hz
 
+    #initialize the application, which will setup the pubs/subs and run the system
+    # gui_app = GuiApp(bot_labels)
+
     #initialize the command gui
-    bot_labels = ['ground1', 'aerial1']
     root = Tk()
     command_gui = CommandGUI(root, bot_labels)
     root.after(50, close_gui) # 50ms timer. if rospy shuts down, close gui
