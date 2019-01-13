@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import Tkinter as tk
-from Tkinter import Tk, Label, Button, Frame
+from Tkinter import Tk, Label, Button, Frame, Toplevel
 from ttk import Notebook
 import pdb
 
@@ -23,10 +23,12 @@ class CommandGUI:
 
         self.num_bots = len(bot_labels) #number of robots
         self.bot_labels = bot_labels #names to be displayed. also corresponds to topic name
-        self.bot_status_types = ['Battery', 'Mobility', 'Comms'] #the standard types of status updates displayed for each robot
+        self.bot_status_types = ['battery', 'mobility', 'comms'] #the standard types of status updates displayed for each robot
 
         #setup some utils file
         self.to_ros = GuiToRos(self)
+
+        #todo: add the fonts
 
         #setup the various pubs/subs
         self.setupPubs()
@@ -34,6 +36,10 @@ class CommandGUI:
         #setup the various sub-windows
         self.setupCommandFrame(master)
         self.setupStatusFrame(master)
+        self.setupHardEstopWindow(master) #setup the hard estop confirmation window
+
+       
+
 
     def setupPubs(self):
         self.estop_pubs = []
@@ -65,21 +71,22 @@ class CommandGUI:
             self.command_notebook.add(tab, text = self.bot_labels[i])
 
         #e-stop for every robot
-        #TODO: make flexible in number of robots
         self.estop_buts = []
         for i in range(self.num_bots):
             self.estop_buts.append([])
         
         #TODO: add window pop-up to this method to check if they really want to hard e-stop
         for i in range(self.num_bots): #note the use of partial() to send arguments via dynamic variables (vars we iterate over)!!
-            self.estop_buts[i].append(Button(self.command_tabs[i], text="Hard e-stop", command = partial(self.to_ros.pub_estop,3, self.estop_pubs[i])))
-            self.estop_buts[i].append(Button(self.command_tabs[i], text="Soft e-stop", command = partial(self.to_ros.pub_estop,3, self.estop_pubs[i]))) 
-            self.estop_buts[i].append(Button(self.command_tabs[i], text="Pause", command = partial(self.to_ros.pub_estop,3, self.estop_pubs[i]))) 
-            self.estop_buts[i].append(Button(self.command_tabs[i], text="Resume", command = partial(self.to_ros.pub_estop,3, self.estop_pubs[i]))) 
+            self.estop_buts[i].append(Button(self.command_tabs[i], text="Hard e-stop", command = partial(self.to_ros.pubEstop,3, i, 0)))
+            self.estop_buts[i].append(Button(self.command_tabs[i], text="Soft e-stop", command = partial(self.to_ros.pubEstop,2, i, 1))) 
+            self.estop_buts[i].append(Button(self.command_tabs[i], text="Pause", command = partial(self.to_ros.pubEstop,1, i, 2), bg='#00FF00')) 
+            self.estop_buts[i].append(Button(self.command_tabs[i], text="Resume", command = partial(self.to_ros.pubEstop,0, i, 3))) 
  
-
+        
         for button_set in self.estop_buts: #for the buttons of every robot
             for button in button_set: #for the button of a single robot
+                if(button.cget('text')=='Pause'):
+                    button.config(activebackground=button.cget('background')) #remove the highlighting to light grey
                 button.grid()
 
     def setupStatusFrame(self, master):
@@ -106,7 +113,7 @@ class CommandGUI:
                 self.bot_status_labels[i].append(Label(robot_frame, text = self.bot_status_types[j]))
 
             for j in range(len(self.bot_status_labels[i])):
-                self.bot_status_labels[i][j].grid()
+                self.bot_status_labels[i][j].grid(sticky='we')
 
             robot_frame.grid(row = 1, column = i)
             self.bot_status_frames.append(robot_frame)
@@ -114,11 +121,35 @@ class CommandGUI:
 
         #setup the subscribers for those labels
         for robot_label in self.bot_labels:
-            rospy.Subscriber('/'+robot_label+'/status_battery', Int32, self.to_ros.bot_status_callback)
-            rospy.Subscriber('/'+robot_label+'/status_mobility', Int32, self.to_ros.bot_status_callback)
-            rospy.Subscriber('/'+robot_label+'/status_comms', Int32, self.to_ros.bot_status_callback)
+            rospy.Subscriber('/'+robot_label+'/status_battery' , Int32, self.to_ros.botStatusCallback,'/'+robot_label+'/status_battery'  )
+            rospy.Subscriber('/'+robot_label+'/status_mobility', Int32, self.to_ros.botStatusCallback,'/'+robot_label+'/status_mobility' )
+            rospy.Subscriber('/'+robot_label+'/status_comms'   , Int32, self.to_ros.botStatusCallback,'/'+robot_label+'/status_comms'    )
 
 
 
+    def setupHardEstopWindow(self, master):
+        '''
+        The frame for confirming the user wants to hard estop a robot
+        '''
+        self.hard_estop_window = Toplevel(master)
+        self.hard_estop_window.title('Hard estop confirmation')
+        
+        self.hard_estop_window_question_label = Label(self.hard_estop_window)
 
+        button_yes = Button(self.hard_estop_window, text="HARD STOP!!!", bg='#FF0000', command = self.to_ros.hardEstop)
+        button_yes.grid(row = 1, column = 0)
+
+        button_no = Button(self.hard_estop_window, text="No, continue", command = self.afterEstop)
+        button_no.grid(row = 1, column = 1)
+
+        #hide it, until its needed
+        self.hard_estop_window.withdraw()
+        self.hard_estop_window.grid()
+
+    def afterEstop(self):
+        '''
+        After an estop has happened, remove the window
+        '''
+        self.hard_estop_window.withdraw()
+        self.hard_estop_window.grid()
 
