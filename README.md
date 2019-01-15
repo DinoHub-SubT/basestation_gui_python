@@ -20,6 +20,12 @@ source devel/setup.bash
 # how to run
 run using the following:
 ```bash
-rosrun basestation_gui_python gui.py
+rosrun basestation_gui_python main.py
 ```
 
+
+# TODO
+Todos are scattered throughout the code. Do a grep to find them
+
+# Who to contact
+Bob DeBortoli: debortor@oregonstate.edu
