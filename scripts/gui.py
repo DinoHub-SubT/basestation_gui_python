@@ -100,7 +100,3 @@ class CommandGUI:
             self.bot_status_frames.append(robot_frame)
 
 
-
->>>>>>> e87ea7bd5198f5eab393cf1238c35683d72689aa
-
-
