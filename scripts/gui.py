@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 import Tkinter as tk
-    
 
-
-# license removed for brevity
 import rospy
-from std_msgs.msg import Int32
-from std_msgs.msg import String
-from mavros_msgs.msg import Mavlink #sudo apt-get install ros-kinetic-mavros
+#from std_msgs.msg import Int32
+#from std_msgs.msg import String
+#from mavros_msgs.msg import Mavlink #sudo apt-get install ros-kinetic-mavros
 
+from basestation_gui_python.msg import RadioMsg
 
 global root
-global pub
-global pub2
-global pub3
+global pub_ros_to_teensy
 global button1
 global button2
 global button3
@@ -23,13 +19,8 @@ global button_bg_colour
 
 def talker():
 
-    global pub
-    global pub2
-    global pub3
-    pub = rospy.Publisher('/mavlink/from', Mavlink, queue_size=10)
-    # pub = rospy.Publisher('/e_stop', Int32, queue_size=10)
-    pub2 = rospy.Publisher('/e_stop', Int32, queue_size=10)
-    pub3 = rospy.Publisher('/nuc_to_teensy2', String, queue_size=10)
+    global pub_ros_to_teensy
+    pub_ros_to_teensy = rospy.Publisher('/ros_to_teensy', RadioMsg, queue_size=10)
     rospy.init_node('estop_gui', anonymous=True)
     rate = rospy.Rate(10) # 10hz
 
@@ -100,33 +91,27 @@ def colour_state():
     button2.config(bg=button_bg_colour)
     button3.config(bg=button_bg_colour)
     button4.config(bg=button_bg_colour)
-    if state==3:
+    if state==RadioMsg.ESTOP_HARD:
         button1.config(bg='red')
         button1.config(activebackground='red')
-    if state==2:
+    if state==RadioMsg.ESTOP_SOFT:
         button2.config(bg='red')
         button2.config(activebackground='red')
-    if state==1:
+    if state==RadioMsg.ESTOP_PAUSE:
         button3.config(bg='orange')
         button3.config(activebackground='orange')
-    if state==0:
+    if state==RadioMsg.ESTOP_RESUME:
         button4.config(bg='green')
         button4.config(activebackground='green')   
 
-def buttons_process(number):
-    print(number)
-    msg = Mavlink()
-    msg_int = Int32()
-    msg_int.data = number
-    msg.payload64 = [number]
-    pub.publish(msg)
-    msg_string = String()
-    msg_string.data = str(number)
-    # pub.publish(msg_int)
-    pub2.publish(msg_int)
-    pub3.publish(msg_string)
+def buttons_process(estop_data):
+    print(estop_data)
+    msg_radio_msg = RadioMsg()
+    msg_radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
+    msg_radio_msg.data = estop_data
+    pub_ros_to_teensy.publish(msg_radio_msg)
     global state
-    state = number
+    state = estop_data
     colour_state()
 
 global window_are_you_sure
@@ -142,20 +127,20 @@ def button_callback1():
     button_no.pack(side=tk.LEFT)
 
 def hard_stop_callback():
-    buttons_process(3)
+    buttons_process(RadioMsg.ESTOP_HARD)
     window_are_you_sure.destroy()
 
 def close_window_are_you_sure():
     window_are_you_sure.destroy()
 
 def button_callback2():
-    buttons_process(2)
+    buttons_process(RadioMsg.ESTOP_SOFT)
 
 def button_callback3():
-    buttons_process(1)
+    buttons_process(RadioMsg.ESTOP_PAUSE)
 
 def button_callback4():
-    buttons_process(0)
+    buttons_process(RadioMsg.ESTOP_RESUME)
 
 
 if __name__ == '__main__':
