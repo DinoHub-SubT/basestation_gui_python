@@ -12,6 +12,7 @@ description
   <buildtool_depend>catkin</buildtool_depend>
 
 
+
 	<build_depend>rospy</build_depend>
 	<build_depend>mavros_msgs</build_depend>
 <build_depend>message_generation</build_depend>
@@ -19,5 +20,11 @@ description
 	<run_depend>rospy</run_depend>
 	<run_depend>mavros_msgs</run_depend>
 <run_depend>message_runtime</run_depend>
+
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+  </export>
  
 </package>

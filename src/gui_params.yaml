@@ -1,0 +1,3 @@
+experiment_params:
+  robot_names: ['Ground1', 'Ground2', 'Aerial1']
+  robot_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home']
