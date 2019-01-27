@@ -270,8 +270,7 @@ class BasestationGuiPlugin(Plugin):
         '''
         Send the artifact being examined to the queue
         '''
-        print self.artifact_id, self.artifact_cat, self.artifact_priority
-
+        
         self.queue_table.insertRow(self.queue_table.rowCount())
 
         self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(self.artifact_id)))
@@ -386,7 +385,28 @@ class BasestationGuiPlugin(Plugin):
         Callback that is run when something in the artifact
         queue is selected
         '''
-        print "Click on " + str(row) + " " + str(col) +" "+self.queue_table.item(row,col).text()
+        self.artifact_id =  int(self.queue_table.item(row, 0).text())
+        self.artifact_cat =  self.queue_table.item(row, 1).text()
+        self.artifact_priority =  self.queue_table.item(row, 2).text()
+
+        #change the combo boxes
+        index = self.queue_cat_box.findText(self.queue_table.item(row, 1).text(), core.Qt.MatchFixedString)
+        if index >= 0:
+             self.queue_cat_box.setCurrentIndex(index)
+
+        index = self.queue_priority_box.findText(self.queue_table.item(row, 2).text(), core.Qt.MatchFixedString)
+        if index >= 0:
+             self.queue_priority_box.setCurrentIndex(index)
+
+        #remove the item from the queue
+        self.removeQueueItem(row)
+
+    def removeQueueItem(self, row):
+        '''
+        Function to remove an item from the queue
+        '''
+        self.queue_table.removeRow(row)
+
 
     def init_artifact_queue(self, pos):
         '''
