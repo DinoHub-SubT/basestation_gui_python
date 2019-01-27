@@ -35,9 +35,11 @@ class RosGuiBridge:
         self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
 
         #subscriber for listening to waypoint goals
+        self.waypoint_topic = "move_base_simple/goal" #topic for listening to BSM-defined waypoints
+
         self.waypoint_listeners = []
         for i in range(len(self.robot_names)):
-        	self.waypoint_listeners.append(rospy.Subscriber("move_base_simple/goal", PoseStamped, self.publishWaypointGoal, ""))
+        	self.waypoint_listeners.append(rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, ""))
         	self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
 
         
@@ -107,12 +109,9 @@ class RosGuiBridge:
         '''
 
         #subscriber for listening to waypoint goals
-        self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber("move_base_simple/goal", PoseStamped, self.publishWaypointGoal, robot_name)
+        self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
 
         
-
-        pass
-
 
     def changeControlButtonColors(self, control_buttons, robot_num, button_pressed):
         '''

@@ -78,6 +78,11 @@ class BasestationGuiPlugin(Plugin):
         self.widget.setLayout(self.global_widget)
         context.add_widget(self.widget)
 
+        #variables for storing the current information about the artifact being examined
+        self.artifact_cat = ""
+        self.artifact_priority = ""
+        self.artifact_id = 0
+
 
     def init_buttons(self, config_filename):
         self.buttons = {}
@@ -213,23 +218,32 @@ class BasestationGuiPlugin(Plugin):
         self.darpa_cat_box.addItem("Drill")
         self.artvis_layout.addWidget(self.darpa_cat_box, 3,1)
 
+        self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
+
         button = qt.QPushButton("   To Queue    ")
+        button.clicked.connect(partial(self.sendToQueue))
         self.artvis_layout.addWidget(button, 4, 0)
 
         self.queue_cat_box = qt.QComboBox()
         self.queue_cat_box.addItem("Human")
+        self.artifact_cat = "Human"
         self.queue_cat_box.addItem("Cell Phone")
         self.queue_cat_box.addItem("Backpack")
         self.queue_cat_box.addItem("Fire Extinguisher")
         self.queue_cat_box.addItem("Drill")
         self.artvis_layout.addWidget(self.queue_cat_box, 4,1)
 
+        self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
+
         self.queue_priority_box = qt.QComboBox() #way to fill in the priority
         self.queue_priority_box.addItem("    1    ")
+        self.artifact_priority = "    1    "
         self.queue_priority_box.addItem("    2    ")
         self.queue_priority_box.addItem("    3    ")
         self.queue_priority_box.addItem("    4    ")
         self.artvis_layout.addWidget(self.queue_priority_box, 4,2)
+
+        self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
         button = qt.QPushButton("Discard")
         button.setSizePolicy(QSizePolicy.Expanding, 0)
@@ -239,6 +253,34 @@ class BasestationGuiPlugin(Plugin):
         self.artvis_widget.setLayout(self.artvis_layout)
         self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1])
 
+    def updateArtifactPriority(self):
+        '''
+        The combo box for changing the artifact priority was pressed
+        '''
+        self.artifact_priority = str(self.queue_priority_box.currentText())
+
+    def updateArtifactCat(self):
+        '''
+        The combo box for changing the artifact category was pressed
+        '''
+        self.artifact_cat = str(self.queue_cat_box.currentText())
+
+
+    def sendToQueue(self):
+        '''
+        Send the artifact being examined to the queue
+        '''
+        print self.artifact_id, self.artifact_cat, self.artifact_priority
+
+        self.queue_table.insertRow(self.queue_table.rowCount())
+
+        self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(self.artifact_id)))
+        self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(self.artifact_cat)))
+        self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.artifact_priority)))
+
+
+        #increase the artifact id so that the next artifact has a different id
+        self.artifact_id+=1
 
     def init_status_panel(self, pos):
         '''
@@ -369,19 +411,9 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.setColumnCount(3) # set column count        
         self.queue_table.setHorizontalHeaderLabels(['ID', 'Category', 'Priority']) #make the column headers
 
+        #make sortable
+        self.queue_table.setSortingEnabled(True)
 
-        #add fake data 
-        self.queue_table.insertRow(0)
-        self.queue_table.insertRow(1)
-
-
-        self.queue_table.setItem(0,0, qt.QTableWidgetItem('01'))
-        self.queue_table.setItem(0,1, qt.QTableWidgetItem('Fire Extinguisher'))
-        self.queue_table.setItem(0,2, qt.QTableWidgetItem('1'))
-
-        self.queue_table.setItem(1,0, qt.QTableWidgetItem('02'))
-        self.queue_table.setItem(1,1, qt.QTableWidgetItem('Backpack'))
-        self.queue_table.setItem(1,2, qt.QTableWidgetItem('2'))
 
         #add click listener
         self.queue_table.cellClicked.connect(self.queueClick)
