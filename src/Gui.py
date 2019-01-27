@@ -33,6 +33,8 @@ from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
 from RosGuiBridge import RosGuiBridge
 
+from functools import partial
+
 import pdb
 
 
@@ -83,7 +85,7 @@ class BasestationGuiPlugin(Plugin):
         for i in reversed(range(self.button_layout.count())):
             self.button_layout.itemAt(i).widget().setParent(None)
         
-        for transition in self.sm.get_transitions():
+        for transition in self.ros_gui_bridge.get_transitions():
             def get_publish_transition_function(t):
                 def publish_transition():
                     msg = String()
@@ -114,22 +116,33 @@ class BasestationGuiPlugin(Plugin):
         num_in_col = 4
 
         #establish the sub-panel for each robot
-        for robot_name in self.sm.robot_names:
+        for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):
             #define the layout and group for a single robot
             robot_layout = qt.QGridLayout()
             robot_groupbox = qt.QGroupBox("Controls "+robot_name)
 
             #add the robot commands
             row, col = [0, 0] #the row and column to put the buttons
-            for command in self.sm.robot_commands:
+            robot_button_list = []
+            for j, command in enumerate(self.ros_gui_bridge.robot_commands):
                 if(row==num_in_col): #if we have filled this column, move to the next
                     row = 0
                     col+=1
 
                 button = qt.QPushButton(command)
+                robot_button_list.append(button)
+                
+                #upon press, change the button color
+                button.clicked.connect(partial(self.ros_gui_bridge.changeControlButtonColors, self.control_buttons, robot_num, button))
+                
+                #upon press, do something in ROS
+                button.clicked.connect(partial(self.ros_gui_bridge.publishRobotCommand, command, robot_name))
+
                 robot_layout.addWidget(button, row, col)
 
                 row+=1
+
+            self.control_buttons.append(robot_button_list)
 
 
 
@@ -238,7 +251,7 @@ class BasestationGuiPlugin(Plugin):
         self.status_layout = qt.QVBoxLayout()
 
         #preliminaries to build the rest of the panel
-        num_robots = len(self.sm.robot_names) #get the number of robots
+        num_robots = len(self.ros_gui_bridge.robot_names) #get the number of robots
         statuses = ['Battery(hh:mm)', 'Comms', 'Mobility', 'Camera', 'Velodyne', 'CPU', 'Disk Space'] #define the status each robot will have
 
         status_label = qt.QLabel()
@@ -258,7 +271,7 @@ class BasestationGuiPlugin(Plugin):
 
         #make the row and column headers
         self.status_table.setVerticalHeaderLabels(statuses) 
-        self.status_table.setHorizontalHeaderLabels(self.sm.robot_names) 
+        self.status_table.setHorizontalHeaderLabels(self.ros_gui_bridge.robot_names) 
 
         #add fake data for each robot
         self.status_table.setItem(0,0, qt.QTableWidgetItem('15:01'))
@@ -426,7 +439,7 @@ class BasestationGuiPlugin(Plugin):
 
         #make the row and column headers
         self.info_table.setVerticalHeaderLabels(info_categories) 
-        # self.info_table.setHorizontalHeaderLabels(self.sm.robot_names) 
+        # self.info_table.setHorizontalHeaderLabels(self.ros_gui_bridge.robot_names) 
 
         #add fake data for each robot
         self.info_table.setItem(0,0, qt.QTableWidgetItem('35:21'))
@@ -471,15 +484,15 @@ class BasestationGuiPlugin(Plugin):
         filename = qt.QFileDialog.getOpenFileName(self.widget, 'Open Config File', starting_path, "Config Files (*.yaml)")[0]
         if filename != '':
             self.config_filename = filename
-            self.sm = RosGuiBridge(self.config_filename)
+            self.ros_gui_bridge = RosGuiBridge(self.config_filename)
             self.build_gui()
 
     def state_callback(self, msg):
         try:
             state_name = msg.data
             self.state_label.setText('STATE: ' + state_name)
-            for transition in self.sm.get_transitions():
-                if self.sm.states[state_name].has_transition(transition):
+            for transition in self.ros_gui_bridge.get_transitions():
+                if self.ros_gui_bridge.states[state_name].has_transition(transition):
                     self.buttons[transition].setEnabled(True)
                 else:
                     self.buttons[transition].setEnabled(False)
@@ -500,7 +513,7 @@ class BasestationGuiPlugin(Plugin):
         config file. 
         '''
         self.config_filename = instance_settings.value('config_filename')
-        self.sm = RosGuiBridge(self.config_filename)
+        self.ros_gui_bridge = RosGuiBridge(self.config_filename)
         self.build_gui()
         pass
 
