@@ -367,7 +367,7 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 
         self.queue_table.setColumnCount(3) # set column count        
-        self.queue_table.setHorizontalHeaderLabels(['ID', 'ObjectType', 'Priority']) #make the column headers
+        self.queue_table.setHorizontalHeaderLabels(['ID', 'Category', 'Priority']) #make the column headers
 
 
         #add fake data 

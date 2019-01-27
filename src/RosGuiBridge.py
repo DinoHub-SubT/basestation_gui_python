@@ -3,7 +3,7 @@ import rospy
 from std_msgs.msg import String
 import yaml
 import sys
-
+from geometry_msgs.msg import PoseStamped
 import pdb
 from basestation_gui_python.msg import RadioMsg
 import numpy as np
@@ -24,7 +24,7 @@ class RosGuiBridge:
 
         #robot names should be unique
         if(len(np.unique(self.robot_names))!=len(self.robot_names)):
-        	raise ValueError('Not all of the robot names are unqiue!')
+        	raise ValueError('Not all of the robot names are unique!')
 
         for command in exp_params['robot_commands']:
             self.robot_commands.append(command)
@@ -34,17 +34,27 @@ class RosGuiBridge:
         #define radio message publisher
         self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
 
+        #subscriber for listening to waypoint goals
+        self.waypoint_listeners = []
+        for i in range(len(self.robot_names)):
+        	self.waypoint_listeners.append(rospy.Subscriber("move_base_simple/goal", PoseStamped, self.publishWaypointGoal, ""))
+        	self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
+
+        
     def publishRobotCommand(self, command, robot_name):
         '''
-        Publish a command from the gui to the robot
+        A command button has been pressed. Publish a command from the gui to the robot
         '''
 
+        #de-register the waypoint listener because possibly another type of button has been pressed
+    	self.waypoint_listeners[self.robot_names.index(robot_name)].unregister()
+        
         if(command in self.estop_commands):
             self.publishEstop(command, robot_name)
         elif(command == "Define waypoint"):
-            self.defineWaypoint(robot_num)
+            self.defineWaypoint(robot_name)
         elif(command == "Return home"):
-            self.publishReturnHome(robot_num)
+            self.publishReturnHome(robot_name)
         else:
             print 'WARNING: Button pressed does not have a function call associated with it!'
 
@@ -53,33 +63,54 @@ class RosGuiBridge:
         Publish an estop message after a button has been pressed
         '''
 
-        msg = RadioMsg()
+        radio_msg = RadioMsg()
         msg.message_type = 1
-        msg.recipient_robot_id = self.robot_names.index(robot_name)
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         if(command=="Resume"):
-            msg.data = "0"
+            radio_msg.data = "0"
         elif(command=="Pause"):
-            msg.data = "1"
+            radio_msg.data = "1"
         elif(command=="Soft e-stop"):
-            msg.data = "2"
+            radio_msg.data = "2"
         elif(command=="Hard e-stop"):
-            msg.data = "3"
+            radio_msg.data = "3"
         else:
             print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
 
-        self.radio_pub.publish(msg)
+        self.radio_pub.publish(radio_msg)
 
-    def publishReturnHome(self, robot_num):
+    def publishReturnHome(self, robot_name):
         '''
         Send out a message for the robot to return home
         '''
 
         pass
 
-    def defineWaypoint(self, robot_num):
+    def publishWaypointGoal(self, msg, robot_name):
+
+    	radio_msg = RadioMsg()
+        radio_msg.message_type = 2
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        radio_msg.data = str(msg.pose.position.x) +","+str(msg.pose.position.y) +","+str(msg.pose.position.z)+","+\
+        				 str(msg.pose.orientation.x) +","+str(msg.pose.orientation.y) +","+str(msg.pose.orientation.z)+","+\
+        				 str(msg.pose.orientation.w)
+
+        self.radio_pub.publish(radio_msg)
+
+        print radio_msg.data
+
+
+
+    def defineWaypoint(self, robot_name):
         '''
         Listen for a waypoint to be pressed in Rviz
         '''
+
+        #subscriber for listening to waypoint goals
+        self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber("move_base_simple/goal", PoseStamped, self.publishWaypointGoal, robot_name)
+
+        
+
         pass
 
 

@@ -1,5 +1,6 @@
 # message type
 uint8 MESSAGE_TYPE_ESTOP=1
+uint8 MESSAGE_TYPE_DEFINE_WAYPOINT=2
 uint8 message_type
 
 # data

@@ -26,6 +26,7 @@ rosrun basestation_gui_python main.py
 
 # TODO
 Todos are scattered throughout the code. Do a grep to find them
+After pressing "Define Waypoint" you must send the waypoint before pressing any more buttons
 
 # Who to contact
 Bob DeBortoli: debortor@oregonstate.edu
