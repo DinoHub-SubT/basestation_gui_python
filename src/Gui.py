@@ -31,7 +31,7 @@ from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from RosGuiBridge import RosGuiBridge
+from GuiBridges import RosGuiBridge, DarpaGuiBridge
 
 from functools import partial
 
@@ -208,14 +208,14 @@ class BasestationGuiPlugin(Plugin):
 
 
         button = qt.QPushButton("   To DARPA    ")
+        button.clicked.connect(partial(self.darpa_gui_bridge.sendArtifactProposal,[1.,2.,3.,'human'])) #insert fake human data hwen calling function
         self.artvis_layout.addWidget(button, 3, 0)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
-        self.darpa_cat_box.addItem("Human")
-        self.darpa_cat_box.addItem("Cell Phone")
-        self.darpa_cat_box.addItem("Backpack")
-        self.darpa_cat_box.addItem("Fire Extinguisher")
-        self.darpa_cat_box.addItem("Drill")
+
+        for category in self.ros_gui_bridge.artifact_categories:
+            self.darpa_cat_box.addItem(category)
+
         self.artvis_layout.addWidget(self.darpa_cat_box, 3,1)
 
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
@@ -225,13 +225,12 @@ class BasestationGuiPlugin(Plugin):
         self.artvis_layout.addWidget(button, 4, 0)
 
         self.queue_cat_box = qt.QComboBox()
-        self.queue_cat_box.addItem("Human")
-        self.artifact_cat = "Human"
-        self.queue_cat_box.addItem("Cell Phone")
-        self.queue_cat_box.addItem("Backpack")
-        self.queue_cat_box.addItem("Fire Extinguisher")
-        self.queue_cat_box.addItem("Drill")
+
+        for category in self.ros_gui_bridge.artifact_categories:
+            self.queue_cat_box.addItem(category)
         self.artvis_layout.addWidget(self.queue_cat_box, 4,1)
+
+        self.artifact_cat = category #just as a default 
 
         self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
@@ -436,7 +435,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         #add click listener
-        self.queue_table.cellClicked.connect(self.queueClick)
+        self.queue_table.cellDoubleClicked.connect(self.queueClick)
 
 
         #add the table to the layout
@@ -537,6 +536,7 @@ class BasestationGuiPlugin(Plugin):
         if filename != '':
             self.config_filename = filename
             self.ros_gui_bridge = RosGuiBridge(self.config_filename)
+            self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
             self.build_gui()
 
     def state_callback(self, msg):
@@ -566,6 +566,7 @@ class BasestationGuiPlugin(Plugin):
         '''
         self.config_filename = instance_settings.value('config_filename')
         self.ros_gui_bridge = RosGuiBridge(self.config_filename)
+        self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
         self.build_gui()
         pass
 

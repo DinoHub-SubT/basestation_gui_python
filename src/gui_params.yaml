@@ -1,3 +1,11 @@
+#internal parameters for defining experimental parameters relevant to the gui
 experiment_params:
   robot_names: ['Ground1', 'Ground2', 'Aerial1']
   robot_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home']
+
+#parameters for communicating with the DARPA command post
+darpa_params:
+  auth_bearer_token: ['flux230{showroom']
+  scoring_uris: ['http://api/status', 'http://api/artifact_reports']
+  artifact_categories: ['Human', 'Fire Extinguisher', 'Cell Phone', 'Backpack', 'Drill']
+

@@ -1,6 +1,7 @@
 # how to install
 install using the following (note this creates a new workspace basestation_ws):
 ```bash
+sudo apt-get install python-requests
 sudo apt-get install ros-kinetic-mavros
 sudo apt-get install python-tk
 cd
@@ -23,9 +24,7 @@ run using the following:
 rosrun basestation_gui_python main.py
 ```
 
-
-# TODO
-Todos are scattered throughout the code. Do a grep to find them
+# Notes
 After pressing "Define Waypoint" you must send the waypoint before pressing any more buttons
 
 # Who to contact
