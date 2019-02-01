@@ -158,7 +158,7 @@ class BasestationGuiPlugin(Plugin):
 
         #add the control panel to the overall gui
         self.control_widget.setLayout(self.control_layout)
-        self.global_widget.addWidget(self.control_widget, pos[0], pos[1])
+        self.global_widget.addWidget(self.control_widget, pos[0], pos[1], pos[2], pos[3])
 
 
     def init_artifact_visualizer(self, pos):
@@ -172,19 +172,62 @@ class BasestationGuiPlugin(Plugin):
         self.artvis_layout = qt.QGridLayout()
 
         #exapnd to fill the space vertically
-
-
         art_label = qt.QLabel()
         art_label.setText('ARTIFACT PANEL')
         art_label.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_label, 0, 0, 1, 3)
+        self.artvis_layout.addWidget(art_label, 0, 0, 1, 4)
 
         #add in a blank label to represent an object
         self.art_image = qt.QLabel()
-        self.art_image.setText('thing\n\n\n\n\n\n\n\n\n\n\n\n\n')
+        self.art_image.setText('thing\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
         self.art_image.setStyleSheet('background: black')
         self.art_image.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 3) #last 2 parameters are rowspan and columnspan
+        self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 4) #last 2 parameters are rowspan and columnspan
+
+        #add in information about 3d position     
+        dimensions = ['X', 'Y', 'Z'] 
+
+        boldFont = gui.QFont()
+        boldFont.setBold(True)
+
+        for i,dim in enumerate(dimensions):
+            dim_label = qt.QLabel()
+            dim_label.setText(dim)
+            dim_label.setAlignment(Qt.AlignCenter)
+            dim_label.setFont(boldFont)
+            self.artvis_layout.addWidget(dim_label, 2, i+1)
+
+        #information about the detected position
+        robot_pos = [110.002, 112.000002, 5.000002] #fake data
+
+        orig_pos_label = qt.QLabel()
+        orig_pos_label.setText('Original Position')
+        self.artvis_layout.addWidget(orig_pos_label, 3, 0)
+
+        for i, orig_pos in enumerate(robot_pos):
+            orig_pos_label = qt.QLabel()
+            orig_pos_label.setText(str(orig_pos))
+            orig_pos_label.setAlignment(Qt.AlignCenter)
+            self.artvis_layout.addWidget(orig_pos_label, 3, i+1)
+
+        #editable information about the position, to send to darpa
+        refined_pos_label = qt.QLabel()
+        refined_pos_label.setText('Refined Position')
+        self.artvis_layout.addWidget(refined_pos_label, 4, 0)
+
+        self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
+       
+        #fill in some fake data
+        self.art_pos_textbox_x.setText(str(robot_pos[0]))
+        self.artvis_layout.addWidget(self.art_pos_textbox_x, 4, 1)
+
+        self.art_pos_textbox_y.setText(str(robot_pos[1]))
+        self.artvis_layout.addWidget(self.art_pos_textbox_y, 4, 2)
+
+        self.art_pos_textbox_z.setText(str(robot_pos[2]))
+        self.artvis_layout.addWidget(self.art_pos_textbox_z, 4, 3)
+
+
 
         #add in a few buttons at the bottom to do various things
         self.artvis_button_layout = qt.QHBoxLayout()
@@ -192,43 +235,43 @@ class BasestationGuiPlugin(Plugin):
 
         #add the buttons and textboxes at the bottom
         art_action_label1 = qt.QLabel()
-        art_action_label1.setText('Action')
+        art_action_label1.setText('\n\nAction')
         art_action_label1.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_action_label1, 2, 0)
+        self.artvis_layout.addWidget(art_action_label1, 5, 0, 1, 2)
 
         art_action_label2 = qt.QLabel()
-        art_action_label2.setText('Category')
+        art_action_label2.setText('\n\nCategory')
         art_action_label2.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_action_label2, 2, 1)
+        self.artvis_layout.addWidget(art_action_label2, 5, 2)
 
         art_action_label3 = qt.QLabel()
-        art_action_label3.setText('Priority')
+        art_action_label3.setText('\n\nPriority')
         art_action_label3.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_action_label3, 2, 2)
+        self.artvis_layout.addWidget(art_action_label3, 5, 3)
 
 
-        button = qt.QPushButton("   To DARPA    ")
+        button = qt.QPushButton("    To DARPA    ")
         button.clicked.connect(partial(self.darpa_gui_bridge.sendArtifactProposal,[1.,2.,3.,'human'])) #insert fake human data hwen calling function
-        self.artvis_layout.addWidget(button, 3, 0)
+        self.artvis_layout.addWidget(button, 6, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
 
         for category in self.ros_gui_bridge.artifact_categories:
             self.darpa_cat_box.addItem(category)
 
-        self.artvis_layout.addWidget(self.darpa_cat_box, 3,1)
+        self.artvis_layout.addWidget(self.darpa_cat_box, 6,2)
 
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        button = qt.QPushButton("   To Queue    ")
+        button = qt.QPushButton("    To Queue    ")
         button.clicked.connect(partial(self.sendToQueue))
-        self.artvis_layout.addWidget(button, 4, 0)
+        self.artvis_layout.addWidget(button, 7, 0, 1, 2)
 
         self.queue_cat_box = qt.QComboBox()
 
         for category in self.ros_gui_bridge.artifact_categories:
             self.queue_cat_box.addItem(category)
-        self.artvis_layout.addWidget(self.queue_cat_box, 4,1)
+        self.artvis_layout.addWidget(self.queue_cat_box, 7,2)
 
         self.artifact_cat = category #just as a default 
 
@@ -240,17 +283,17 @@ class BasestationGuiPlugin(Plugin):
         self.queue_priority_box.addItem("    2    ")
         self.queue_priority_box.addItem("    3    ")
         self.queue_priority_box.addItem("    4    ")
-        self.artvis_layout.addWidget(self.queue_priority_box, 4,2)
+        self.artvis_layout.addWidget(self.queue_priority_box, 7,3)
 
         self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
-        button = qt.QPushButton("Discard")
-        button.setSizePolicy(QSizePolicy.Expanding, 0)
-        self.artvis_layout.addWidget(button, 5, 0, 1, 1)
+        button = qt.QPushButton("    Discard    ")
+        # button.setSizePolicy(QSizePolicy.Expanding, 0)
+        self.artvis_layout.addWidget(button, 8, 0, 1, 2)
 
         #add to the overall gui
         self.artvis_widget.setLayout(self.artvis_layout)
-        self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1])
+        self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1], pos[2], pos[3])
 
     def updateArtifactPriority(self):
         '''
@@ -377,7 +420,7 @@ class BasestationGuiPlugin(Plugin):
 
         #add to the overall gui
         self.status_widget.setLayout(self.status_layout)
-        self.global_widget.addWidget(self.status_widget, pos[0], pos[1])
+        self.global_widget.addWidget(self.status_widget, pos[0], pos[1], pos[2], pos[3])
 
     def queueClick(self, row, col):
         '''
@@ -490,7 +533,7 @@ class BasestationGuiPlugin(Plugin):
 
         #make the row and column headers
         self.info_table.setVerticalHeaderLabels(info_categories) 
-        # self.info_table.setHorizontalHeaderLabels(self.ros_gui_bridge.robot_names) 
+        self.info_table.setHorizontalHeaderLabels([" "]) 
 
         #add fake data for each robot
         self.info_table.setItem(0,0, qt.QTableWidgetItem('35:21'))
@@ -502,7 +545,7 @@ class BasestationGuiPlugin(Plugin):
 
         #add to the overall gui
         self.info_widget.setLayout(self.info_layout)
-        self.global_widget.addWidget(self.info_widget, pos[0], pos[1])
+        self.global_widget.addWidget(self.info_widget, pos[0], pos[1], pos[2], pos[3])
 
 
     def build_gui(self):
@@ -513,12 +556,12 @@ class BasestationGuiPlugin(Plugin):
         # self.init_buttons(self.config_filename)
 
         #define the position of everything in terms of row, column
-        info_pos    = [1,1]
+        info_pos    = [1,1,1,1]
         bigred_pos  = [0,2]
-        status_pos  = [1,2]
-        queue_pos   = [1,0,2,1] #last 2 parameters are rowspan and columnspan
-        control_pos = [2,2]
-        artvis_pos  = [2,1]        
+        status_pos  = [1,2,2,1]
+        queue_pos   = [1,0,4,1] #last 2 parameters are rowspan and columnspan
+        control_pos = [3,2,2,1]
+        artvis_pos  = [2,1,3,1]        
         
 
         #initialize the panels
