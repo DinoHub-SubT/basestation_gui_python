@@ -7,6 +7,5 @@ from rqt_gui.main import Main
 import pdb
 
 plugin = 'rqt_basestation_gui'
-pdb.set_trace()
 main = Main(filename=plugin)
 sys.exit(main.main(standalone=plugin))

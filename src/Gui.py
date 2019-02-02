@@ -574,7 +574,7 @@ class BasestationGuiPlugin(Plugin):
 
 
     def select_config_file(self):
-        starting_path = os.path.join(rospkg.RosPack().get_path('state_machine'), 'config')
+        starting_path = os.path.join(rospkg.RosPack().get_path('basestation_gui_python'), 'config')
         filename = qt.QFileDialog.getOpenFileName(self.widget, 'Open Config File', starting_path, "Config Files (*.yaml)")[0]
         if filename != '':
             self.config_filename = filename
@@ -608,6 +608,10 @@ class BasestationGuiPlugin(Plugin):
         config file. 
         '''
         self.config_filename = instance_settings.value('config_filename')
+        if(self.config_filename is None):
+            #use a hardcoded filename
+            starting_path = os.path.join(rospkg.RosPack().get_path('basestation_gui_python'), 'config/gui_params.yaml')
+
         self.ros_gui_bridge = RosGuiBridge(self.config_filename)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
         self.build_gui()
