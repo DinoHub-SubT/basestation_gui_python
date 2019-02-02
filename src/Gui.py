@@ -335,7 +335,7 @@ class BasestationGuiPlugin(Plugin):
 
         #preliminaries to build the rest of the panel
         num_robots = len(self.ros_gui_bridge.robot_names) #get the number of robots
-        statuses = ['Battery(hh:mm)', 'Comms', 'Mobility', 'Camera', 'Velodyne', 'CPU', 'Disk Space'] #define the status each robot will have
+        statuses = ['Battery(mins)', 'Comms', 'Mobility', 'Camera', 'Velodyne', 'CPU', 'Disk Space'] #define the status each robot will have
 
         status_label = qt.QLabel()
         status_label.setText('STATUS PANEL')
@@ -357,9 +357,9 @@ class BasestationGuiPlugin(Plugin):
         self.status_table.setHorizontalHeaderLabels(self.ros_gui_bridge.robot_names) 
 
         #add fake data for each robot
-        self.status_table.setItem(0,0, qt.QTableWidgetItem('15:01'))
-        self.status_table.setItem(0,1, qt.QTableWidgetItem('44:44'))
-        self.status_table.setItem(0,2, qt.QTableWidgetItem('120:33'))
+        self.status_table.setItem(0,0, qt.QTableWidgetItem('15'))
+        self.status_table.setItem(0,1, qt.QTableWidgetItem('44'))
+        self.status_table.setItem(0,2, qt.QTableWidgetItem('120'))
 
         self.status_table.setItem(1,0, qt.QTableWidgetItem('In-range'))
         self.status_table.setItem(1,1, qt.QTableWidgetItem('Near-limits'))
