@@ -25,9 +25,13 @@ source devel/setup.bash
 ```
 
 # How to run
-Run 
+In another terminal, run:
 ```bash
 roscore
+```
+
+In ther terminal that has sourced the basestation_ws, run:
+```bash
 rqt
 ```
 
