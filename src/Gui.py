@@ -78,10 +78,7 @@ class BasestationGuiPlugin(Plugin):
         self.widget.setLayout(self.global_widget)
         context.add_widget(self.widget)
 
-        #variables for storing the current information about the artifact being examined
-        self.artifact_cat = ""
-        self.artifact_priority = ""
-        self.artifact_id = 0
+       
 
 
     def init_buttons(self, config_filename):
@@ -251,7 +248,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         button = qt.QPushButton("    To DARPA    ")
-        button.clicked.connect(partial(self.darpa_gui_bridge.sendArtifactProposal,[1.,2.,3.,'human'])) #insert fake human data hwen calling function
+        button.clicked.connect(partial(self.darpa_gui_bridge.sendArtifactProposal,[1.,2.,3.,'human'])) #insert fake human data when calling function
         self.artvis_layout.addWidget(button, 6, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
@@ -271,9 +268,14 @@ class BasestationGuiPlugin(Plugin):
 
         for category in self.ros_gui_bridge.artifact_categories:
             self.queue_cat_box.addItem(category)
+
+        #set the defauly value of the artifact to whats being displayed
+         #variables for storing the current information about the artifact being examined
+        self.artifact_cat = self.ros_gui_bridge.artifact_categories[0]
+        self.artifact_id = 0
+
         self.artvis_layout.addWidget(self.queue_cat_box, 7,2)
 
-        self.artifact_cat = category #just as a default 
 
         self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
@@ -514,34 +516,48 @@ class BasestationGuiPlugin(Plugin):
         self.info_widget = QWidget()
         self.info_layout = qt.QVBoxLayout()
 
-        info_label = qt.QLabel()
-        info_label.setText('RUN INFO')
-        info_label.setAlignment(Qt.AlignCenter)
-        self.info_layout.addWidget(info_label)
+        # info_label = qt.QLabel()
+        # info_label.setText('RUN INFO')
+        # info_label.setAlignment(Qt.AlignCenter)
+        # self.info_layout.addWidget(info_label)
 
-        info_categories = ['Time Left', 'Score', 'Proposals Left']
+        boldFont = gui.QFont("", 18, gui.QFont.Bold) 
 
-        #make a table
-        self.info_table = qt.QTableWidget()
 
-        #resize the cells to fill the widget 
-        self.info_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
-        self.info_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        data_label = qt.QLabel()
+        data_label.setText('Time Left: 35:21 \t Score: 10 \t Proposals Left: 11/20')
+        data_label.setAlignment(Qt.AlignCenter)
+        data_label.setFont(boldFont)
+
+        self.info_layout.addWidget(data_label)
+
+        # info_categories = ['Time Left: ', 'Score: ', 'Proposals Left: ']
+
+        # #make a table
+        # self.info_table = qt.QTableWidget()
+
+        # #resize the cells to fill the widget 
+        # self.info_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        # self.info_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         
-        self.info_table.setRowCount(3) # set row count
-        self.info_table.setColumnCount(1) # set column count
+        # self.info_table.setRowCount(1) # set row count
+        # self.info_table.setColumnCount(6) # set column count
 
-        #make the row and column headers
-        self.info_table.setVerticalHeaderLabels(info_categories) 
-        self.info_table.setHorizontalHeaderLabels([" "]) 
+        # #make the row and column headers
+        # self.info_table.setHorizontalHeaderLabels([" "]) 
+        # self.info_table.setVerticalHeaderLabels([" "]) 
 
-        #add fake data for each robot
-        self.info_table.setItem(0,0, qt.QTableWidgetItem('35:21'))
-        self.info_table.setItem(1,0, qt.QTableWidgetItem('10'))
-        self.info_table.setItem(2,0, qt.QTableWidgetItem('11/20'))
+        # #add fake data for each robot
+        # self.info_table.setItem(0,0, qt.QTableWidgetItem(info_categories[0]))
+        # self.info_table.setItem(0,1, qt.QTableWidgetItem('35:21'))
+        # self.info_table.setItem(0,2, qt.QTableWidgetItem(info_categories[1]))
+        # self.info_table.setItem(0,3, qt.QTableWidgetItem('10'))
+        # self.info_table.setItem(0,4, qt.QTableWidgetItem(info_categories[2]))
+        # self.info_table.setItem(0,5, qt.QTableWidgetItem('11/20'))
 
-        #add the table to the layout
-        self.info_layout.addWidget(self.info_table)
+
+        # #add the table to the layout
+        # self.info_layout.addWidget(self.info_table)
 
         #add to the overall gui
         self.info_widget.setLayout(self.info_layout)
@@ -556,12 +572,12 @@ class BasestationGuiPlugin(Plugin):
         # self.init_buttons(self.config_filename)
 
         #define the position of everything in terms of row, column
-        info_pos    = [1,1,1,1]
+        info_pos    = [0,1,1,1]
         bigred_pos  = [0,2]
         status_pos  = [1,2,2,1]
         queue_pos   = [1,0,4,1] #last 2 parameters are rowspan and columnspan
         control_pos = [3,2,2,1]
-        artvis_pos  = [2,1,3,1]        
+        artvis_pos  = [1,1,4,1]        
         
 
         #initialize the panels
