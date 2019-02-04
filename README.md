@@ -40,6 +40,7 @@ Basestaion Gui should now appear as an option in the Plugins dropdown. Select it
 
 The first time you may have to click the "Open Config..." button in the GUI and select the config/gui_params.yaml file. This will get saved as the default when you run it in the future.
 
+The first time you load the GUI it may not be large enough to see everything. Feel free to resize (standard click and drag ont eh window corners) it should remember the window size from now on. 
 
 
 

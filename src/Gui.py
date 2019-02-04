@@ -53,6 +53,8 @@ class BasestationGuiPlugin(Plugin):
         self.widget = QWidget()
         self.global_widget = qt.QGridLayout()
 
+        
+
         self.top_widget = qt.QWidget()
         self.top_layout = qt.QHBoxLayout()
         self.top_widget.setLayout(self.top_layout)
@@ -516,48 +518,18 @@ class BasestationGuiPlugin(Plugin):
         self.info_widget = QWidget()
         self.info_layout = qt.QVBoxLayout()
 
-        # info_label = qt.QLabel()
-        # info_label.setText('RUN INFO')
-        # info_label.setAlignment(Qt.AlignCenter)
-        # self.info_layout.addWidget(info_label)
-
-        boldFont = gui.QFont("", 18, gui.QFont.Bold) 
+        boldFont = gui.QFont("", 16, gui.QFont.Bold) 
 
 
         data_label = qt.QLabel()
         data_label.setText('Time Left: 35:21 \t Score: 10 \t Proposals Left: 11/20')
         data_label.setAlignment(Qt.AlignCenter)
         data_label.setFont(boldFont)
+        data_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')
 
         self.info_layout.addWidget(data_label)
 
-        # info_categories = ['Time Left: ', 'Score: ', 'Proposals Left: ']
-
-        # #make a table
-        # self.info_table = qt.QTableWidget()
-
-        # #resize the cells to fill the widget 
-        # self.info_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
-        # self.info_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         
-        # self.info_table.setRowCount(1) # set row count
-        # self.info_table.setColumnCount(6) # set column count
-
-        # #make the row and column headers
-        # self.info_table.setHorizontalHeaderLabels([" "]) 
-        # self.info_table.setVerticalHeaderLabels([" "]) 
-
-        # #add fake data for each robot
-        # self.info_table.setItem(0,0, qt.QTableWidgetItem(info_categories[0]))
-        # self.info_table.setItem(0,1, qt.QTableWidgetItem('35:21'))
-        # self.info_table.setItem(0,2, qt.QTableWidgetItem(info_categories[1]))
-        # self.info_table.setItem(0,3, qt.QTableWidgetItem('10'))
-        # self.info_table.setItem(0,4, qt.QTableWidgetItem(info_categories[2]))
-        # self.info_table.setItem(0,5, qt.QTableWidgetItem('11/20'))
-
-
-        # #add the table to the layout
-        # self.info_layout.addWidget(self.info_table)
 
         #add to the overall gui
         self.info_widget.setLayout(self.info_layout)
