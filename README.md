@@ -3,15 +3,27 @@ A GUI for sending command to the robots and receiving information other than map
 
 # Depricated: How to install and run old simple 4-button estop gui
 ## Install old 4-button gui
+```bash
+sudo apt-get install ros-kinetic-mavros
+sudo apt-get install python-tk
+cd
+mkdir basestation_ws
+cd basestation_ws
+mkdir src
+cd src
+git clone git@bitbucket.org:cmusubt/basestation_gui_python.git
 cd basestation_gui_python/scripts
 chmod u+x gui_simple_estop.py
 roscd
 cd ..
 catkin_make
 source devel/setup.bash
+```
 
 ## Run old 4-button gui
+```bash
 rosrun basestation_gui_python gui_simple_estop.py
+```
 
 ## This line ends the depricated section
 
