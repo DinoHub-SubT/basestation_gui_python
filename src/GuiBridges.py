@@ -8,6 +8,9 @@ import pdb
 from basestation_gui_python.msg import RadioMsg
 import numpy as np
 import requests
+from darpa_command_post.TeamClient import TeamClient
+import threading
+import time
 
 class RosGuiBridge:
     def __init__(self, config_filename):
@@ -25,7 +28,7 @@ class RosGuiBridge:
 
         #robot names should be unique
         if(len(np.unique(self.robot_names))!=len(self.robot_names)):
-        	raise ValueError('Not all of the robot names are unique!')
+            raise ValueError('Not all of the robot names are unique!')
 
         for command in exp_params['robot_commands']:
             self.robot_commands.append(command)
@@ -40,8 +43,8 @@ class RosGuiBridge:
 
         self.waypoint_listeners = []
         for i in range(len(self.robot_names)):
-        	self.waypoint_listeners.append(rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, ""))
-        	self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
+            self.waypoint_listeners.append(rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, ""))
+            self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
 
         
         #read info on darpa-related commands (communication protocol, etc.)
@@ -53,13 +56,14 @@ class RosGuiBridge:
             self.artifact_categories.append(category)
 
         
+        
     def publishRobotCommand(self, command, robot_name):
         '''
         A command button has been pressed. Publish a command from the gui to the robot
         '''
 
         #de-register the waypoint listener because possibly another type of button has been pressed
-    	self.waypoint_listeners[self.robot_names.index(robot_name)].unregister()
+        self.waypoint_listeners[self.robot_names.index(robot_name)].unregister()
         
         if(command in self.estop_commands):
             self.publishEstop(command, robot_name)
@@ -100,12 +104,12 @@ class RosGuiBridge:
 
     def publishWaypointGoal(self, msg, robot_name):
 
-    	radio_msg = RadioMsg()
+        radio_msg = RadioMsg()
         radio_msg.message_type = 2
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         radio_msg.data = str(msg.pose.position.x) +","+str(msg.pose.position.y) +","+str(msg.pose.position.z)+","+\
-        				 str(msg.pose.orientation.x) +","+str(msg.pose.orientation.y) +","+str(msg.pose.orientation.z)+","+\
-        				 str(msg.pose.orientation.w)
+                         str(msg.pose.orientation.x) +","+str(msg.pose.orientation.y) +","+str(msg.pose.orientation.z)+","+\
+                         str(msg.pose.orientation.w)
 
         self.radio_pub.publish(radio_msg)
 
@@ -150,21 +154,38 @@ class DarpaGuiBridge:
         self.request_info_uri = darpa_params['scoring_uris'][0] #uri for requesting information (time,score,etc) from darpa
         self.post_artifact_uri = darpa_params['scoring_uris'][1] #uri for posting artifact proposals to DARPA
 
+        #setup the http client (bridge for interacting with DARPA)
+        # self.http_client = TeamClient()
+
+        #start a schedule which runs "get status" every few seconds
+        threading.Timer(2.0, self.getStatus).start()
+
+
     def sendArtifactProposal(self, data):
-    	'''
-    	Send artifact proposal to DARPA
-    	data = (x,y,z,artifact_category)
-    	'''
+        '''
+        Send artifact proposal to DARPA
+        data = (x,y,z,artifact_category)
+        '''
 
-    	[x, y, z, artifact_cat] = data
+        [x, y, z, artifact_cat] = data
 
-    	#TODO: Fill out header information. Check this header information!!
-    	headers = {'Bearer': self.auth_bearer_token, 'Content-Type': 'application/json'}
+        #TODO: Fill out header information. Check this header information!!
+        headers = {'Bearer': self.auth_bearer_token, 'Content-Type': 'application/json'}
 
-    	#format the POST request
-    	print "This is where we'd make a post request!"
-    	# post_req = requests.post(self.post_artifact_uri, data={"x": x, "y": y, "z": z, "type": artifact_cat}, headers = headers)
-		# print(r.status_code, r.reason)
+        #format the POST request
+        print "This is where we'd make a post request!"
+        post_req = requests.post(self.post_artifact_uri, data={"x": x, "y": y, "z": z, "type": artifact_cat}, headers = headers)
+        # print(r.status_code, r.reason)
+
+    def getStatus(self):
+        '''
+        Function that calls the http code to get the status
+        '''
+        # status_update = self.http_client.get_status_from_command_post()
+        print time.time()
+
+        #restart the thread to call this function again
+        threading.Timer(2.0, self.getStatus).start()
 
 
 
