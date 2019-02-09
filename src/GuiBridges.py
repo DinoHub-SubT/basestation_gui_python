@@ -8,7 +8,7 @@ import pdb
 from basestation_gui_python.msg import RadioMsg
 import numpy as np
 import requests
-from darpa_command_post.TeamClient import TeamClient
+from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
 import time
 
@@ -175,16 +175,18 @@ class DarpaGuiBridge:
         Send artifact proposal to DARPA
         data = (x,y,z,artifact_category)
         '''
+        [x, y, z, cat] = data
+        artifact_report = ArtifactReport(x=x, y=y, z=z, type=cat)
+        artifact_report_reply, http_status, http_reason = self.http_client.send_artifact_report(artifact_report)
 
-        [x, y, z, artifact_cat] = data
+        #return the response to the gui
 
-        #TODO: Fill out header information. Check this header information!!
-        headers = {'Bearer': self.auth_bearer_token, 'Content-Type': 'application/json'}
+        #time, x,y,z, report status, score change
 
-        #format the POST request
-        print "This is where we'd make a post request!"
-        post_req = requests.post(self.post_artifact_uri, data={"x": x, "y": y, "z": z, "type": artifact_cat}, headers = headers)
-        # print(r.status_code, r.reason)
+        return artifact_report_reply['run_clock'], artifact_report_reply['type'], artifact_report_reply['x'], \
+               artifact_report_reply['y'], artifact_report_reply['z'], \
+               artifact_report_reply['report_status'], artifact_report_reply['score_change'], http_status, http_reason
+        
 
     def getStatus(self):
         '''
@@ -193,8 +195,11 @@ class DarpaGuiBridge:
         self.darpa_status_update = self.http_client.get_status_from_command_post()
 
         #publish this data as something
+        time_remaining = self.displaySeconds(float(self.run_length) - float(self.darpa_status_update['run_clock']))
+
         msg = String()
-        msg.data = str("Time Left: "+str(float(self.run_length) - float(self.darpa_status_update['run_clock']))[:6]+'\t Score: '+\
+        
+        msg.data = str("Time Left: "+str(time_remaining)+'\t Score: '+\
                    str(self.darpa_status_update['score'])+ '\t Remaining Reports: '+\
                    str(self.darpa_status_update['remaining_reports'])+'/'+str(self.total_num_reports))
 
@@ -212,8 +217,14 @@ class DarpaGuiBridge:
         #stop the thread that keeps reuesting the status
         self.get_status_thread.cancel()
 
-        
+
         self.http_client.exit()
+
+    def displaySeconds(self, seconds):
+        '''
+        Function to convert seconds float into a min:sec string
+        '''
+        return str((int(seconds)/60))+':'+str(int(seconds-(int(seconds)/60)*60))
 
 
 

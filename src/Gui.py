@@ -237,7 +237,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         button = qt.QPushButton("    To DARPA    ")
-        button.clicked.connect(partial(self.darpa_gui_bridge.sendArtifactProposal,[1.,2.,3.,'human'])) #insert fake human data when calling function
+        button.clicked.connect(partial(self.proposeArtifact)) #insert fake human data when calling function
         self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
@@ -285,6 +285,40 @@ class BasestationGuiPlugin(Plugin):
          #add to the overall gui
         self.artmanip_widget.setLayout(self.artmanip_layout)
         self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])
+
+    def proposeArtifact(self):
+        '''
+        Function for proposing an artifact to darpa and then changing gui components correspondingly
+        '''
+        data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
+
+        [submission_time, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
+                                                                            self.darpa_gui_bridge.sendArtifactProposal(data)
+
+        #add this to the submission history panel 
+        submission_time = self.displaySeconds(submission_time)
+
+        if(score_change==0):
+            submission_correct='False'
+            submission_color = gui.QColor(220,0,0)
+        else:
+            submission_correct='True'
+            submission_color = gui.QColor(0,220,0)
+
+        response_item = qt.QTableWidgetItem('Info')
+        response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
+                                 '\nSubmission Correct? '+submission_correct)
+        response_item.setBackground(submission_color)
+
+        self.arthist_table.insertRow(self.arthist_table.rowCount())
+
+        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact_type)))
+        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(submission_time)))
+        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(int(x))+'/'+str(int(y))+'/'+str(int(z))))
+        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 3, response_item)
+
+
+
 
     def updateArtifactPriority(self):
         '''
@@ -526,6 +560,7 @@ class BasestationGuiPlugin(Plugin):
          #make a table
         self.arthist_table = qt.QTableWidget()
 
+
         #resize the cells to fill the widget 
         self.arthist_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         # self.arthist_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
@@ -534,15 +569,13 @@ class BasestationGuiPlugin(Plugin):
         self.arthist_table.setHorizontalHeaderLabels(['Category', 'Time', 'x/y/z', 'Response']) #make the column headers
 
         #make sortable
-        # self.arthist_table.setSortingEnabled(True)
+        self.arthist_table.setSortingEnabled(True)
 
-        #add fake data
-        # self.arthist_table.setRowCount(1) # set row count
-        # self.arthist_table.setItem(0,0, qt.QTableWidgetItem('Human'))
-        # self.arthist_table.setItem(0,1, qt.QTableWidgetItem('44:21'))
-        # self.arthist_table.setItem(0,2, qt.QTableWidgetItem('4/12/13'))
-        # self.arthist_table.setItem(0,3, qt.QTableWidgetItem('Resp1'))
+        #init the artifact submission response list
+        self.art_responses = ['Response1.1']
 
+        tooltip_font = gui.QFont()
+        tooltip_font.setPointSize(12)
 
 
         #add the table to the layout
@@ -551,6 +584,13 @@ class BasestationGuiPlugin(Plugin):
         #add to the overall gui
         self.arthist_widget.setLayout(self.arthist_layout)
         self.global_widget.addWidget(self.arthist_widget, pos[0], pos[1], pos[2], pos[3]) 
+
+    def displaySeconds(self, seconds):
+        '''
+        Function to convert seconds float into a min:sec string
+        '''
+        return str((int(seconds)/60))+':'+str(int(seconds-(int(seconds)/60)*60))
+      
 
 
 
@@ -645,4 +685,9 @@ class BasestationGuiPlugin(Plugin):
         # Comment in to signal that the plugin has a way to configure
         # This will enable a setting button (gear icon) in each dock widget title bar
         # Usually used to open a modal configuration dialog
+
+
+
+
+
 
