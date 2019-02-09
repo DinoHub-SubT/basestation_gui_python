@@ -56,7 +56,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         self.top_widget = qt.QWidget()
-        self.top_layout = qt.QHBoxLayout()
+        self.top_layout = qt.QGridLayout()
         self.top_widget.setLayout(self.top_layout)
 
         self.config_button = qt.QPushButton('Open Config...')
@@ -66,42 +66,15 @@ class BasestationGuiPlugin(Plugin):
         self.state_label = qt.QLabel('state: ')
         self.top_layout.addWidget(self.state_label)
 
+
         self.global_widget.addWidget(self.top_widget)
         
-        self.button_widget = qt.QWidget()
-        self.button_layout = qt.QHBoxLayout()
-        self.button_widget.setLayout(self.button_layout)
-
-        #config_filename = os.path.join(rospkg.RosPack().get_path('state_machine'), 'config', 'state_machine.yaml')
-        #self.init_buttons(config_filename)
-        
-        self.global_widget.addWidget(self.button_widget)
         
         self.widget.setLayout(self.global_widget)
         context.add_widget(self.widget)
 
-       
 
-
-    def init_buttons(self, config_filename):
-        self.buttons = {}
-
-        for i in reversed(range(self.button_layout.count())):
-            self.button_layout.itemAt(i).widget().setParent(None)
-        
-        for transition in self.ros_gui_bridge.get_transitions():
-            def get_publish_transition_function(t):
-                def publish_transition():
-                    msg = String()
-                    msg.data = t
-                    self.transition_pub.publish(msg)
-                return publish_transition
-            button = qt.QPushButton(transition)
-            button.clicked.connect(get_publish_transition_function(transition))
-            self.buttons[transition] = button
-            self.button_layout.addWidget(button)
-
-    def init_control_panel(self, pos):
+    def initControlPanel(self, pos):
         '''
         Initial the panel containing e-stop command, etc for each robot
         '''
@@ -160,10 +133,9 @@ class BasestationGuiPlugin(Plugin):
         self.global_widget.addWidget(self.control_widget, pos[0], pos[1], pos[2], pos[3])
 
 
-    def init_artifact_visualizer(self, pos):
+    def initArtifactVisualizer(self, pos):
         '''
-        Panel to visualize the artifacts and do something (send to DARPA),
-        add to queue, etc.
+        Panel to visualize the artifacts coming in
         '''
 
         #define the overall widget
@@ -178,10 +150,25 @@ class BasestationGuiPlugin(Plugin):
 
         #add in a blank label to represent an object
         self.art_image = qt.QLabel()
-        self.art_image.setText('thing\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
+        self.art_image.setText('thing\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
         self.art_image.setStyleSheet('background: black')
-        self.art_image.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self.art_image.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 4) #last 2 parameters are rowspan and columnspan
+
+        
+
+        #add to the overall gui
+        self.artvis_widget.setLayout(self.artvis_layout)
+        self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1], pos[2], pos[3])
+
+    def initArtifactManipulator(self, pos):
+        '''
+        Buttons and textboxes to refine the position and complete actions with the  artifact
+        '''
+
+         #define the overall widget
+        self.artmanip_widget = QWidget()
+        self.artmanip_layout = qt.QGridLayout()
 
         #add in information about 3d position     
         dimensions = ['X', 'Y', 'Z'] 
@@ -194,77 +181,77 @@ class BasestationGuiPlugin(Plugin):
             dim_label.setText(dim)
             dim_label.setAlignment(Qt.AlignCenter)
             dim_label.setFont(boldFont)
-            self.artvis_layout.addWidget(dim_label, 2, i+1)
+            self.artmanip_layout.addWidget(dim_label, 0, i+1)
 
         #information about the detected position
         robot_pos = [110.002, 112.000002, 5.000002] #fake data
 
         orig_pos_label = qt.QLabel()
         orig_pos_label.setText('Original Position')
-        self.artvis_layout.addWidget(orig_pos_label, 3, 0)
+        self.artmanip_layout.addWidget(orig_pos_label, 1, 0)
 
         for i, orig_pos in enumerate(robot_pos):
             orig_pos_label = qt.QLabel()
             orig_pos_label.setText(str(orig_pos))
             orig_pos_label.setAlignment(Qt.AlignCenter)
-            self.artvis_layout.addWidget(orig_pos_label, 3, i+1)
+            self.artmanip_layout.addWidget(orig_pos_label, 1, i+1)
 
         #editable information about the position, to send to darpa
         refined_pos_label = qt.QLabel()
         refined_pos_label.setText('Refined Position')
-        self.artvis_layout.addWidget(refined_pos_label, 4, 0)
+        self.artmanip_layout.addWidget(refined_pos_label, 2, 0)
 
         self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
        
         #fill in some fake data
         self.art_pos_textbox_x.setText(str(robot_pos[0]))
-        self.artvis_layout.addWidget(self.art_pos_textbox_x, 4, 1)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 2, 1)
 
         self.art_pos_textbox_y.setText(str(robot_pos[1]))
-        self.artvis_layout.addWidget(self.art_pos_textbox_y, 4, 2)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 2, 2)
 
         self.art_pos_textbox_z.setText(str(robot_pos[2]))
-        self.artvis_layout.addWidget(self.art_pos_textbox_z, 4, 3)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 2, 3)
 
 
 
         #add in a few buttons at the bottom to do various things
-        self.artvis_button_layout = qt.QHBoxLayout()
-        self.artvis_button_list = []
+        self.artmanip_button_layout = qt.QHBoxLayout()
+        self.artmanip_button_list = []
 
         #add the buttons and textboxes at the bottom
         art_action_label1 = qt.QLabel()
         art_action_label1.setText('\n\nAction')
         art_action_label1.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_action_label1, 5, 0, 1, 2)
+        self.artmanip_layout.addWidget(art_action_label1, 3, 0, 1, 2)
 
         art_action_label2 = qt.QLabel()
         art_action_label2.setText('\n\nCategory')
         art_action_label2.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_action_label2, 5, 2)
+        self.artmanip_layout.addWidget(art_action_label2, 3, 2)
 
         art_action_label3 = qt.QLabel()
         art_action_label3.setText('\n\nPriority')
         art_action_label3.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_action_label3, 5, 3)
+        self.artmanip_layout.addWidget(art_action_label3, 3, 3)
 
 
         button = qt.QPushButton("    To DARPA    ")
         button.clicked.connect(partial(self.darpa_gui_bridge.sendArtifactProposal,[1.,2.,3.,'human'])) #insert fake human data when calling function
-        self.artvis_layout.addWidget(button, 6, 0, 1, 2)
+        self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
 
         for category in self.ros_gui_bridge.artifact_categories:
             self.darpa_cat_box.addItem(category)
 
-        self.artvis_layout.addWidget(self.darpa_cat_box, 6,2)
+        self.artmanip_layout.addWidget(self.darpa_cat_box, 4,2)
 
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
         button = qt.QPushButton("    To Queue    ")
         button.clicked.connect(partial(self.sendToQueue))
-        self.artvis_layout.addWidget(button, 7, 0, 1, 2)
+        self.artmanip_layout.addWidget(button, 5, 0, 1, 2)
 
         self.queue_cat_box = qt.QComboBox()
 
@@ -276,7 +263,7 @@ class BasestationGuiPlugin(Plugin):
         self.artifact_cat = self.ros_gui_bridge.artifact_categories[0]
         self.artifact_id = 0
 
-        self.artvis_layout.addWidget(self.queue_cat_box, 7,2)
+        self.artmanip_layout.addWidget(self.queue_cat_box, 5,2)
 
 
         self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
@@ -287,17 +274,17 @@ class BasestationGuiPlugin(Plugin):
         self.queue_priority_box.addItem("    2    ")
         self.queue_priority_box.addItem("    3    ")
         self.queue_priority_box.addItem("    4    ")
-        self.artvis_layout.addWidget(self.queue_priority_box, 7,3)
+        self.artmanip_layout.addWidget(self.queue_priority_box, 5,3)
 
         self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
         button = qt.QPushButton("    Discard    ")
         # button.setSizePolicy(QSizePolicy.Expanding, 0)
-        self.artvis_layout.addWidget(button, 8, 0, 1, 2)
+        self.artmanip_layout.addWidget(button, 6, 0, 1, 2)
 
-        #add to the overall gui
-        self.artvis_widget.setLayout(self.artvis_layout)
-        self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1], pos[2], pos[3])
+         #add to the overall gui
+        self.artmanip_widget.setLayout(self.artmanip_layout)
+        self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])
 
     def updateArtifactPriority(self):
         '''
@@ -327,7 +314,7 @@ class BasestationGuiPlugin(Plugin):
         #increase the artifact id so that the next artifact has a different id
         self.artifact_id+=1
 
-    def init_status_panel(self, pos):
+    def initStatusPanel(self, pos):
         '''
         Panel to display information (battery health, comms signal, etc.)
         for each robot
@@ -363,61 +350,47 @@ class BasestationGuiPlugin(Plugin):
         #add fake data for each robot
         self.status_table.setItem(0,0, qt.QTableWidgetItem('15'))
         self.status_table.setItem(0,1, qt.QTableWidgetItem('44'))
-        self.status_table.setItem(0,2, qt.QTableWidgetItem('120'))
 
         self.status_table.setItem(1,0, qt.QTableWidgetItem('In-range'))
         self.status_table.setItem(1,1, qt.QTableWidgetItem('Near-limits'))
-        self.status_table.setItem(1,2, qt.QTableWidgetItem('Out of range'))
 
         self.status_table.setItem(2,0, qt.QTableWidgetItem('Moving'))
         self.status_table.setItem(2,1, qt.QTableWidgetItem('Stuck'))
-        self.status_table.setItem(2,2, qt.QTableWidgetItem('Moving'))
 
         self.status_table.setItem(3,0, qt.QTableWidgetItem('Ok'))
         self.status_table.setItem(3,1, qt.QTableWidgetItem('Ok'))
-        self.status_table.setItem(3,2, qt.QTableWidgetItem('Error'))
 
         self.status_table.setItem(4,0, qt.QTableWidgetItem('Warning'))
         self.status_table.setItem(4,1, qt.QTableWidgetItem('Ok'))
-        self.status_table.setItem(4,2, qt.QTableWidgetItem('Error'))
 
         self.status_table.setItem(5,0, qt.QTableWidgetItem('90%'))
         self.status_table.setItem(5,1, qt.QTableWidgetItem('40%'))
-        self.status_table.setItem(5,2, qt.QTableWidgetItem('45%'))
 
         self.status_table.setItem(6,0, qt.QTableWidgetItem('90%'))
         self.status_table.setItem(6,1, qt.QTableWidgetItem('40%'))
-        self.status_table.setItem(6,2, qt.QTableWidgetItem('45%'))
 
 
         #color the squares
         self.status_table.item(0,0).setBackground(gui.QColor(220,0,0))
         self.status_table.item(0,1).setBackground(gui.QColor(255,165,0))
-        self.status_table.item(0,2).setBackground(gui.QColor(0,220,0))
 
         self.status_table.item(1,0).setBackground(gui.QColor(0,220,0))
         self.status_table.item(1,1).setBackground(gui.QColor(255,165,0))
-        self.status_table.item(1,2).setBackground(gui.QColor(220,0,0))
 
         self.status_table.item(2,0).setBackground(gui.QColor(0,220,0))
         self.status_table.item(2,1).setBackground(gui.QColor(220,0,0))
-        self.status_table.item(2,2).setBackground(gui.QColor(0,220,0))
 
         self.status_table.item(3,0).setBackground(gui.QColor(0,220,0))
         self.status_table.item(3,1).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(3,2).setBackground(gui.QColor(220,0,0))
 
         self.status_table.item(4,0).setBackground(gui.QColor(0,220,0))
         self.status_table.item(4,1).setBackground(gui.QColor(255,165,0))
-        self.status_table.item(4,2).setBackground(gui.QColor(220,0,0))
 
         self.status_table.item(5,0).setBackground(gui.QColor(220,0,0))
         self.status_table.item(5,1).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(5,2).setBackground(gui.QColor(0,220,0))
 
         self.status_table.item(6,0).setBackground(gui.QColor(220,0,0))
         self.status_table.item(6,1).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(6,2).setBackground(gui.QColor(0,220,0))
 
         #add the table to the layout
         self.status_layout.addWidget(self.status_table)
@@ -454,7 +427,7 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.removeRow(row)
 
 
-    def init_artifact_queue(self, pos):
+    def initArtifactQueue(self, pos):
         '''
         Panel to display the queue of artifacts which have not yet been submitted
         but may be in the future
@@ -470,6 +443,7 @@ class BasestationGuiPlugin(Plugin):
 
          #make a table
         self.queue_table = qt.QTableWidget()
+        # self.queue_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         #resize the cells to fill the widget 
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
@@ -492,7 +466,7 @@ class BasestationGuiPlugin(Plugin):
         self.queue_widget.setLayout(self.queue_layout)
         self.global_widget.addWidget(self.queue_widget, pos[0], pos[1], pos[2], pos[3]) #last 2 parameters are rowspan and columnspan
 
-    def init_bigred(self, pos):
+    def initBigRed(self, pos):
         '''
         Initialize the big red button to e-stop all of the robots
         '''
@@ -509,7 +483,7 @@ class BasestationGuiPlugin(Plugin):
         self.global_widget.addWidget(self.bigred_widget, pos[0], pos[1])
 
 
-    def init_info_panel(self, pos):
+    def initInfoPanel(self, pos):
         '''
         Table to display information (score, artifacts proposed, etc.) about our run
         '''
@@ -521,13 +495,13 @@ class BasestationGuiPlugin(Plugin):
         boldFont = gui.QFont("", 16, gui.QFont.Bold) 
 
 
-        data_label = qt.QLabel()
-        data_label.setText('Time Left: 35:21 \t Score: 10 \t Proposals Left: 11/20')
-        data_label.setAlignment(Qt.AlignCenter)
-        data_label.setFont(boldFont)
-        data_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')
+        self.info_label = qt.QLabel()
+        self.info_label.setText('Time Left: -- \t Score: -- \t Proposals Left: --')
+        self.info_label.setAlignment(Qt.AlignCenter)
+        self.info_label.setFont(boldFont)
+        self.info_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')
 
-        self.info_layout.addWidget(data_label)
+        self.info_layout.addWidget(self.info_label)
 
         
 
@@ -535,8 +509,54 @@ class BasestationGuiPlugin(Plugin):
         self.info_widget.setLayout(self.info_layout)
         self.global_widget.addWidget(self.info_widget, pos[0], pos[1], pos[2], pos[3])
 
+    def initArtHistoryPanel(self, pos):
+        '''
+        Table to display info regarding submissions of artifacts
+        '''
 
-    def build_gui(self):
+        #define the overall widget
+        self.arthist_widget = QWidget()
+        self.arthist_layout = qt.QGridLayout()
+
+        arthist_label = qt.QLabel()
+        arthist_label.setText('ARTIFACT SUBMISSION INFO')
+        arthist_label.setAlignment(Qt.AlignCenter)
+        self.arthist_layout.addWidget(arthist_label)
+
+         #make a table
+        self.arthist_table = qt.QTableWidget()
+
+        #resize the cells to fill the widget 
+        self.arthist_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        # self.arthist_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+
+        self.arthist_table.setColumnCount(4) # set column count        
+        self.arthist_table.setHorizontalHeaderLabels(['Category', 'Time', 'x/y/z', 'Response']) #make the column headers
+
+        #make sortable
+        # self.arthist_table.setSortingEnabled(True)
+
+        #add fake data
+        # self.arthist_table.setRowCount(1) # set row count
+        # self.arthist_table.setItem(0,0, qt.QTableWidgetItem('Human'))
+        # self.arthist_table.setItem(0,1, qt.QTableWidgetItem('44:21'))
+        # self.arthist_table.setItem(0,2, qt.QTableWidgetItem('4/12/13'))
+        # self.arthist_table.setItem(0,3, qt.QTableWidgetItem('Resp1'))
+
+
+
+        #add the table to the layout
+        self.arthist_layout.addWidget(self.arthist_table)
+
+        #add to the overall gui
+        self.arthist_widget.setLayout(self.arthist_layout)
+        self.global_widget.addWidget(self.arthist_widget, pos[0], pos[1], pos[2], pos[3]) 
+
+
+
+
+
+    def buildGui(self):
         '''
         Function to layout the gui (place widgets, etc.)
         '''
@@ -546,19 +566,37 @@ class BasestationGuiPlugin(Plugin):
         #define the position of everything in terms of row, column
         info_pos    = [0,1,1,1]
         bigred_pos  = [0,2]
-        status_pos  = [1,2,2,1]
+        status_pos  = [1,2,4,1]
         queue_pos   = [1,0,4,1] #last 2 parameters are rowspan and columnspan
-        control_pos = [3,2,2,1]
-        artvis_pos  = [1,1,4,1]        
+        control_pos = [5,2,2,1]
+        artvis_pos  = [1,1,4,1]
+        arthist_pos = [5,0,2,1]     
+        artmanip_pos = [5,1,1,1]   
         
 
         #initialize the panels
-        self.init_control_panel(control_pos) #the panel to send robots commands (e-stop, etc.)
-        self.init_artifact_visualizer(artvis_pos) #panel to display and react to artifacts as they come in
-        self.init_status_panel(status_pos) #panel to display health info of each robot
-        self.init_artifact_queue(queue_pos) #panel to display the artifact queue
-        self.init_bigred(bigred_pos) #the big red button to e-stop all of the robots
-        self.init_info_panel(info_pos) #table to display information (score, artifacts proposed, etc.) about our run
+        self.initControlPanel(control_pos) #the panel to send robots commands (e-stop, etc.)
+        self.initArtifactVisualizer(artvis_pos) #panel to display and react to artifacts as they come in
+        self.initStatusPanel(status_pos) #panel to display health info of each robot
+        self.initArtifactQueue(queue_pos) #panel to display the artifact queue
+        self.initBigRed(bigred_pos) #the big red button to e-stop all of the robots
+        self.initInfoPanel(info_pos) #table to display information (score, artifacts proposed, etc.) about our run
+        self.initArtHistoryPanel(arthist_pos) #table to display artifact proposals
+        self.initArtifactManipulator(artmanip_pos) #panel to complete actions w.r.t. artifacts
+
+        #initialize the subscribers for updating different parts of the GUI
+        self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
+
+    def updateInfoPanel(self, msg):
+        '''
+        Subscriber that constantly updates info panel
+        '''
+        
+        #update the info panel
+        info_update = self.darpa_gui_bridge.darpa_status_update
+
+        self.info_label.setText(msg.data)
+
 
 
     def select_config_file(self):
@@ -568,7 +606,8 @@ class BasestationGuiPlugin(Plugin):
             self.config_filename = filename
             self.ros_gui_bridge = RosGuiBridge(self.config_filename)
             self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
-            self.build_gui()
+            self.buildGui()
+            
 
     def state_callback(self, msg):
         try:
@@ -584,6 +623,7 @@ class BasestationGuiPlugin(Plugin):
     
     def shutdown_plugin(self):
         # TODO unregister all publishers here
+        self.darpa_gui_bridge.shutdownHttpServer()
         pass
 
     def save_settings(self, plugin_settings, instance_settings):
@@ -598,7 +638,7 @@ class BasestationGuiPlugin(Plugin):
         self.config_filename = instance_settings.value('config_filename')
         self.ros_gui_bridge = RosGuiBridge(self.config_filename)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
-        self.build_gui()
+        self.buildGui()
         pass
 
     #def trigger_configuration(self):

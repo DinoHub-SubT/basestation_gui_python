@@ -150,15 +150,24 @@ class DarpaGuiBridge:
         darpa_params = config['darpa_params']
 
         self.auth_bearer_token = darpa_params['auth_bearer_token'][0]
-
         self.request_info_uri = darpa_params['scoring_uris'][0] #uri for requesting information (time,score,etc) from darpa
         self.post_artifact_uri = darpa_params['scoring_uris'][1] #uri for posting artifact proposals to DARPA
+        self.total_num_reports = darpa_params['total_num_reports'][0] #number of reports we can send to darpa in a run
+        self.run_length = darpa_params['run_length'][0]
+
+        #have an initial darpa status update
+        self.darpa_status_update={}
+        self.darpa_status_update['run_clock'] = "--"
 
         #setup the http client (bridge for interacting with DARPA)
-        # self.http_client = TeamClient()
+        self.http_client = TeamClient()
 
         #start a schedule which runs "get status" every few seconds
-        threading.Timer(2.0, self.getStatus).start()
+        self.get_status_thread = threading.Timer(2.0, self.getStatus)
+        self.get_status_thread.start()
+
+        #define publisher for publishing when we get stuff from darpa
+        self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
 
 
     def sendArtifactProposal(self, data):
@@ -181,11 +190,32 @@ class DarpaGuiBridge:
         '''
         Function that calls the http code to get the status
         '''
-        # status_update = self.http_client.get_status_from_command_post()
-        print time.time()
+        self.darpa_status_update = self.http_client.get_status_from_command_post()
+
+        #publish this data as something
+        msg = String()
+        msg.data = str("Time Left: "+str(float(self.run_length) - float(self.darpa_status_update['run_clock']))[:6]+'\t Score: '+\
+                   str(self.darpa_status_update['score'])+ '\t Remaining Reports: '+\
+                   str(self.darpa_status_update['remaining_reports'])+'/'+str(self.total_num_reports))
+
+        self.status_pub.publish(msg)
 
         #restart the thread to call this function again
-        threading.Timer(2.0, self.getStatus).start()
+        self.get_status_thread = threading.Timer(2.0, self.getStatus)
+        self.get_status_thread.start()
+
+    def shutdownHttpServer(self):
+        '''
+        Closes the http connection
+        '''
+
+        #stop the thread that keeps reuesting the status
+        self.get_status_thread.cancel()
+
+        
+        self.http_client.exit()
+
+
 
 
 
