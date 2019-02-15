@@ -5,7 +5,7 @@
 	<rosparam param="simulate_command_post">"$(arg simulate_command_post)"</rosparam>-->
 
 	<!--launch the gui-->
-    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui"/>
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen"/>
 
     <!--launch the simulated command post if commandline argument is true. 
 		this is sensitive and only works for arguments of 0/1 or true/false-->

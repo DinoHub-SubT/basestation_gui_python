@@ -163,8 +163,8 @@ class DarpaGuiBridge:
         self.http_client = TeamClient()
 
         #start a schedule which runs "get status" every few seconds
-        self.get_status_thread = threading.Timer(2.0, self.getStatus)
-        self.get_status_thread.start()
+        # self.get_status_thread = threading.Timer(10.0, self.getStatus)
+        # self.get_status_thread.start()
 
         #define publisher for publishing when we get stuff from darpa
         self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
@@ -175,13 +175,19 @@ class DarpaGuiBridge:
         Send artifact proposal to DARPA
         data = (x,y,z,artifact_category)
         '''
-        [x, y, z, cat] = data
-        artifact_report = ArtifactReport(x=x, y=y, z=z, type=cat)
-        artifact_report_reply, http_status, http_reason = self.http_client.send_artifact_report(artifact_report)
+        # [x, y, z, cat] = data
+        # artifact_report = ArtifactReport(x=x, y=y, z=z, type=cat)
+        # artifact_report_reply, http_status, http_reason = self.http_client.send_artifact_report(artifact_report)
+
+        artifact_report = ArtifactReport(x=1011.242, y=-244.433, z=-10.011, type="backpack")
+        artifact_report_reply = self.http_client.send_artifact_report(artifact_report)
 
         #return the response to the gui
 
         #time, x,y,z, report status, score change
+        # result =  artifact_report_reply['run_clock'], artifact_report_reply['type'], artifact_report_reply['x'], \
+        #            artifact_report_reply['y'], artifact_report_reply['z'], \
+        #            artifact_report_reply['report_status'], artifact_report_reply['score_change'], http_status, http_reason
 
         return artifact_report_reply['run_clock'], artifact_report_reply['type'], artifact_report_reply['x'], \
                artifact_report_reply['y'], artifact_report_reply['z'], \
@@ -206,8 +212,8 @@ class DarpaGuiBridge:
         self.status_pub.publish(msg)
 
         #restart the thread to call this function again
-        self.get_status_thread = threading.Timer(2.0, self.getStatus)
-        self.get_status_thread.start()
+        # self.get_status_thread = threading.Timer(10.0, self.getStatus)
+        # self.get_status_thread.start()
 
     def shutdownHttpServer(self):
         '''

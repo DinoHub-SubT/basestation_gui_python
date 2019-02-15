@@ -6,6 +6,7 @@ from std_msgs.msg import String
 import numpy as np
 import yaml
 import collections
+import threading
 
 from qt_gui.plugin import Plugin
 import python_qt_binding.QtWidgets as qt
@@ -237,7 +238,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         button = qt.QPushButton("    To DARPA    ")
-        button.clicked.connect(partial(self.proposeArtifact)) #insert fake human data when calling function
+        button.clicked.connect(partial(self.startProposeArtifact)) #insert fake human data when calling function
         self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
@@ -286,11 +287,25 @@ class BasestationGuiPlugin(Plugin):
         self.artmanip_widget.setLayout(self.artmanip_layout)
         self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])
 
+
+    def startProposeArtifact(self):
+        '''
+        Function which starts a thread to propose an artifact
+        '''
+        thread = threading.Thread(target = self.proposeArtifact)
+        thread.start()
+
+        # self.proposeArtifact()
+
+
+
     def proposeArtifact(self):
         '''
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
         data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
+
+        #
 
         [submission_time, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
                                                                             self.darpa_gui_bridge.sendArtifactProposal(data)
@@ -589,7 +604,7 @@ class BasestationGuiPlugin(Plugin):
         '''
         Function to convert seconds float into a min:sec string
         '''
-        return str((int(seconds)/60))+':'+str(int(seconds-(int(seconds)/60)*60))
+        return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
       
 
 
