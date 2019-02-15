@@ -49,14 +49,14 @@ Install gui repo
 ```bash
 git clone git@bitbucket.org:cmusubt/basestation_gui_python.git
 cd ..
-catkin_make
+catkin build
 source devel/setup.bash
 ```
 
 # How to run
 In another terminal, run:
 ```bash
-roslaunch basestation_gui_python gui.launch simulate_darpa_command_post:=true
+roslaunch basestation_gui_python gui.launch simulate_command_post:=true
 ```
 
 The ```bash simulate_darpa_command_post``` argument is used to start a local http server which simulates the DARPA command post. Right now, the gui needs this argument to have value "true". Bob is working on fixing this. 
