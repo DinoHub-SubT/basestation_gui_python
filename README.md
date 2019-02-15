@@ -29,9 +29,8 @@ rosrun basestation_gui_python gui_simple_estop.py
 
 
 # How to install
-install dependencies
+Install dependencies
 ```bash
-sudo apt-get install python-requests
 sudo apt-get install ros-melodic-mavros
 ```
 
@@ -41,12 +40,15 @@ mkdir -p basestation_ws/src
 cd basestation_ws/src
 ```
 
-Install repo
+First, you'll need Graeme's DARPA command post simulator (Bob is working on fixing this requirement)
+```bash
+git clone git@bitbucket.org:cmusubt/darpa_command_post.git
+```
+
+Install gui repo
 ```bash
 git clone git@bitbucket.org:cmusubt/basestation_gui_python.git
-cd basestation_gui_python
-git checkout bob-initial-branch
-cd ../..
+cd ..
 catkin_make
 source devel/setup.bash
 ```
@@ -54,20 +56,17 @@ source devel/setup.bash
 # How to run
 In another terminal, run:
 ```bash
-roscore
+roslaunch basestation_gui_python gui.launch simulate_darpa_command_post:=true
 ```
 
-In ther terminal that has sourced the basestation_ws, run:
-```bash
-rqt
-```
+The ```bash simulate_darpa_command_post``` argument is used to start a local http server which simulates the DARPA command post. Right now, the gui needs this argument to have value "true". Bob is working on fixing this. 
 
 In the "Plugins" menu at the top "Basestation Gui" will be listed and when you click it, it gets added to rqt. If its not an option, close the window and run:
 ```bash
 rqt --force-discover
 ```
 
-Basestation Gui should now appear as an option in the Plugins dropdown. Select it. 
+Basestation Gui should now appear as an option in the Plugins dropdown. If it doesn't, ensure you're running the launch command in the same terminal as the one that has been sourced.  
 
 You may get some red text involving "TypeError: coercing to Unicode: need string or buffer, NoneType found". Ignore it. 
 
