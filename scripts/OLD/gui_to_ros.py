@@ -75,5 +75,12 @@ class GuiToRos:
         command_gui.estop_pubs[command_gui.hard_estop_robot_num].publish(msg_int)
         command_gui.afterEstop()
 
+    def hardEstopAllRobots(self):
+        command_gui = self.command_gui
+        msg_int = Int32()
+        msg_int.data = 3
+        for estop_pub in command_gui.estop_pubs: #loop over all of the robots
+            estop_pub.publish(msg_int)
+
 
     

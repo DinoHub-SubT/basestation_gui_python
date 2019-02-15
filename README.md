@@ -67,7 +67,7 @@ In the "Plugins" menu at the top "Basestation Gui" will be listed and when you c
 rqt --force-discover
 ```
 
-Basestaion Gui should now appear as an option in the Plugins dropdown. Select it. 
+Basestation Gui should now appear as an option in the Plugins dropdown. Select it. 
 
 You may get some red text involving "TypeError: coercing to Unicode: need string or buffer, NoneType found". Ignore it. 
 

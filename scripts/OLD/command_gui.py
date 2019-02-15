@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import Tkinter as tk
-from Tkinter import Tk, Label, Button, Frame, Toplevel
+from Tkinter import Tk, Label, Button, Frame, Toplevel, Canvas, PhotoImage
 from ttk import Notebook
 import pdb
 
 import rospy
+import rospkg
 from std_msgs.msg import Int32
 from functools import partial
 
@@ -37,6 +38,7 @@ class CommandGUI:
         self.setupCommandFrame(master)
         self.setupStatusFrame(master)
         self.setupHardEstopWindow(master) #setup the hard estop confirmation window
+        self.setupGiantRedButton(master)
 
        
 
@@ -152,4 +154,32 @@ class CommandGUI:
         '''
         self.hard_estop_window.withdraw()
         self.hard_estop_window.grid()
+
+    def setupGiantRedButton(self, master):
+        '''
+        The red button for pausing all of the robots with the press of a single button
+        '''
+        self.status_frame = Frame(master)
+        self.status_frame.grid(row = 0, column = self.num_bots) #put it after all of the robot statuses
+
+        #TODO: find the ros package
+        rospack = rospkg.RosPack()
+        img_filepath = rospack.get_path('basestation_gui_python')+'/scripts/bigRedButton.png'
+        img = PhotoImage(file = img_filepath)
+
+        pdb.set_trace()
+
+        button_big_red = Button(self.status_frame, text="HARD STOP\nALL ROBOTS", image = img, command = self.to_ros.hardEstopAllRobots)
+        button_big_red.grid(row = 0, column = 0)
+
+        #draw a circle
+        # C = Canvas(self.status_frame,  height=110, width=110)
+
+        # coord = 10, 10, 100, 100
+        # arc = C.create_oval(coord, fill="red")
+
+        # C.grid(row = 0, column = 0)
+
+        # button_big_red = Button(self.status_frame, text="HARD STOP\nALL ROBOTS", fill=None, command = self.to_ros.hardEstopAllRobots)
+        # button_big_red.grid(row = 0, column = 0)
 
