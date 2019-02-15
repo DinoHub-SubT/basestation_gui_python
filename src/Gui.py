@@ -394,8 +394,8 @@ class BasestationGuiPlugin(Plugin):
         self.status_table.setItem(3,0, qt.QTableWidgetItem('Ok'))
         self.status_table.setItem(3,1, qt.QTableWidgetItem('Ok'))
 
-        self.status_table.setItem(4,0, qt.QTableWidgetItem('Warning'))
-        self.status_table.setItem(4,1, qt.QTableWidgetItem('Ok'))
+        self.status_table.setItem(4,0, qt.QTableWidgetItem('Ok'))
+        self.status_table.setItem(4,1, qt.QTableWidgetItem('Warning'))
 
         self.status_table.setItem(5,0, qt.QTableWidgetItem('90%'))
         self.status_table.setItem(5,1, qt.QTableWidgetItem('40%'))

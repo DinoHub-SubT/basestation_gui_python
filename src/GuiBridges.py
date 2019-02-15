@@ -80,16 +80,16 @@ class RosGuiBridge:
         '''
 
         radio_msg = RadioMsg()
-        radio_msg.message_type = 1
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         if(command=="Resume"):
-            radio_msg.data = "0"
+            radio_msg.data = RadioMsg.ESTOP_RESUME
         elif(command=="Pause"):
-            radio_msg.data = "1"
+            radio_msg.data = RadioMsg.ESTOP_PAUSE
         elif(command=="Soft e-stop"):
-            radio_msg.data = "2"
+            radio_msg.data = RadioMsg.ESTOP_SOFT
         elif(command=="Hard e-stop"):
-            radio_msg.data = "3"
+            radio_msg.data = RadioMsg.ESTOP_HARD
         else:
             print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
 
@@ -105,7 +105,7 @@ class RosGuiBridge:
     def publishWaypointGoal(self, msg, robot_name):
 
         radio_msg = RadioMsg()
-        radio_msg.message_type = 2
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         radio_msg.data = str(msg.pose.position.x) +","+str(msg.pose.position.y) +","+str(msg.pose.position.z)+","+\
                          str(msg.pose.orientation.x) +","+str(msg.pose.orientation.y) +","+str(msg.pose.orientation.z)+","+\
