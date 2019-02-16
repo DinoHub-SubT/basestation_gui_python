@@ -38,6 +38,8 @@ from functools import partial
 
 import pdb
 
+from argparse import ArgumentParser
+
 
 
 
@@ -46,6 +48,10 @@ class BasestationGuiPlugin(Plugin):
     def __init__(self, context):
         super(BasestationGuiPlugin, self).__init__(context)
         self.setObjectName('BasestationGuiPlugin')
+
+        #if we're also simulating the darpa command post
+        self.simulating_command_post = rospy.get_param("/simulating_command_post")
+
         
         self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
         self.transition_pub = rospy.Publisher('/transition', String, queue_size=1)
@@ -73,6 +79,8 @@ class BasestationGuiPlugin(Plugin):
         
         self.widget.setLayout(self.global_widget)
         context.add_widget(self.widget)
+
+        self.artifact_proposal_lock = threading.Lock()
 
 
     def initControlPanel(self, pos):
@@ -238,7 +246,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         button = qt.QPushButton("    To DARPA    ")
-        button.clicked.connect(partial(self.startProposeArtifact)) #insert fake human data when calling function
+        button.clicked.connect(partial(self.proposeArtifact)) #insert fake human data when calling function
         self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
@@ -288,49 +296,46 @@ class BasestationGuiPlugin(Plugin):
         self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])
 
 
-    def startProposeArtifact(self):
-        '''
-        Function which starts a thread to propose an artifact
-        '''
-        thread = threading.Thread(target = self.proposeArtifact)
-        thread.start()
-
-        # self.proposeArtifact()
-
-
+   
 
     def proposeArtifact(self):
         '''
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
-        data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
+        if(self.simulating_command_post):
+            with self.artifact_proposal_lock: #to ensure we onyl draw one response at once
+            
+                data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
+                         float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
 
-        #
+                
+                proposal_return = self.darpa_gui_bridge.startArtifactProposal(data)
 
-        [submission_time, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
-                                                                            self.darpa_gui_bridge.sendArtifactProposal(data)
+                if(len(proposal_return) > 0):
+                    [submission_time, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
+                                                                                                    proposal_return
 
-        #add this to the submission history panel 
-        submission_time = self.displaySeconds(submission_time)
+                    #add this to the submission history panel 
+                    submission_time = self.displaySeconds(submission_time)
 
-        if(score_change==0):
-            submission_correct='False'
-            submission_color = gui.QColor(220,0,0)
-        else:
-            submission_correct='True'
-            submission_color = gui.QColor(0,220,0)
+                    if(score_change==0):
+                        submission_correct='False'
+                        submission_color = gui.QColor(220,0,0)
+                    else:
+                        submission_correct='True'
+                        submission_color = gui.QColor(0,220,0)
 
-        response_item = qt.QTableWidgetItem('Info')
-        response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
-                                 '\nSubmission Correct? '+submission_correct)
-        response_item.setBackground(submission_color)
+                    response_item = qt.QTableWidgetItem('Info')
+                    response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
+                                             '\nSubmission Correct? '+submission_correct)
+                    response_item.setBackground(submission_color)
 
-        self.arthist_table.insertRow(self.arthist_table.rowCount())
+                    self.arthist_table.insertRow(self.arthist_table.rowCount())
 
-        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact_type)))
-        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(submission_time)))
-        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(int(x))+'/'+str(int(y))+'/'+str(int(z))))
-        self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 3, response_item)
+                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact_type)))
+                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(submission_time)))
+                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(int(x))+'/'+str(int(y))+'/'+str(int(z))))
+                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 3, response_item)
 
 
 
@@ -678,8 +683,9 @@ class BasestationGuiPlugin(Plugin):
     
     def shutdown_plugin(self):
         # TODO unregister all publishers here
-        self.darpa_gui_bridge.shutdownHttpServer()
-        pass
+        if(self.simulating_command_post):
+            self.darpa_gui_bridge.shutdownHttpServer()
+        
 
     def save_settings(self, plugin_settings, instance_settings):
         instance_settings.set_value('config_filename', self.config_filename)

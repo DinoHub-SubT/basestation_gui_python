@@ -40,7 +40,7 @@ mkdir -p basestation_ws/src
 cd basestation_ws/src
 ```
 
-First, you'll need Graeme's DARPA command post simulator (Bob is working on fixing this requirement)
+First, you'll need Graeme's DARPA command post simulator 
 ```bash
 git clone git@bitbucket.org:cmusubt/darpa_command_post.git
 ```
@@ -54,12 +54,17 @@ source devel/setup.bash
 ```
 
 # How to run
-In another terminal, run:
+If you want to simulate the darpa command post, run:
 ```bash
-roslaunch basestation_gui_python gui.launch simulate_command_post:=true
+rosrun darpa_command_post CommandPostScoring.py
 ```
 
-The ```bash simulate_darpa_command_post``` argument is used to start a local http server which simulates the DARPA command post. Right now, the gui needs this argument to have value "true". Bob is working on fixing this. 
+In another sourced terminal, run:
+```bash
+roslaunch basestation_gui_python gui.launch simulating_command_post:=true
+```
+
+The ```bash simulating_darpa_command_post``` argument is used to designate whether the simulated darpa command post is running. The default is "false".
 
 In the "Plugins" menu at the top "Basestation Gui" will be listed and when you click it, it gets added to rqt. If its not an option, close the window and run:
 ```bash

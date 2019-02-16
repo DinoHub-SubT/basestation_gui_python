@@ -162,32 +162,47 @@ class DarpaGuiBridge:
         #setup the http client (bridge for interacting with DARPA)
         self.http_client = TeamClient()
 
+        #if we're also simulating the darpa command post
+        self.simulating_command_post = rospy.get_param("/simulating_command_post")
+
         #start a schedule which runs "get status" every few seconds
-        self.get_status_thread = threading.Timer(2.0, self.getStatus)
-        self.get_status_thread.start()
+        if(self.simulating_command_post):
+            self.get_status_thread = threading.Timer(1.0, self.getStatus)
+            self.get_status_thread.start()
 
         #define publisher for publishing when we get stuff from darpa
         self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
 
+    def startArtifactProposal(self, data):
+        '''
+        Make a thread for a call to DARPA
+        '''
+        #run this request on its thread
+        results = self.sendArtifactProposal(data)
+
+        return results    
 
     def sendArtifactProposal(self, data):
         '''
         Send artifact proposal to DARPA
         data = (x,y,z,artifact_category)
         '''
-        # [x, y, z, cat] = data
-        # artifact_report = ArtifactReport(x=x, y=y, z=z, type=cat)
-        # artifact_report_reply, http_status, http_reason = self.http_client.send_artifact_report(artifact_report)
+        [x, y, z, cat] = data
+        artifact_report = ArtifactReport(x=x, y=y, z=z, type=cat)
+        
+        #run this request on its thread
+        results = []
+        thread = threading.Thread(target=self.http_client.send_artifact_report, args=(artifact_report, results))
+        thread.start()
+        # thread.join()
 
-        artifact_report = ArtifactReport(x=1011.242, y=-244.433, z=-10.011, type="backpack")
-        artifact_report_reply = self.http_client.send_artifact_report(artifact_report)
+        print "\n\nResults: ",results
 
-        #return the response to the gui
 
-        #time, x,y,z, report status, score change
-        # result =  artifact_report_reply['run_clock'], artifact_report_reply['type'], artifact_report_reply['x'], \
-        #            artifact_report_reply['y'], artifact_report_reply['z'], \
-        #            artifact_report_reply['report_status'], artifact_report_reply['score_change'], http_status, http_reason
+        if(results==[]): #if nothing got returned from the http reqest
+            return results
+
+        artifact_report_reply, http_status, http_reason = results
 
         return artifact_report_reply['run_clock'], artifact_report_reply['type'], artifact_report_reply['x'], \
                artifact_report_reply['y'], artifact_report_reply['z'], \
@@ -212,7 +227,7 @@ class DarpaGuiBridge:
         self.status_pub.publish(msg)
 
         #restart the thread to call this function again
-        self.get_status_thread = threading.Timer(2.0, self.getStatus)
+        self.get_status_thread = threading.Timer(1.0, self.getStatus)
         self.get_status_thread.start()
 
     def shutdownHttpServer(self):

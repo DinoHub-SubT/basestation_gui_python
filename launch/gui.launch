@@ -1,19 +1,13 @@
 <launch>
 
 	<!-- set a rosparam for if we're going to simulate the command post or not -->
-	<!--<arg name="simulate_command_post"/>
-	<rosparam param="simulate_command_post">"$(arg simulate_command_post)"</rosparam>-->
+	
+	<arg name="simulating_command_post" default="false"/>
+	<param name="simulating_command_post" value= "$(arg simulating_command_post)" />
 
 	<!--launch the gui-->
-    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen"/>
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen" />
 
-    <!--launch the simulated command post if commandline argument is true. 
-		this is sensitive and only works for arguments of 0/1 or true/false-->
-
-	<arg name="simulate_command_post"/>
-    <group if="$(arg simulate_command_post)">
-  		<!-- stuff that will only be evaluated if simulate_command_post is true -->
-  		<node pkg="darpa_command_post" name="CommandPostScoring" type="CommandPostScoring.py" output="screen"/> 
-	</group>
+    
 
 </launch>
