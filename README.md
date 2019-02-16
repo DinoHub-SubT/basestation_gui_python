@@ -54,7 +54,7 @@ source devel/setup.bash
 ```
 
 # How to run
-If you want to simulate the darpa command post, run:
+(Optional) If you want to simulate the darpa command post, run:
 ```bash
 rosrun darpa_command_post CommandPostScoring.py
 ```
