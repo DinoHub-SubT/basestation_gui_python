@@ -163,8 +163,8 @@ class DarpaGuiBridge:
         self.http_client = TeamClient()
 
         #start a schedule which runs "get status" every few seconds
-        # self.get_status_thread = threading.Timer(10.0, self.getStatus)
-        # self.get_status_thread.start()
+        self.get_status_thread = threading.Timer(2.0, self.getStatus)
+        self.get_status_thread.start()
 
         #define publisher for publishing when we get stuff from darpa
         self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
@@ -212,8 +212,8 @@ class DarpaGuiBridge:
         self.status_pub.publish(msg)
 
         #restart the thread to call this function again
-        # self.get_status_thread = threading.Timer(10.0, self.getStatus)
-        # self.get_status_thread.start()
+        self.get_status_thread = threading.Timer(2.0, self.getStatus)
+        self.get_status_thread.start()
 
     def shutdownHttpServer(self):
         '''
