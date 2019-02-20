@@ -191,11 +191,12 @@ class DarpaGuiBridge:
         artifact_report = ArtifactReport(x=x, y=y, z=z, type=cat)
         
         #run this request on its thread
-        results = []
-        thread = threading.Thread(target=self.http_client.send_artifact_report, args=(artifact_report, results))
-        thread.start()
+        #results = []
+        #thread = threading.Thread(target=self.http_client.send_artifact_report, args=(artifact_report, results))
+        #thread.start()
         # thread.join()
 
+        results = self.http_client.send_artifact_report(artifact_report)
         print "\n\nResults: ",results
 
 
@@ -245,7 +246,12 @@ class DarpaGuiBridge:
         '''
         Function to convert seconds float into a min:sec string
         '''
-        return str((int(seconds)/60))+':'+str(int(seconds-(int(seconds)/60)*60))
+        seconds_int = int(seconds-(int(seconds)/60)*60)
+        if seconds_int < 10:
+            seconds_str = '0'+str(seconds_int)
+        else:
+            seconds_str = str(seconds_int)
+        return str((int(seconds)/60))+':'+seconds_str
 
 
 

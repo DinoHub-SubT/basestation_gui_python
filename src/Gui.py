@@ -299,6 +299,10 @@ class BasestationGuiPlugin(Plugin):
    
 
     def proposeArtifact(self):
+        thread = threading.Thread(target=self.proposeArtifactThread)
+        thread.start()
+
+    def proposeArtifactThread(self):
         '''
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
