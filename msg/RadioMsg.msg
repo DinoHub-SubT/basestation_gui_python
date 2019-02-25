@@ -9,10 +9,11 @@ uint8 recipient_robot_id
 string data
 
 # fields relevant to MESSAGE_TYPE_ARTIFACT_REPORT 
-float artifact_x
-float artifact_y
-float artifact_z
+float32 artifact_x
+float32 artifact_y
+float32 artifact_z
 string artifact_type
+uint8 artifact_robot_id
 uint8 artifact_report_id
 
 # constants relevant to MESSAGE_TYPE_ESTOP
