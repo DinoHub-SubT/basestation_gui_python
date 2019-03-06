@@ -61,7 +61,7 @@ rosrun darpa_command_post CommandPostScoring.py
 
 In another sourced terminal, run:
 ```bash
-roslaunch basestation_gui_python gui.launch 
+roslaunch basestation_gui_python gui.launch simulating_command_post:=false simulating_artifact_detections:=true
 ```
 
 The ```bash simulating_darpa_command_post``` argument is a boolean one to designate whether the simulated darpa command post is running. The default is "false".

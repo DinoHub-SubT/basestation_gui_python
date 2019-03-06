@@ -63,22 +63,31 @@ class RosGuiBridge:
 
         
         
-    def publishRobotCommand(self, command, robot_name):
+    def publishRobotCommand(self, command, robot_name, button):
         '''
         A command button has been pressed. Publish a command from the gui to the robot
         '''
 
-        #de-register the waypoint listener because possibly another type of button has been pressed
-        self.waypoint_listeners[self.robot_names.index(robot_name)].unregister()
-        
-        if(command in self.estop_commands):
-            self.publishEstop(command, robot_name)
-        elif(command == "Define waypoint"):
-            self.defineWaypoint(robot_name)
-        elif(command == "Return home"):
-            self.publishReturnHome(robot_name)
-        else:
-            print 'WARNING: Button pressed does not have a function call associated with it!'
+        if(not button.isChecked()): #it has just be un-clicked
+
+            if(command == "Define waypoint"):
+                #find the robot name index and unsubscribe it
+                try:
+                    ind = self.robot_names.index(robot_name)
+                    self.waypoint_listeners[ind].unregister()
+                except ValueError:
+                    print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!"
+
+
+        else: #the button has just been pressed
+            if(command in self.estop_commands):
+                self.publishEstop(command, robot_name)
+            elif(command == "Define waypoint"):
+                self.defineWaypoint(robot_name)
+            elif(command == "Return home"):
+                self.publishReturnHome(robot_name)
+            else:
+                print 'WARNING: Button pressed does not have a function call associated with it!'
 
     def publishEstop(self, command, robot_name):
         '''
@@ -129,7 +138,11 @@ class RosGuiBridge:
         '''
 
         #subscriber for listening to waypoint goals
-        self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
+        try:
+            self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
+        except ValueError:
+            print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been enabled!!"
+
 
         
 

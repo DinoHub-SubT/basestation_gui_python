@@ -89,6 +89,7 @@ class BasestationGuiPlugin(Plugin):
         context.add_widget(self.widget)
 
         self.artifact_proposal_lock = threading.Lock()
+        self.update_queue_lock = threading.Lock()
 
 
     def initControlPanel(self, pos):
@@ -130,7 +131,7 @@ class BasestationGuiPlugin(Plugin):
                 
                 
                 #upon press, do something in ROS
-                button.clicked.connect(partial(self.ros_gui_bridge.publishRobotCommand, command, robot_name))
+                button.clicked.connect(partial(self.ros_gui_bridge.publishRobotCommand, command, robot_name, button))
 
                 robot_layout.addWidget(button, row, col)
 
@@ -267,7 +268,7 @@ class BasestationGuiPlugin(Plugin):
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
         button = qt.QPushButton("    To Queue    ")
-        button.clicked.connect(partial(self.sendToQueue))
+        # button.clicked.connect(partial(self.sendToQueue))
         self.artmanip_layout.addWidget(button, 5, 0, 1, 2)
 
         self.queue_cat_box = qt.QComboBox()
@@ -366,21 +367,30 @@ class BasestationGuiPlugin(Plugin):
         self.artifact_cat = str(self.queue_cat_box.currentText())
 
 
-    def sendToQueue(self):
+    def sendToQueue(self, artifact):
         '''
         Send the artifact being examined to the queue
         '''
-
-        
-        self.queue_table.insertRow(self.queue_table.rowCount())
-
-        self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(self.artifact_id)))
-        self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(self.artifact_cat)))
-        self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.artifact_priority)))
+        with self.update_queue_lock:
+            self.queue_table.insertRow(self.queue_table.rowCount())
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.category)))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(1)))
 
 
-        #increase the artifact id so that the next artifact has a different id
-        self.artifact_id+=1
+        #############
+        #below this: old code for adding to the queue
+        #############
+
+        # self.queue_table.insertRow(self.queue_table.rowCount())
+
+        # self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(self.artifact_id)))
+        # self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(self.artifact_cat)))
+        # self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.artifact_priority)))
+
+
+        # #increase the artifact id so that the next artifact has a different id
+        # self.artifact_id+=1
 
     def initStatusPanel(self, pos):
         '''
@@ -714,7 +724,7 @@ class BasestationGuiPlugin(Plugin):
         self.config_filename = instance_settings.value('config_filename')
         self.ros_gui_bridge = RosGuiBridge(self.config_filename)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
-        self.gui_engine = GuiEngine()
+        self.gui_engine = GuiEngine(self)
         self.buildGui()
         pass
 
