@@ -10,3 +10,5 @@ darpa_params:
   artifact_categories: ['human', 'extinguisher', 'phone', 'backpack', 'drill']
   total_num_reports: ['51']
   run_length: ['360'] #length of the run in seconds
+
+

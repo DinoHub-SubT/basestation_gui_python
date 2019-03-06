@@ -1,9 +1,28 @@
 <launch>
 
-	<!-- set a rosparam for if we're going to simulate the command post or not -->
-	
+	<!-- set arguement for if we're going to simulate the command post or not -->
 	<arg name="simulating_command_post" default="false"/>
 	<param name="simulating_command_post" value= "$(arg simulating_command_post)" />
+
+	<!-- set arguement for if we should simulate incoming artifact detections -->
+	<arg name="simulating_artifact_detections" default="false"/>
+	<param name="simulating_artifact_detections" value= "$(arg simulating_artifact_detections)" />
+
+	<group if="$(arg simulating_artifact_detections)">
+		<node pkg="basestation_gui_python" name="fake_artifact_detections" type="fake_artifact_detections.py" output="screen"/>
+	  <!-- stuff that will only be evaluated if simulating_artifact_detections is true -->
+	  <!-- <node pkg="rostopic" type="rostopic" name="arbitrary_name" 
+	  		args="pub /fake_artifact_detections basestation_gui_python/RadioMsg   '{message_type: 1, 
+																					artifact_x: 1.3,
+																					artifact_y: 2.8,
+																					artifact_z: 1.5,
+																					artifact_type: 'fireextinguisher',
+																					artifact_robot_id: 0,
+																					artifact_report_id: 48}'  -r 0.3 " output="screen"/> -->
+	</group>
+
+	<!-- geometry_msgs/Twist  '{linear:  {x: 0.1, y: 0.0, z: 0.0}, angular: {x: 0.0,y: 0.0,z: 0.0}}' -->
+
 
 	<!--launch the gui-->
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen" />

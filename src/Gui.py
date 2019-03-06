@@ -1,3 +1,9 @@
+#!/usr/bin/python
+'''
+File containing all things related to the frontend of the gui (buttons, colors, panel positions, etc.)
+Contact: Bob DeBortoli (debortor@oregonstate.edu)
+'''
+
 import os
 import time
 import rospy
@@ -39,6 +45,8 @@ from functools import partial
 import pdb
 
 from argparse import ArgumentParser
+
+from GuiEngine import GuiEngine
 
 
 
@@ -116,10 +124,10 @@ class BasestationGuiPlugin(Plugin):
                     col+=1
 
                 button = qt.QPushButton(command)
+                button.setCheckable(True) # a button pressed will stay pressed, until unclicked
+                button.setStyleSheet("QPushButton:checked { background-color: red }") #a button stays red when its in a clicked state
                 robot_button_list.append(button)
                 
-                #upon press, change the button color
-                button.clicked.connect(partial(self.ros_gui_bridge.changeControlButtonColors, self.control_buttons, robot_num, button))
                 
                 #upon press, do something in ROS
                 button.clicked.connect(partial(self.ros_gui_bridge.publishRobotCommand, command, robot_name))
@@ -246,7 +254,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         button = qt.QPushButton("    To DARPA    ")
-        button.clicked.connect(partial(self.proposeArtifact)) #insert fake human data when calling function
+        button.clicked.connect(partial(self.proposeArtifact))
         self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
 
         self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
@@ -296,7 +304,8 @@ class BasestationGuiPlugin(Plugin):
         self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])
 
 
-   
+    
+
 
     def proposeArtifact(self):
         thread = threading.Thread(target=self.proposeArtifactThread)
@@ -361,6 +370,7 @@ class BasestationGuiPlugin(Plugin):
         '''
         Send the artifact being examined to the queue
         '''
+
         
         self.queue_table.insertRow(self.queue_table.rowCount())
 
@@ -655,6 +665,7 @@ class BasestationGuiPlugin(Plugin):
         '''
         Subscriber that constantly updates info panel
         '''
+
         
         #update the info panel
         info_update = self.darpa_gui_bridge.darpa_status_update
@@ -703,6 +714,7 @@ class BasestationGuiPlugin(Plugin):
         self.config_filename = instance_settings.value('config_filename')
         self.ros_gui_bridge = RosGuiBridge(self.config_filename)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
+        self.gui_engine = GuiEngine()
         self.buildGui()
         pass
 

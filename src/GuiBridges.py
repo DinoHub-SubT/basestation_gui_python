@@ -1,4 +1,10 @@
 #!/usr/bin/python
+
+'''
+File containing classes for interacting with ROS from the gui and the DARPA command post from the GUI
+Contact: Bob DeBortoli (debortor@oregonstate.edu)
+'''
+
 import rospy
 from std_msgs.msg import String
 import yaml
@@ -126,18 +132,6 @@ class RosGuiBridge:
         self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
 
         
-
-    def changeControlButtonColors(self, control_buttons, robot_num, button_pressed):
-        '''
-        Change button colors to indicate which was pressed
-        '''
-
-        #set the color of the other estop buttons to gray
-        for button in control_buttons[robot_num]:
-            button.setStyleSheet("background-color: None")
-
-        #set the color of the button pressed 
-        button_pressed.setStyleSheet("background-color: red")
 
 
 class DarpaGuiBridge:
