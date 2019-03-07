@@ -371,10 +371,10 @@ class BasestationGuiPlugin(Plugin):
                         robot_id = self.queue_table.item(i, 0).text()
                         artifact_id = self.queue_table.item(i, 1).text()
 
-                        if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
-                           (int(self.displayed_artifact.artifact_report_id) == int(artifact_id)):
+                        # if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
+                        #    (int(self.displayed_artifact.artifact_report_id) == int(artifact_id)):
 
-                            self.queue_table.removeRow(self.queue_table.item(i))
+                            # self.queue_table.removeRow(self.queue_table.item(i))
 
 
 
