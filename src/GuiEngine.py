@@ -55,7 +55,7 @@ class GuiEngine:
         self.queued_artifacts.append(artifact)
         self.all_artifacts.append(artifact)
 
-        print len(self.all_artifacts)
+        # print len(self.all_artifacts)
 
         #call a function to graphically add it to the queue
         self.gui.sendToQueue(artifact)
@@ -73,7 +73,7 @@ class Artifact:
         self.pos = position
         self.source_robot = source_robot_id
         self.artifact_report_id = artifact_report_id
-        self.time_from_robot = time.time() #time the detection has come in from the robot. TODO: change to be something different?
+        self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
         self.time_to_darpa = -1 #time submitted to darpa
 
 

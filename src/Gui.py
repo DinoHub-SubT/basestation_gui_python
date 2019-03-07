@@ -13,6 +13,7 @@ import numpy as np
 import yaml
 import collections
 import threading
+import random
 
 from qt_gui.plugin import Plugin
 import python_qt_binding.QtWidgets as qt
@@ -204,15 +205,24 @@ class BasestationGuiPlugin(Plugin):
         #information about the detected position
         robot_pos = [110.002, 112.000002, 5.000002] #fake data
 
-        orig_pos_label = qt.QLabel()
-        orig_pos_label.setText('Original Position')
-        self.artmanip_layout.addWidget(orig_pos_label, 1, 0)
+        self.orig_pos_label = qt.QLabel()
+        self.orig_pos_label.setText('Original Position')
+        self.artmanip_layout.addWidget(self.orig_pos_label, 1, 0)
 
-        for i, orig_pos in enumerate(robot_pos):
-            orig_pos_label = qt.QLabel()
-            orig_pos_label.setText(str(orig_pos))
-            orig_pos_label.setAlignment(Qt.AlignCenter)
-            self.artmanip_layout.addWidget(orig_pos_label, 1, i+1)
+        self.orig_pos_label_x = qt.QLabel()
+        self.orig_pos_label_x.setText(str(robot_pos[0]))
+        self.orig_pos_label_x.setAlignment(Qt.AlignCenter)
+        self.artmanip_layout.addWidget(self.orig_pos_label_x, 1, 1)
+
+        self.orig_pos_label_y = qt.QLabel()
+        self.orig_pos_label_y.setText(str(robot_pos[1]))
+        self.orig_pos_label_y.setAlignment(Qt.AlignCenter)
+        self.artmanip_layout.addWidget(self.orig_pos_label_y, 1, 2)
+
+        self.orig_pos_label_z = qt.QLabel()
+        self.orig_pos_label_z.setText(str(robot_pos[2]))
+        self.orig_pos_label_z.setAlignment(Qt.AlignCenter)
+        self.artmanip_layout.addWidget(self.orig_pos_label_z, 1, 3)
 
         #editable information about the position, to send to darpa
         refined_pos_label = qt.QLabel()
@@ -267,24 +277,24 @@ class BasestationGuiPlugin(Plugin):
 
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        button = qt.QPushButton("    To Queue    ")
+        # button = qt.QPushButton("    To Queue    ")
         # button.clicked.connect(partial(self.sendToQueue))
-        self.artmanip_layout.addWidget(button, 5, 0, 1, 2)
+        # self.artmanip_layout.addWidget(button, 5, 0, 1, 2)
 
-        self.queue_cat_box = qt.QComboBox()
+        # self.queue_cat_box = qt.QComboBox()
 
-        for category in self.ros_gui_bridge.artifact_categories:
-            self.queue_cat_box.addItem(category)
+        # for category in self.ros_gui_bridge.artifact_categories:
+        #     self.queue_cat_box.addItem(category)
 
         #set the defauly value of the artifact to whats being displayed
          #variables for storing the current information about the artifact being examined
         self.artifact_cat = self.ros_gui_bridge.artifact_categories[0]
         self.artifact_id = 0
 
-        self.artmanip_layout.addWidget(self.queue_cat_box, 5,2)
+        # self.artmanip_layout.addWidget(self.queue_cat_box, 5,2)
 
 
-        self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
+        # self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
         self.queue_priority_box = qt.QComboBox() #way to fill in the priority
         self.queue_priority_box.addItem("    1    ")
@@ -292,9 +302,9 @@ class BasestationGuiPlugin(Plugin):
         self.queue_priority_box.addItem("    2    ")
         self.queue_priority_box.addItem("    3    ")
         self.queue_priority_box.addItem("    4    ")
-        self.artmanip_layout.addWidget(self.queue_priority_box, 5,3)
+        # self.artmanip_layout.addWidget(self.queue_priority_box, 5,3)
 
-        self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
+        # self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
         button = qt.QPushButton("    Discard    ")
         # button.setSizePolicy(QSizePolicy.Expanding, 0)
@@ -364,18 +374,26 @@ class BasestationGuiPlugin(Plugin):
         '''
         The combo box for changing the artifact category was pressed
         '''
-        self.artifact_cat = str(self.queue_cat_box.currentText())
+        # self.artifact_cat = str(self.queue_cat_box.currentText())
+        pass
 
 
     def sendToQueue(self, artifact):
         '''
         Send the artifact being examined to the queue
         '''
+
+        # self.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock'])
+        # print 
+
         with self.update_queue_lock:
             self.queue_table.insertRow(self.queue_table.rowCount())
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.category)))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(1)))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
+            # self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(self.self.darpa_gui_bridge.darpa_status_update['run_clock']))))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(random.random()*100.))))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('UNREAD')))
 
 
         #############
@@ -482,21 +500,49 @@ class BasestationGuiPlugin(Plugin):
         Callback that is run when something in the artifact
         queue is selected
         '''
-        self.artifact_id =  int(self.queue_table.item(row, 0).text())
-        self.artifact_cat =  self.queue_table.item(row, 1).text()
-        self.artifact_priority =  self.queue_table.item(row, 2).text()
+        # print "here"
+        clicked_robot_id =  int(self.queue_table.item(row, 0).text())
+        clicked_id =  self.queue_table.item(row, 1).text()
 
         #change the combo boxes
-        index = self.queue_cat_box.findText(self.queue_table.item(row, 1).text(), core.Qt.MatchFixedString)
+        index = self.darpa_cat_box.findText(self.queue_table.item(row, 3).text(), core.Qt.MatchFixedString)
         if index >= 0:
-             self.queue_cat_box.setCurrentIndex(index)
+             self.darpa_cat_box.setCurrentIndex(index)
 
-        index = self.queue_priority_box.findText(self.queue_table.item(row, 2).text(), core.Qt.MatchFixedString)
-        if index >= 0:
-             self.queue_priority_box.setCurrentIndex(index)
+        #associate with a specific artifact
+        #todo: put in some error checking
+        for art in self.gui_engine.queued_artifacts:
+            if (int(art.source_robot) == int(clicked_robot_id)) and\
+               (int(art.artifact_report_id) == int(clicked_id)):
+                artifact = art
+                break
 
-        #remove the item from the queue
-        self.removeQueueItem(row)
+
+        #change the text of the xyz positions
+        robot_pos = artifact.pos
+
+        self.orig_pos_label_x.setText(str(robot_pos[0]))
+        self.orig_pos_label_y.setText(str(robot_pos[1]))
+        self.orig_pos_label_z.setText(str(robot_pos[2]))
+
+        # #editable information about the position, to send to darpa
+        refined_pos_label = qt.QLabel()
+        refined_pos_label.setText('Refined Position')
+        self.artmanip_layout.addWidget(refined_pos_label, 2, 0)
+
+        self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
+       
+        #fill in some fake data
+        self.art_pos_textbox_x.setText(str(robot_pos[0]))
+        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 2, 1)
+
+        self.art_pos_textbox_y.setText(str(robot_pos[1]))
+        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 2, 2)
+
+        self.art_pos_textbox_z.setText(str(robot_pos[2]))
+        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 2, 3)
+
+
 
     def removeQueueItem(self, row):
         '''
@@ -526,8 +572,14 @@ class BasestationGuiPlugin(Plugin):
         #resize the cells to fill the widget 
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 
-        self.queue_table.setColumnCount(3) # set column count        
-        self.queue_table.setHorizontalHeaderLabels(['ID', 'Category', 'Priority']) #make the column headers
+        self.queue_table.setColumnCount(5) # set column count        
+        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Art.\nID', 'Detected\nTime', '   Category   ', 'Unread?']) #make the column headers
+
+        # header = self.queue_table.horizontalHeader()
+        
+        # header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(4, qt.QHeaderView.Stretch)
 
         #make sortable
         self.queue_table.setSortingEnabled(True)

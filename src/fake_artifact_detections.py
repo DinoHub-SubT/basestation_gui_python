@@ -17,13 +17,11 @@ def talker():
     rospy.init_node('fake_artifact_node', anonymous=True)
     artifact_types = ['human', 'extinguisher', 'phone', 'backpack', 'drill']
 
-    rate = rospy.Rate(0.1) #0.3 rate in hz
+    rate = rospy.Rate(0.5) #0.3 rate in hz
 
     msg = RadioMsg()
     msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
-    msg.artifact_x =  1.
-    msg.artifact_y =  2.
-    msg.artifact_z =  1.
+    
     
     
 
@@ -32,6 +30,9 @@ def talker():
         msg.artifact_report_id =  random.randint(0,100)
         msg.artifact_type =  artifact_types[random.randint(0,4)]
         msg.artifact_robot_id = random.randint(0,1)
+        msg.artifact_x =  random.random()*5
+        msg.artifact_y =  random.random()*5
+        msg.artifact_z =  random.random()*5
 
         pub.publish(msg)
         rate.sleep()
