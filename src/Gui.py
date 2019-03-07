@@ -92,6 +92,8 @@ class BasestationGuiPlugin(Plugin):
         self.artifact_proposal_lock = threading.Lock()
         self.update_queue_lock = threading.Lock()
 
+        self.displayed_artifact = [] #which artifact is currently being displayed
+
 
     def initControlPanel(self, pos):
         '''
@@ -203,7 +205,7 @@ class BasestationGuiPlugin(Plugin):
             self.artmanip_layout.addWidget(dim_label, 0, i+1)
 
         #information about the detected position
-        robot_pos = [110.002, 112.000002, 5.000002] #fake data
+        robot_pos = [-1, -1, -1] #fake data
 
         self.orig_pos_label = qt.QLabel()
         self.orig_pos_label.setText('Original Position')
@@ -363,6 +365,41 @@ class BasestationGuiPlugin(Plugin):
 
 
 
+                #go find the artifact in the queue and remove it
+                if(self.displayed_artifact!=[]): #if we have actually set the artifact
+                    for i in range(self.queue_table.rowCount()):
+                        robot_id = self.queue_table.item(i, 0).text()
+                        artifact_id = self.queue_table.item(i, 1).text()
+
+                        if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
+                           (int(self.displayed_artifact.artifact_report_id) == int(artifact_id)):
+
+                            self.queue_table.removeRow(self.queue_table.item(i))
+
+
+
+
+                #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
+
+
+    def removeArtifactFromQueue(self,artifact):
+        '''
+        Remove an artifact from the artifact queue
+        '''
+
+
+    def updateDisplayedArtifact(self,artifact):
+        '''
+        Update the info for the artifact being displayed
+        '''
+        self.displayed_artifact = artifact
+
+    def getDisplayedArtifact(self):
+        '''
+        Get the info for the artifact being displayed
+        '''
+        return self.displayed_artifact
+
 
     def updateArtifactPriority(self):
         '''
@@ -394,6 +431,9 @@ class BasestationGuiPlugin(Plugin):
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(random.random()*100.))))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('UNREAD')))
+
+            for i in range(5): #make the cells not editable
+                self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
 
 
         #############
@@ -541,6 +581,10 @@ class BasestationGuiPlugin(Plugin):
 
         self.art_pos_textbox_z.setText(str(robot_pos[2]))
         self.artmanip_layout.addWidget(self.art_pos_textbox_z, 2, 3)
+
+
+        #update the global info for what artifact is being displayed
+        self.updateDisplayedArtifact(artifact)
 
 
 

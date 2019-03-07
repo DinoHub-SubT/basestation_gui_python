@@ -13,7 +13,6 @@ from geometry_msgs.msg import PoseStamped
 import pdb
 from basestation_gui_python.msg import RadioMsg
 import numpy as np
-import requests
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
 import time
