@@ -34,7 +34,7 @@ class GuiEngine:
 
         else:
             #here is where we would put the scubscriber for real detections
-            print "\n\n--------NOT SUBSCIRBING TO ARTFIACT DETECTIONS--------\n\n"
+            rospy.Subscriber('/real_artifact_detections', RadioMsg, self.addIncomingArtifact)
 
         self.gui = gui
 
