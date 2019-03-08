@@ -92,7 +92,7 @@ class BasestationGuiPlugin(Plugin):
         self.artifact_proposal_lock = threading.Lock()
         self.update_queue_lock = threading.Lock()
 
-        self.displayed_artifact = [] #which artifact is currently being displayed
+        self.displayed_artifact = None #which artifact is currently being displayed
 
 
     def initControlPanel(self, pos):
@@ -205,7 +205,7 @@ class BasestationGuiPlugin(Plugin):
             self.artmanip_layout.addWidget(dim_label, 0, i+1)
 
         #information about the detected position
-        robot_pos = [-1, -1, -1] #fake data
+        robot_pos = ['N/A', 'N/A', 'N/A'] #fake data
 
         self.orig_pos_label = qt.QLabel()
         self.orig_pos_label.setText('Original Position')
@@ -242,6 +242,8 @@ class BasestationGuiPlugin(Plugin):
 
         self.art_pos_textbox_z.setText(str(robot_pos[2]))
         self.artmanip_layout.addWidget(self.art_pos_textbox_z, 2, 3)
+
+
 
 
 
@@ -329,7 +331,7 @@ class BasestationGuiPlugin(Plugin):
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
         if(self.simulating_command_post):
-            with self.artifact_proposal_lock: #to ensure we onyl draw one response at once
+            with self.artifact_proposal_lock: #to ensure we only draw one response at once
             
                 data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
                          float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
@@ -365,21 +367,41 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-                #go find the artifact in the queue and remove it
-                if(self.displayed_artifact!=[]): #if we have actually set the artifact
-                    for i in range(self.queue_table.rowCount()):
-                        robot_id = self.queue_table.item(i, 0).text()
-                        artifact_id = self.queue_table.item(i, 1).text()
+                    #go find the artifact in the queue and remove it
+                    if(self.displayed_artifact!=None): #if we have actually set the artifact
+                        for i in range(self.queue_table.rowCount()):
+                            robot_id = self.queue_table.item(i, 0).text()
+                            artifact_id = self.queue_table.item(i, 1).text()
 
-                        if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
-                           (int(self.displayed_artifact.artifact_report_id) == int(artifact_id)):
+                            if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
+                               (int(self.displayed_artifact.artifact_report_id) == int(artifact_id)):
 
-                            self.queue_table.removeRow(self.queue_table.item(i))
+                                self.queue_table.removeRow(self.queue_table.item(i,0).row())
+
+                                #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
+                                self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
+                                self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
+
+
+                                break
+
+
+                    #remove the artifact from the main visualization panel
+                    self.orig_pos_label_x.setText('')
+                    self.art_pos_textbox_x.setText('')
+
+                    self.orig_pos_label_y.setText('')
+                    self.art_pos_textbox_y.setText('')
+
+                    self.orig_pos_label_z.setText('')
+                    self.art_pos_textbox_z.setText('')
+
+                    self.displayed_artifact = None
 
 
 
 
-                #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
+                
 
 
     def removeArtifactFromQueue(self,artifact):
@@ -388,7 +410,7 @@ class BasestationGuiPlugin(Plugin):
         '''
 
 
-    def updateDisplayedArtifact(self,artifact):
+    def updateDisplayedArtifact(self, artifact):
         '''
         Update the info for the artifact being displayed
         '''
@@ -430,7 +452,10 @@ class BasestationGuiPlugin(Plugin):
             # self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(self.self.darpa_gui_bridge.darpa_status_update['run_clock']))))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(random.random()*100.))))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('UNREAD')))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('   !   ')))
+
+            #color the unread green
+            self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
 
             for i in range(5): #make the cells not editable
                 self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
@@ -541,6 +566,13 @@ class BasestationGuiPlugin(Plugin):
         queue is selected
         '''
         # print "here"
+
+        #remove the "unread" indicator if its there
+        self.queue_table.setItem(row,4, qt.QTableWidgetItem(str('')))
+        self.queue_table.item(row, 4)#.setBackground(gui.QColor(0,255,0))#color the unread green
+        # self.displayed_artifact.unread = False
+
+
         clicked_robot_id =  int(self.queue_table.item(row, 0).text())
         clicked_id =  self.queue_table.item(row, 1).text()
 
@@ -561,30 +593,24 @@ class BasestationGuiPlugin(Plugin):
         #change the text of the xyz positions
         robot_pos = artifact.pos
 
+        #fill in the positional data
         self.orig_pos_label_x.setText(str(robot_pos[0]))
         self.orig_pos_label_y.setText(str(robot_pos[1]))
         self.orig_pos_label_z.setText(str(robot_pos[2]))
-
-        # #editable information about the position, to send to darpa
-        refined_pos_label = qt.QLabel()
-        refined_pos_label.setText('Refined Position')
-        self.artmanip_layout.addWidget(refined_pos_label, 2, 0)
-
-        self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
-       
-        #fill in some fake data
+        
         self.art_pos_textbox_x.setText(str(robot_pos[0]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 2, 1)
-
         self.art_pos_textbox_y.setText(str(robot_pos[1]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 2, 2)
-
         self.art_pos_textbox_z.setText(str(robot_pos[2]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 2, 3)
 
 
         #update the global info for what artifact is being displayed
         self.updateDisplayedArtifact(artifact)
+
+        if(self.displayed_artifact!=None):
+            self.displayed_artifact.unread = False
+
+        #highlight the entire row
+        self.queue_table.selectRow(row)
 
 
 
