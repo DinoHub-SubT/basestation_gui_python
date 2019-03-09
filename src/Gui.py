@@ -59,7 +59,7 @@ class BasestationGuiPlugin(Plugin):
         self.setObjectName('BasestationGuiPlugin')
 
         #if we're also simulating the darpa command post
-        self.simulating_command_post = rospy.get_param("/simulating_command_post")
+        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
 
         
         self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
@@ -330,7 +330,13 @@ class BasestationGuiPlugin(Plugin):
         '''
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
-        if(self.simulating_command_post):
+        if (self.art_pos_textbox_x.text()=='') or (self.art_pos_textbox_y.text()=='') or (self.art_pos_textbox_z.text()==''):
+            print "Nothing proposed. Please select an artifact"
+
+        elif (self.displayed_artifact==None):
+            print "Nothing proposed. No artifact being displayed. Please select an artifact"
+
+        elif(self.connect_to_command_post):
             with self.artifact_proposal_lock: #to ensure we only draw one response at once
             
                 data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
@@ -398,6 +404,9 @@ class BasestationGuiPlugin(Plugin):
 
                     self.displayed_artifact = None
 
+                    #scroll to the bottom of table
+                    self.arthist_table.scrollToBottom()
+
 
 
 
@@ -450,30 +459,22 @@ class BasestationGuiPlugin(Plugin):
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
             # self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(self.self.darpa_gui_bridge.darpa_status_update['run_clock']))))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(random.random()*100.))))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(random.random()*5000.))))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('   !   ')))
+            self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('!')))
 
             #color the unread green
             self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
 
-            for i in range(5): #make the cells not editable
+            for i in range(5): #make the cells not editable and make the text centered
                 self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+                self.queue_table.item(self.queue_table.rowCount() - 1, i).setTextAlignment(Qt.AlignHCenter) 
 
 
-        #############
-        #below this: old code for adding to the queue
-        #############
-
-        # self.queue_table.insertRow(self.queue_table.rowCount())
-
-        # self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(self.artifact_id)))
-        # self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(self.artifact_cat)))
-        # self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.artifact_priority)))
+        #scroll to the bottom of table
+        self.queue_table.scrollToBottom()
 
 
-        # #increase the artifact id so that the next artifact has a different id
-        # self.artifact_id+=1
 
     def initStatusPanel(self, pos):
         '''
@@ -594,13 +595,13 @@ class BasestationGuiPlugin(Plugin):
         robot_pos = artifact.pos
 
         #fill in the positional data
-        self.orig_pos_label_x.setText(str(robot_pos[0]))
-        self.orig_pos_label_y.setText(str(robot_pos[1]))
-        self.orig_pos_label_z.setText(str(robot_pos[2]))
+        self.orig_pos_label_x.setText(str(robot_pos[0])[:7])
+        self.orig_pos_label_y.setText(str(robot_pos[1])[:7])
+        self.orig_pos_label_z.setText(str(robot_pos[2])[:7])
         
-        self.art_pos_textbox_x.setText(str(robot_pos[0]))
-        self.art_pos_textbox_y.setText(str(robot_pos[1]))
-        self.art_pos_textbox_z.setText(str(robot_pos[2]))
+        self.art_pos_textbox_x.setText(str(robot_pos[0])[:7])
+        self.art_pos_textbox_y.setText(str(robot_pos[1])[:7])
+        self.art_pos_textbox_z.setText(str(robot_pos[2])[:7])
 
 
         #update the global info for what artifact is being displayed
@@ -637,19 +638,22 @@ class BasestationGuiPlugin(Plugin):
 
          #make a table
         self.queue_table = qt.QTableWidget()
-        # self.queue_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         #resize the cells to fill the widget 
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        # self.queue_table.resizeColumnsToContents()
 
         self.queue_table.setColumnCount(5) # set column count        
-        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Art.\nID', 'Detected\nTime', '   Category   ', 'Unread?']) #make the column headers
+        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Art.\nID', 'Detect\nTime', '   Category   ', 'Unread']) #make the column headers
 
+        #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()
-        
         # header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
         # header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-        # header.setSectionResizeMode(4, qt.QHeaderView.Stretch)
+        # header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(3, qt.QHeaderView.Stretch)
+        # header.setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
+
 
         #make sortable
         self.queue_table.setSortingEnabled(True)
@@ -733,6 +737,13 @@ class BasestationGuiPlugin(Plugin):
 
         self.arthist_table.setColumnCount(4) # set column count        
         self.arthist_table.setHorizontalHeaderLabels(['Category', 'Time', 'x/y/z', 'Response']) #make the column headers
+
+        #resize the column heading depending on the content
+        # header = self.arthist_table.horizontalHeader()
+        # header.setSectionResizeMode(0, qt.QHeaderView.Stretch)
+        # header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(2, qt.QHeaderView.Stretch)
+        # header.setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
 
         #make sortable
         self.arthist_table.setSortingEnabled(True)
@@ -830,7 +841,7 @@ class BasestationGuiPlugin(Plugin):
     
     def shutdown_plugin(self):
         # TODO unregister all publishers here
-        if(self.simulating_command_post):
+        if(self.connect_to_command_post):
             self.darpa_gui_bridge.shutdownHttpServer()
         
 

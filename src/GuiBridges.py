@@ -113,8 +113,10 @@ class RosGuiBridge:
         '''
         Send out a message for the robot to return home
         '''
-
-        pass
+        radio_msg = RadioMsg()
+        radio_msg.message_type = RadioMsg.RETURN_HOME
+        self.radio_pub.publish(radio_msg)
+        
 
     def publishWaypointGoal(self, msg, robot_name):
 
@@ -127,7 +129,7 @@ class RosGuiBridge:
 
         self.radio_pub.publish(radio_msg)
 
-        print radio_msg.data
+        # print radio_msg.data
 
 
 
@@ -169,10 +171,10 @@ class DarpaGuiBridge:
         self.http_client = TeamClient()
 
         #if we're also simulating the darpa command post
-        self.simulating_command_post = rospy.get_param("/simulating_command_post")
+        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
 
         #start a schedule which runs "get status" every few seconds
-        if(self.simulating_command_post):
+        if(self.connect_to_command_post):
             self.get_status_thread = threading.Timer(1.0, self.getStatus)
             self.get_status_thread.start()
 

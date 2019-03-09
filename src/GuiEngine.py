@@ -45,7 +45,7 @@ class GuiEngine:
         if (msg.message_type==RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
             self.addIncomingArtifact(msg)
         else:
-            print "We are getting data other than artifact detections and we don't know what to do with it"
+            print "We are getting messages other than artifact detections and we don't know what to do with it"
 
 
     def addIncomingArtifact(self, msg):

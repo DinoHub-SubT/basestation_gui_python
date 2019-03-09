@@ -1,8 +1,8 @@
 <launch>
 
 	<!-- set arguement for if we're going to simulate the command post or not -->
-	<arg name="simulating_command_post" default="false"/>
-	<param name="simulating_command_post" value= "$(arg simulating_command_post)" />
+	<arg name="connect_to_command_post" default="false"/>
+	<param name="connect_to_command_post" value= "$(arg connect_to_command_post)" />
 
 	<!-- set arguement for if we should simulate incoming artifact detections -->
 	<arg name="simulating_artifact_detections" default="false"/>
