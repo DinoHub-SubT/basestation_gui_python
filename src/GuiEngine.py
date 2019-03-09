@@ -38,14 +38,20 @@ class GuiEngine:
 
         self.gui = gui
 
+    def processIncomingMsg(self, msg):
+        '''
+        Process an incoming RadioMsg
+        '''
+        if (msg.message_type==RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
+            self.addIncomingArtifact(msg)
+        else:
+            print "We are getting messages other than artifact detections and we don't know what to do with it"
+
 
     def addIncomingArtifact(self, msg):
         '''
         Add an incoming artifact to the queue
         '''
-        if (msg.message_type!=RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
-            print "Message from robot that was not an artifact report!"
-        
 
         #convert the detection into a gui artifact type, which includes more data
         artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
@@ -55,10 +61,9 @@ class GuiEngine:
         self.queued_artifacts.append(artifact)
         self.all_artifacts.append(artifact)
 
-        # print len(self.all_artifacts)
-
         #call a function to graphically add it to the queue
         self.gui.sendToQueue(artifact)
+
 
 
 
@@ -75,6 +80,7 @@ class Artifact:
         self.artifact_report_id = artifact_report_id
         self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
         self.time_to_darpa = -1 #time submitted to darpa
+        self.unread = True
 
 
 
