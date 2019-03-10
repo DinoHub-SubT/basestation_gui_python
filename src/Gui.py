@@ -337,7 +337,10 @@ class BasestationGuiPlugin(Plugin):
             print "Nothing proposed. No artifact being displayed. Please select an artifact"
 
         elif(self.connect_to_command_post):
+            
             with self.artifact_proposal_lock: #to ensure we only draw one response at once
+
+                self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
             
                 data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
                          float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
@@ -350,7 +353,7 @@ class BasestationGuiPlugin(Plugin):
                                                                                                     proposal_return
 
                     #add this to the submission history panel 
-                    submission_time = self.displaySeconds(submission_time)
+                    submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time))
 
                     if(score_change==0):
                         submission_correct='False'
@@ -365,6 +368,7 @@ class BasestationGuiPlugin(Plugin):
                     response_item.setBackground(submission_color)
 
                     self.arthist_table.insertRow(self.arthist_table.rowCount())
+                    self.arthist_table.scrollToBottom() #scroll to the bottom of table
 
                     self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact_type)))
                     self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(submission_time)))
@@ -391,6 +395,10 @@ class BasestationGuiPlugin(Plugin):
 
                                 break
 
+                    #make the artifact non-editable
+                    for i in range(self.arthist_table.columnCount()): #make the cells not editable and make the text centered
+                        self.arthist_table.item(self.arthist_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+
 
                     #remove the artifact from the main visualization panel
                     self.orig_pos_label_x.setText('')
@@ -404,8 +412,10 @@ class BasestationGuiPlugin(Plugin):
 
                     self.displayed_artifact = None
 
-                    #scroll to the bottom of table
-                    self.arthist_table.scrollToBottom()
+                self.arthist_table.setSortingEnabled(True) 
+
+                    
+                
 
 
 
@@ -451,28 +461,46 @@ class BasestationGuiPlugin(Plugin):
         Send the artifact being examined to the queue
         '''
 
-        # self.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock'])
-        # print 
 
         with self.update_queue_lock:
+            self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
+
             self.queue_table.insertRow(self.queue_table.rowCount())
+            # self.queue_table.scrollToBottom() #scroll to the bottom of table
+
+            # item = self.queue_table.item(self.queue_table.rowCount() - 1, 0)
+            # self.queue_table.scrollToItem(item, QtGui.QAbstractItemView.PositionAtTop)
+            # self.queue_table.selectRow(self.queue_table.rowCount() - 1)
+
+
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
-            # self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(self.self.darpa_gui_bridge.darpa_status_update['run_clock']))))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.displaySeconds(random.random()*5000.))))
+
+            if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
+                self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(\
+                                                                                float(self.darpa_gui_bridge.darpa_status_update['run_clock'])))))
+            else:
+                self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(random.random()*5000))))
+
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('!')))
 
             #color the unread green
             self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
 
-            for i in range(5): #make the cells not editable and make the text centered
+            for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
                 self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
                 self.queue_table.item(self.queue_table.rowCount() - 1, i).setTextAlignment(Qt.AlignHCenter) 
 
+            # self.queue_table.verticalScrollBar().setSliderPosition(self.queue_table.verticalScrollBar().maximum()+1)
 
-        #scroll to the bottom of table
-        self.queue_table.scrollToBottom()
+            
+            self.queue_table.setSortingEnabled(True)
+            # self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+
+
+
+
 
 
 
@@ -762,11 +790,6 @@ class BasestationGuiPlugin(Plugin):
         self.arthist_widget.setLayout(self.arthist_layout)
         self.global_widget.addWidget(self.arthist_widget, pos[0], pos[1], pos[2], pos[3]) 
 
-    def displaySeconds(self, seconds):
-        '''
-        Function to convert seconds float into a min:sec string
-        '''
-        return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
       
 
 
