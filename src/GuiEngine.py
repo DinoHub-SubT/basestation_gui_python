@@ -81,6 +81,7 @@ class Artifact:
         self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
         self.time_to_darpa = -1 #time submitted to darpa
         self.unread = True
+        self.priority = 'Med'
 
 
 

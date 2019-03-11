@@ -229,8 +229,8 @@ class DarpaGuiBridge:
 
         msg = String()
         
-        msg.data = str("Time Left: "+str(time_remaining)+'\t Score: '+\
-                   str(self.darpa_status_update['score'])+ '\t Remaining Reports: '+\
+        msg.data = str("Time Left: "+str(time_remaining)+'   //   Score: '+\
+                   str(self.darpa_status_update['score'])+ '   //   Remaining Reports: '+\
                    str(self.darpa_status_update['remaining_reports'])+'/'+str(self.total_num_reports))
 
         self.status_pub.publish(msg)
