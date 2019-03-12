@@ -534,8 +534,8 @@ class BasestationGuiPlugin(Plugin):
         self.status_table = qt.QTableWidget()
 
         #resize the cells to fill the widget 
-        self.status_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
-        self.status_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        # self.status_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        # self.status_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         
         self.status_table.setRowCount(len(statuses)) # set row count
         self.status_table.setColumnCount(num_robots) # set column count
