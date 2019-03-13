@@ -137,7 +137,7 @@ class BasestationGuiPlugin(Plugin):
                 
                 
                 #upon press, do something in ROS
-                button.clicked.connect(partial(self.ros_gui_bridge.publishRobotCommand, command, robot_name, button))
+                button.clicked.connect(partial(self.processRobotCommandPress, command, robot_name, button))
 
                 robot_layout.addWidget(button, row, col)
 
@@ -155,6 +155,35 @@ class BasestationGuiPlugin(Plugin):
         #add the control panel to the overall gui
         self.control_widget.setLayout(self.control_layout)
         self.global_widget.addWidget(self.control_widget, pos[0], pos[1], pos[2], pos[3])
+
+    def processRobotCommandPress(self, command, robot_name, button):
+        '''
+        Ensure that we dont press simulatenously activate
+        conflicting command buttons (e.g. pause and soft estop)
+        '''
+
+        #if its an estop button, de-activate all other estop buttons
+        if (button.text() in self.ros_gui_bridge.estop_commands):
+
+            #find the set of control buttons for this robot
+            robot_ind = -1
+            for i, name in enumerate(self.ros_gui_bridge.robot_names):
+                if (robot_name == name):
+                    robot_ind = i
+
+
+            if (robot_ind!=-1):
+                control_buttons = self.control_buttons[robot_ind]
+
+                # print control_buttons
+
+                for cmd_button in control_buttons:
+                    if (cmd_button != button) and  (cmd_button.text() in self.ros_gui_bridge.estop_commands):
+                        
+                        cmd_button.setChecked(False)
+
+
+        self.ros_gui_bridge.publishRobotCommand(command, robot_name, button)
 
 
     def initArtifactVisualizer(self, pos):
@@ -274,9 +303,9 @@ class BasestationGuiPlugin(Plugin):
         button.clicked.connect(partial(self.proposeArtifact))
         self.artmanip_layout.addWidget(button, 5, 0, 1, 4)
 
-        button = qt.QPushButton("ARCHIVE")
-        # button.setSizePolicy(QSizePolicy.Expanding, 0)
-        self.artmanip_layout.addWidget(button, 6,0,1,4)
+        # button = qt.QPushButton("ARCHIVE")
+        # # button.setSizePolicy(QSizePolicy.Expanding, 0)
+        # self.artmanip_layout.addWidget(button, 6,0,1,4)
 
         #make the combobox for setting the artifact category
         self.darpa_cat_box = qt.QComboBox()
@@ -369,15 +398,19 @@ class BasestationGuiPlugin(Plugin):
 
 
                     #go find the artifact in the queue and remove it
-                    row_ind = self.findDisplayedArtifact()
+                    with self.update_queue_lock:
+                        self.queue_table.setSortingEnabled(False)
+                        row_ind = self.findDisplayedArtifact()
 
-                    if(row_ind!=-1):
-                        self.queue_table.removeRow(self.queue_table.item(i,0).row())
+                        if(row_ind!=-1):
+                            self.queue_table.removeRow(self.queue_table.item(row_ind,0).row())
 
-                        #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
-                        self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
-                        self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
 
+                            #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
+                            self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
+                            self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
+
+                        self.queue_table.setSortingEnabled(True)
 
 
                     #remove the artifact from the main visualization panel
@@ -453,7 +486,6 @@ class BasestationGuiPlugin(Plugin):
         self.dont_change_art_priority indicates if the change is automatic after clicking 
         on an artifact in the  queue and therefore don't do anything
         '''
-        print "change priority?: ",self.dont_change_art_priority
 
         if (not self.dont_change_art_priority) and self.displayed_artifact!=None :
 
@@ -479,8 +511,46 @@ class BasestationGuiPlugin(Plugin):
         '''
         The combo box for changing the artifact category was pressed
         '''
-        # self.artifact_cat = str(self.queue_cat_box.currentText())
-        pass
+
+        #first check the combobox change came from a  human and not a automatic call
+        if (not self.dont_change_art_category) and self.displayed_artifact!=None :             
+
+            #change the text in the queue
+            self.queue_table.setSortingEnabled(False)
+            
+            row_ind = self.findDisplayedArtifact()
+
+            #ensure that there is not an artifact with the same robot_id/time/category
+            found_match = False
+
+            robot_id = int(float(self.queue_table.item(row_ind, 0).text()))
+            detect_time = self.dispToSeconds(self.queue_table.item(row_ind, 2).text())
+            category = self.darpa_cat_box.currentText()
+
+            for i in range(self.queue_table.rowCount()):
+
+                if  (int(float(self.queue_table.item(i, 0).text())) == robot_id) and \
+                    (self.dispToSeconds(self.queue_table.item(i, 2).text()) == detect_time) and \
+                    (self.queue_table.item(i, 3).text() == category):
+
+                    found_match = True
+
+            if(found_match): #we already have an artifact of this robot_id/time/category
+                print "Cannot complete request. Already have an artifact of the same robot_id/time/category"
+
+            else:
+                if(row_ind!=-1):
+                    with self.update_queue_lock:
+                        self.queue_table.setItem(row_ind, 3, qt.QTableWidgetItem(self.darpa_cat_box.currentText()))
+                        self.queue_table.item(row_ind, 3).setTextAlignment(Qt.AlignHCenter) 
+                        self.queue_table.item(row_ind, 3).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+
+                self.displayed_artifact.category = self.darpa_cat_box.currentText()
+
+            self.queue_table.setSortingEnabled(True)
+
+        self.dont_change_art_category = False #reset its value
+        
 
 
     def sendToQueue(self, artifact):
@@ -625,7 +695,6 @@ class BasestationGuiPlugin(Plugin):
         queue is selected
         '''
 
-
         #remove the "unread" indicator if its there
         with self.update_queue_lock:
             self.queue_table.setItem(row,4, qt.QTableWidgetItem(str('')))
@@ -644,7 +713,8 @@ class BasestationGuiPlugin(Plugin):
         #change the combo boxes
         index = self.darpa_cat_box.findText(category, core.Qt.MatchFixedString)
         if index >= 0:
-             self.darpa_cat_box.setCurrentIndex(index)
+            self.dont_change_art_category = True #just change the gui, nothing else
+            self.darpa_cat_box.setCurrentIndex(index)
 
 
         ind = self.artifact_priority_box.findText(priority, core.Qt.MatchFixedString)
@@ -662,29 +732,27 @@ class BasestationGuiPlugin(Plugin):
                (art.category == category):
                 
                 artifact = art
+
+                #change the text of the xyz positions
+                robot_pos = artifact.pos
+
+                #fill in the positional data
+                self.orig_pos_label_x.setText(str(robot_pos[0])[:7])
+                self.orig_pos_label_y.setText(str(robot_pos[1])[:7])
+                self.orig_pos_label_z.setText(str(robot_pos[2])[:7])
+                
+                self.art_pos_textbox_x.setText(str(robot_pos[0])[:7])
+                self.art_pos_textbox_y.setText(str(robot_pos[1])[:7])
+                self.art_pos_textbox_z.setText(str(robot_pos[2])[:7])
+
+
+                #update the global info for what artifact is being displayed
+                self.updateDisplayedArtifact(artifact)
+
+                if(self.displayed_artifact!=None):
+                    self.displayed_artifact.unread = False
+
                 break
-
-
-
-
-        #change the text of the xyz positions
-        robot_pos = artifact.pos
-
-        #fill in the positional data
-        self.orig_pos_label_x.setText(str(robot_pos[0])[:7])
-        self.orig_pos_label_y.setText(str(robot_pos[1])[:7])
-        self.orig_pos_label_z.setText(str(robot_pos[2])[:7])
-        
-        self.art_pos_textbox_x.setText(str(robot_pos[0])[:7])
-        self.art_pos_textbox_y.setText(str(robot_pos[1])[:7])
-        self.art_pos_textbox_z.setText(str(robot_pos[2])[:7])
-
-
-        #update the global info for what artifact is being displayed
-        self.updateDisplayedArtifact(artifact)
-
-        if(self.displayed_artifact!=None):
-            self.displayed_artifact.unread = False
 
         
 
@@ -759,13 +827,24 @@ class BasestationGuiPlugin(Plugin):
         self.bigred_widget = QWidget()
         self.bigred_layout = qt.QVBoxLayout()
 
-        button = qt.QPushButton("ESTOP ALL\n  ROBOTS")
+        button = qt.QPushButton("SOFT ESTOP ALL\n  ROBOTS")
         button.setStyleSheet("background-color: red")
+        button.clicked.connect(self.processBigRed)
         self.bigred_layout.addWidget(button)            
 
         #add to the overall gui
         self.bigred_widget.setLayout(self.bigred_layout)
         self.global_widget.addWidget(self.bigred_widget, pos[0], pos[1])
+
+    def processBigRed(self):
+        '''
+        If the big red button is pressed, soft estop every robot
+        '''
+
+        for i, robot_name in enumerate(self.ros_gui_bridge.robot_names):
+            self.control_buttons[i][2].setChecked(True) #press the button in the gui
+            self.processRobotCommandPress(self.control_buttons[i][2].text(), robot_name, self.control_buttons[i][2])#soft estop command
+
 
 
     def initInfoPanel(self, pos):

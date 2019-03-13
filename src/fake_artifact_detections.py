@@ -29,7 +29,7 @@ def talker():
     while not rospy.is_shutdown() and num_pubbed < total_num_to_pub:
         msg.artifact_report_id =  random.randint(0,1000)
         msg.artifact_type =  random.sample(artifact_types,1)[0]
-        msg.artifact_robot_id = random.randint(0,1)
+        msg.artifact_robot_id = 0#random.randint(0,1)
         msg.artifact_x =  random.random()*2000
         msg.artifact_y =  random.random()*2000
         msg.artifact_z =  random.random()*2000

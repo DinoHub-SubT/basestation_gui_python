@@ -115,6 +115,7 @@ class RosGuiBridge:
         '''
         radio_msg = RadioMsg()
         radio_msg.message_type = RadioMsg.RETURN_HOME
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         self.radio_pub.publish(radio_msg)
         
 
