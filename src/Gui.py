@@ -94,6 +94,9 @@ class BasestationGuiPlugin(Plugin):
 
         self.displayed_artifact = None #which artifact is currently being displayed
 
+        self.dont_change_art_priority = False #if we click in the artifact  queue, just update the gui and nothing else
+        self.dont_change_art_category = False
+
 
     def initControlPanel(self, pos):
         '''
@@ -245,74 +248,63 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-
-
-        #add in a few buttons at the bottom to do various things
+ #add in a few buttons at the bottom to do various things
         self.artmanip_button_layout = qt.QHBoxLayout()
         self.artmanip_button_list = []
 
         #add the buttons and textboxes at the bottom
         art_action_label1 = qt.QLabel()
-        art_action_label1.setText('\n\nAction')
-        art_action_label1.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label1, 3, 0, 1, 2)
+        # art_action_label1.setText('\n\nAction')
+        # art_action_label1.setAlignment(Qt.AlignCenter)
+        # self.artmanip_layout.addWidget(art_action_label1, 3, 0, 1, 2)
 
         art_action_label2 = qt.QLabel()
         art_action_label2.setText('\n\nCategory')
+        art_action_label2.setFont(boldFont)
         art_action_label2.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label2, 3, 2)
+        self.artmanip_layout.addWidget(art_action_label2, 3, 0, 1, 3)
 
         art_action_label3 = qt.QLabel()
         art_action_label3.setText('\n\nPriority')
+        art_action_label3.setFont(boldFont)
         art_action_label3.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label3, 3, 3)
+        self.artmanip_layout.addWidget(art_action_label3, 3, 3, 1, 2)
 
-
-        button = qt.QPushButton("    To DARPA    ")
+        button = qt.QPushButton("To DARPA")
         button.clicked.connect(partial(self.proposeArtifact))
-        self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
+        self.artmanip_layout.addWidget(button, 5, 0, 1, 4)
 
-        self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
+        button = qt.QPushButton("ARCHIVE")
+        # button.setSizePolicy(QSizePolicy.Expanding, 0)
+        self.artmanip_layout.addWidget(button, 6,0,1,4)
 
+        #make the combobox for setting the artifact category
+        self.darpa_cat_box = qt.QComboBox()
+        
         for category in self.ros_gui_bridge.artifact_categories:
             self.darpa_cat_box.addItem(category)
-
-        self.artmanip_layout.addWidget(self.darpa_cat_box, 4,2)
-
+        
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        # button = qt.QPushButton("    To Queue    ")
-        # button.clicked.connect(partial(self.sendToQueue))
-        # self.artmanip_layout.addWidget(button, 5, 0, 1, 2)
+        self.artmanip_layout.addWidget(self.darpa_cat_box, 4, 0, 1, 3)
 
-        # self.queue_cat_box = qt.QComboBox()
+        #make the combobox for setting the artifact priority
+        self.artifact_priority_box = qt.QComboBox() 
 
-        # for category in self.ros_gui_bridge.artifact_categories:
-        #     self.queue_cat_box.addItem(category)
+        self.artifact_priority_box.addItem('High')
+        self.artifact_priority_box.addItem('Med')
+        self.artifact_priority_box.addItem('Low')
 
-        #set the defauly value of the artifact to whats being displayed
-         #variables for storing the current information about the artifact being examined
-        self.artifact_cat = self.ros_gui_bridge.artifact_categories[0]
-        self.artifact_id = 0
+        
+        self.artifact_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
-        # self.artmanip_layout.addWidget(self.queue_cat_box, 5,2)
+        self.artmanip_layout.addWidget(self.artifact_priority_box, 4, 3, 1, 1)
 
 
-        # self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        self.queue_priority_box = qt.QComboBox() #way to fill in the priority
-        self.queue_priority_box.addItem("    1    ")
-        self.artifact_priority = "    1    "
-        self.queue_priority_box.addItem("    2    ")
-        self.queue_priority_box.addItem("    3    ")
-        self.queue_priority_box.addItem("    4    ")
-        # self.artmanip_layout.addWidget(self.queue_priority_box, 5,3)
-
-        # self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
-
-        button = qt.QPushButton("    Discard    ")
-        # button.setSizePolicy(QSizePolicy.Expanding, 0)
-        self.artmanip_layout.addWidget(button, 6, 0, 1, 2)
+        # button = qt.QPushButton("    Discard    ")
+        # # button.setSizePolicy(QSizePolicy.Expanding, 0)
+        # self.artmanip_layout.addWidget(button, 6, 0, 1, 2)
 
          #add to the overall gui
         self.artmanip_widget.setLayout(self.artmanip_layout)
@@ -337,6 +329,7 @@ class BasestationGuiPlugin(Plugin):
             print "Nothing proposed. No artifact being displayed. Please select an artifact"
 
         elif(self.connect_to_command_post):
+            
             with self.artifact_proposal_lock: #to ensure we only draw one response at once
 
                 self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
@@ -376,22 +369,15 @@ class BasestationGuiPlugin(Plugin):
 
 
                     #go find the artifact in the queue and remove it
-                    if(self.displayed_artifact!=None): #if we have actually set the artifact
-                        for i in range(self.queue_table.rowCount()):
-                            robot_id = self.queue_table.item(i, 0).text()
-                            artifact_id = self.queue_table.item(i, 1).text()
+                    row_ind = self.findDisplayedArtifact()
 
-                            if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
-                               (int(self.displayed_artifact.artifact_report_id) == int(artifact_id)):
+                    if(row_ind!=-1):
+                        self.queue_table.removeRow(self.queue_table.item(i,0).row())
 
-                                self.queue_table.removeRow(self.queue_table.item(i,0).row())
+                        #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
+                        self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
+                        self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
 
-                                #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
-                                self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
-                                self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
-
-
-                                break
 
 
                     #remove the artifact from the main visualization panel
@@ -413,12 +399,39 @@ class BasestationGuiPlugin(Plugin):
                         self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
 
                 
+    def findDisplayedArtifact(self):
+        '''
+        Returns the row of the artifact table for the displayed artifact
+        '''
+        if (self.queue_table.isSortingEnabled()):
+            print "\n\n Table did not have sorting disabled!! \n\n"
+            self.queue_table.setSortingEnabled(False)
+
+        if(self.displayed_artifact!=None): #if we have actually set the artifact
+            for i in range(self.queue_table.rowCount()):
+                robot_id = self.queue_table.item(i, 0).text()
+                detection_time = self.dispToSeconds(self.queue_table.item(i, 2).text())
+                category = self.queue_table.item(i, 3).text()
+
+                if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
+                   (int(self.displayed_artifact.time_from_robot) == int(detection_time)) and \
+                   (self.displayed_artifact.category == category):
+
+                    return i
+
+        return -1
 
 
-    def removeArtifactFromQueue(self,artifact):
+    def dispToSeconds(self, disp_seconds):
         '''
-        Remove an artifact from the artifact queue
+        Convert from displayed seconds to actual seconds
         '''
+        colon = disp_seconds.find(':')
+        from_minutes = float(disp_seconds[:colon])*60
+        from_seconds = float(disp_seconds[colon+1:])
+
+        return int(from_minutes + from_seconds)
+
 
 
     def updateDisplayedArtifact(self, artifact):
@@ -437,8 +450,30 @@ class BasestationGuiPlugin(Plugin):
     def updateArtifactPriority(self):
         '''
         The combo box for changing the artifact priority was pressed
+        self.dont_change_art_priority indicates if the change is automatic after clicking 
+        on an artifact in the  queue and therefore don't do anything
         '''
-        self.artifact_priority = str(self.queue_priority_box.currentText())
+        print "change priority?: ",self.dont_change_art_priority
+
+        if (not self.dont_change_art_priority) and self.displayed_artifact!=None :
+
+            self.displayed_artifact.priority = self.artifact_priority_box.currentText()
+
+            #change the text in the queue
+            self.queue_table.setSortingEnabled(False)
+            
+            row_ind = self.findDisplayedArtifact()
+
+            if(row_ind!=-1):
+                with self.update_queue_lock:
+                    self.queue_table.setItem(row_ind, 1, qt.QTableWidgetItem(self.artifact_priority_box.currentText()))
+                    self.queue_table.item(row_ind, 1).setTextAlignment(Qt.AlignHCenter) 
+                    self.queue_table.item(row_ind, 1).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+
+            self.queue_table.setSortingEnabled(True)
+
+        self.dont_change_art_priority = False #reset its value
+
 
     def updateArtifactCat(self):
         '''
@@ -455,32 +490,47 @@ class BasestationGuiPlugin(Plugin):
 
         with self.update_queue_lock:
 
-            self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
+            #if we need to connect to the command post, wait
+            if (self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']==None):
 
-            self.queue_table.insertRow(self.queue_table.rowCount())
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
-            
-            if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
-                self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(\
-                                                                                float(self.darpa_gui_bridge.darpa_status_update['run_clock'])))))
+                #remove the artifact
+                self.gui_engine.queued_artifacts.remove(artifact)
+                self.gui_engine.all_artifacts.remove(artifact)
+                return False
+
             else:
-                self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(random.random()*5000))))
+                self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
 
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
-            self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('!')))
+                self.queue_table.insertRow(self.queue_table.rowCount())
+                self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
+                self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.priority)))
+                
+                if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
+                    self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(\
+                                                                                    float(self.darpa_gui_bridge.darpa_status_update['run_clock'])))))
+                    
+                    artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                
+                else:
+                    rand_time = float(random.random()*5000)
+                    self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(rand_time))))
+                    
+                    artifact.time_from_robot = int(rand_time)
 
-            #color the unread green
-            self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
+                self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
+                self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('!')))
 
-            for i in range(5): #make the cells not editable and make the text centered
-                self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
-                self.queue_table.item(self.queue_table.rowCount() - 1, i).setTextAlignment(Qt.AlignHCenter) 
+                #color the unread green
+                self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
 
-            self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
+                for i in range(5): #make the cells not editable and make the text centered
+                    self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+                    self.queue_table.item(self.queue_table.rowCount() - 1, i).setTextAlignment(Qt.AlignHCenter) 
 
-            if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
-                self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+                self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
+
+                if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
+                    self.queue_table.sortItems(2, core.Qt.DescendingOrder)
 
 
 
@@ -574,29 +624,47 @@ class BasestationGuiPlugin(Plugin):
         Callback that is run when something in the artifact
         queue is selected
         '''
-        # print "here"
+
 
         #remove the "unread" indicator if its there
-        self.queue_table.setItem(row,4, qt.QTableWidgetItem(str('')))
-        self.queue_table.item(row, 4)#.setBackground(gui.QColor(0,255,0))#color the unread green
-        # self.displayed_artifact.unread = False
+        with self.update_queue_lock:
+            self.queue_table.setItem(row,4, qt.QTableWidgetItem(str('')))
+            self.queue_table.item(row, 4)#.setBackground(gui.QColor(0,255,0))#color the unread green
+
+            clicked_robot_id =  int(self.queue_table.item(row, 0).text())
+            priority = self.queue_table.item(row, 1).text()
+            detection_time = self.dispToSeconds(self.queue_table.item(row, 2).text())
+            category = self.queue_table.item(row, 3).text()
+
+            #highlight the entire row
+            self.queue_table.selectRow(row)
 
 
-        clicked_robot_id =  int(self.queue_table.item(row, 0).text())
-        clicked_id =  self.queue_table.item(row, 1).text()
 
         #change the combo boxes
-        index = self.darpa_cat_box.findText(self.queue_table.item(row, 3).text(), core.Qt.MatchFixedString)
+        index = self.darpa_cat_box.findText(category, core.Qt.MatchFixedString)
         if index >= 0:
              self.darpa_cat_box.setCurrentIndex(index)
+
+
+        ind = self.artifact_priority_box.findText(priority, core.Qt.MatchFixedString)
+        if ind >= 0:
+            self.dont_change_art_priority = True  #just change the gui, nothing else
+            self.artifact_priority_box.setCurrentIndex(ind)        
+
 
         #associate with a specific artifact
         #todo: put in some error checking
         for art in self.gui_engine.queued_artifacts:
+            # print detection_time, art.time_from_robot
             if (int(art.source_robot) == int(clicked_robot_id)) and\
-               (int(art.artifact_report_id) == int(clicked_id)):
+               (int(art.time_from_robot) == int(detection_time)) and\
+               (art.category == category):
+                
                 artifact = art
                 break
+
+
 
 
         #change the text of the xyz positions
@@ -618,9 +686,7 @@ class BasestationGuiPlugin(Plugin):
         if(self.displayed_artifact!=None):
             self.displayed_artifact.unread = False
 
-        #highlight the entire row
-        self.queue_table.selectRow(row)
-
+        
 
 
     def removeQueueItem(self, row):
@@ -659,7 +725,7 @@ class BasestationGuiPlugin(Plugin):
         # self.queue_table.resizeColumnsToContents()
 
         self.queue_table.setColumnCount(5) # set column count        
-        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Art.\nID', 'Detect\nTime', '   Category   ', 'Unread']) #make the column headers
+        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread']) #make the column headers
 
         #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()
