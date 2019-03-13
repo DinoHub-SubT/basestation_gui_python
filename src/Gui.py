@@ -253,60 +253,49 @@ class BasestationGuiPlugin(Plugin):
 
         #add the buttons and textboxes at the bottom
         art_action_label1 = qt.QLabel()
-        # art_action_label1.setText('\n\nAction')
-        # art_action_label1.setAlignment(Qt.AlignCenter)
-        # self.artmanip_layout.addWidget(art_action_label1, 3, 0, 1, 2)
+        art_action_label1.setText('\n\nAction')
+        art_action_label1.setAlignment(Qt.AlignCenter)
+        self.artmanip_layout.addWidget(art_action_label1, 3, 0, 1, 2)
 
         art_action_label2 = qt.QLabel()
         art_action_label2.setText('\n\nCategory')
-        art_action_label2.setFont(boldFont)
         art_action_label2.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label2, 3, 0, 1, 3)
+        self.artmanip_layout.addWidget(art_action_label2, 3, 2)
 
         art_action_label3 = qt.QLabel()
         art_action_label3.setText('\n\nPriority')
-        art_action_label3.setFont(boldFont)
         art_action_label3.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label3, 3, 3, 1, 2)
+        self.artmanip_layout.addWidget(art_action_label3, 3, 3)
 
-        button = qt.QPushButton("To DARPA")
+
+        button = qt.QPushButton("    To DARPA    ")
         button.clicked.connect(partial(self.proposeArtifact))
-        self.artmanip_layout.addWidget(button, 5, 0, 1, 4)
+        self.artmanip_layout.addWidget(button, 4, 0, 1, 2)
 
-        button = qt.QPushButton("ARCHIVE")
-        # button.setSizePolicy(QSizePolicy.Expanding, 0)
-        self.artmanip_layout.addWidget(button, 6,0,1,4)
+        self.darpa_cat_box = qt.QComboBox() #textbox to manually fill in the category for submission to darpa
 
-        #make the combobox for setting the artifact category
-        self.darpa_cat_box = qt.QComboBox()
-        
         for category in self.ros_gui_bridge.artifact_categories:
             self.darpa_cat_box.addItem(category)
-        
+
+        self.artmanip_layout.addWidget(self.darpa_cat_box, 4,2)
+
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        self.artmanip_layout.addWidget(self.darpa_cat_box, 4, 0, 1, 3)
+        # button = qt.QPushButton("    To Queue    ")
+        # button.clicked.connect(partial(self.sendToQueue))
+        # self.artmanip_layout.addWidget(button, 5, 0, 1, 2)
 
-        #make the combobox for setting the artifact priority
-        self.artifact_priority_box = qt.QComboBox() 
+        # self.queue_cat_box = qt.QComboBox()
 
-        self.artifact_priority_box.addItem('High')
-        self.artifact_priority_box.addItem('Med')
-        self.artifact_priority_box.addItem('Low')
-
-        
-        self.artifact_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
-
-        self.artmanip_layout.addWidget(self.artifact_priority_box, 4, 3, 1, 1)
-
-        
-
+        # for category in self.ros_gui_bridge.artifact_categories:
+        #     self.queue_cat_box.addItem(category)
 
         #set the defauly value of the artifact to whats being displayed
          #variables for storing the current information about the artifact being examined
         self.artifact_cat = self.ros_gui_bridge.artifact_categories[0]
         self.artifact_id = 0
 
+        # self.artmanip_layout.addWidget(self.queue_cat_box, 5,2)
 
 
         # self.queue_cat_box.currentTextChanged.connect(self.updateArtifactCat)
@@ -321,7 +310,9 @@ class BasestationGuiPlugin(Plugin):
 
         # self.queue_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
-        
+        button = qt.QPushButton("    Discard    ")
+        # button.setSizePolicy(QSizePolicy.Expanding, 0)
+        self.artmanip_layout.addWidget(button, 6, 0, 1, 2)
 
          #add to the overall gui
         self.artmanip_widget.setLayout(self.artmanip_layout)
@@ -346,7 +337,6 @@ class BasestationGuiPlugin(Plugin):
             print "Nothing proposed. No artifact being displayed. Please select an artifact"
 
         elif(self.connect_to_command_post):
-
             with self.artifact_proposal_lock: #to ensure we only draw one response at once
 
                 self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
@@ -377,7 +367,6 @@ class BasestationGuiPlugin(Plugin):
                     response_item.setBackground(submission_color)
 
                     self.arthist_table.insertRow(self.arthist_table.rowCount())
-                    self.arthist_table.scrollToBottom() #scroll to the bottom of table
 
                     self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact_type)))
                     self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(submission_time)))
@@ -404,10 +393,6 @@ class BasestationGuiPlugin(Plugin):
 
                                 break
 
-                    #make the artifact non-editable
-                    for i in range(self.arthist_table.columnCount()): #make the cells not editable and make the text centered
-                        self.arthist_table.item(self.arthist_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
-
 
                     #remove the artifact from the main visualization panel
                     self.orig_pos_label_x.setText('')
@@ -421,15 +406,19 @@ class BasestationGuiPlugin(Plugin):
 
                     self.displayed_artifact = None
 
+
                 self.arthist_table.setSortingEnabled(True) 
 
-            
-
                 if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
-                    self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+                        self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
 
-        
+                
 
+
+    def removeArtifactFromQueue(self,artifact):
+        '''
+        Remove an artifact from the artifact queue
+        '''
 
 
     def updateDisplayedArtifact(self, artifact):
@@ -449,9 +438,7 @@ class BasestationGuiPlugin(Plugin):
         '''
         The combo box for changing the artifact priority was pressed
         '''
-
-        if(self.displayed_artifact!=None):
-            self.displayed_artifact.priority = self.queue_priority_box.currentText()
+        self.artifact_priority = str(self.queue_priority_box.currentText())
 
     def updateArtifactCat(self):
         '''
@@ -466,21 +453,14 @@ class BasestationGuiPlugin(Plugin):
         Send the artifact being examined to the queue
         '''
 
-
         with self.update_queue_lock:
+
             self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
 
             self.queue_table.insertRow(self.queue_table.rowCount())
-            # self.queue_table.scrollToBottom() #scroll to the bottom of table
-
-            # item = self.queue_table.item(self.queue_table.rowCount() - 1, 0)
-            # self.queue_table.scrollToItem(item, QtGui.QAbstractItemView.PositionAtTop)
-            # self.queue_table.selectRow(self.queue_table.rowCount() - 1)
-
-
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
             self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.artifact_report_id)))
-
+            
             if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
                 self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(\
                                                                                 float(self.darpa_gui_bridge.darpa_status_update['run_clock'])))))
@@ -493,21 +473,14 @@ class BasestationGuiPlugin(Plugin):
             #color the unread green
             self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
 
-            for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
+            for i in range(5): #make the cells not editable and make the text centered
                 self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
                 self.queue_table.item(self.queue_table.rowCount() - 1, i).setTextAlignment(Qt.AlignHCenter) 
 
-            # self.queue_table.verticalScrollBar().setSliderPosition(self.queue_table.verticalScrollBar().maximum()+1)
-
-            
-            self.queue_table.setSortingEnabled(True)
+            self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
 
             if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                 self.queue_table.sortItems(2, core.Qt.DescendingOrder)
-
-
-
-
 
 
 
@@ -534,8 +507,8 @@ class BasestationGuiPlugin(Plugin):
         self.status_table = qt.QTableWidget()
 
         #resize the cells to fill the widget 
-        # self.status_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
-        # self.status_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        self.status_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        self.status_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         
         self.status_table.setRowCount(len(statuses)) # set row count
         self.status_table.setColumnCount(num_robots) # set column count
@@ -676,10 +649,9 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table_sort_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
         self.queue_table_sort_button.toggle() #start with it sorting the table
 
-        self.queue_layout.addWidget(self.queue_table_sort_button, 0, 1)
-               
+        self.queue_layout.addWidget(self.queue_table_sort_button, 1, 0)
 
-        #make a table
+         #make a table
         self.queue_table = qt.QTableWidget()
 
         #resize the cells to fill the widget 
@@ -689,15 +661,25 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.setColumnCount(5) # set column count        
         self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Art.\nID', 'Detect\nTime', '   Category   ', 'Unread']) #make the column headers
 
+        #resize the column heading depending on the content
+        # header = self.queue_table.horizontalHeader()
+        # header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(3, qt.QHeaderView.Stretch)
+        # header.setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
+
+
         #make sortable
         self.queue_table.setSortingEnabled(True)
+
 
         #add click listener
         self.queue_table.cellDoubleClicked.connect(self.queueClick)
 
 
         #add the table to the layout
-        self.queue_layout.addWidget(self.queue_table, 1, 0, 1, 2)
+        self.queue_layout.addWidget(self.queue_table)
 
         #add to the overall gui
         self.queue_widget.setLayout(self.queue_layout)
@@ -734,7 +716,7 @@ class BasestationGuiPlugin(Plugin):
 
         self.info_label = qt.QLabel()
         self.info_label.setText('Time Left: -- \t Score: -- \t Proposals Left: --')
-        # self.info_label.setAlignment(Qt.AlignCenter)
+        self.info_label.setAlignment(Qt.AlignCenter)
         self.info_label.setFont(boldFont)
         self.info_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')
 
@@ -765,7 +747,7 @@ class BasestationGuiPlugin(Plugin):
         self.arthist_table_sort_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
         self.arthist_table_sort_button.toggle() #start with it sorting the table
 
-        self.arthist_layout.addWidget(self.arthist_table_sort_button, 0, 1)
+        self.arthist_layout.addWidget(self.arthist_table_sort_button, 1, 0)
 
          #make a table
         self.arthist_table = qt.QTableWidget()
@@ -796,12 +778,17 @@ class BasestationGuiPlugin(Plugin):
 
 
         #add the table to the layout
-        self.arthist_layout.addWidget(self.arthist_table, 1, 0, 1, 2)
+        self.arthist_layout.addWidget(self.arthist_table)
 
         #add to the overall gui
         self.arthist_widget.setLayout(self.arthist_layout)
         self.global_widget.addWidget(self.arthist_widget, pos[0], pos[1], pos[2], pos[3]) 
 
+    def displaySeconds(self, seconds):
+        '''
+        Function to convert seconds float into a min:sec string
+        '''
+        return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
       
 
 
@@ -815,11 +802,11 @@ class BasestationGuiPlugin(Plugin):
 
         # self.init_buttons(self.config_filename)
 
-        #define the position of everything in terms of row, column, rowspan, columnspan
+        #define the position of everything in terms of row, column
         info_pos    = [0,1,1,1]
         bigred_pos  = [0,2]
         status_pos  = [1,2,4,1]
-        queue_pos   = [1,0,4,1] 
+        queue_pos   = [1,0,4,1] #last 2 parameters are rowspan and columnspan
         control_pos = [5,2,2,1]
         artvis_pos  = [1,1,4,1]
         arthist_pos = [5,0,2,1]     
