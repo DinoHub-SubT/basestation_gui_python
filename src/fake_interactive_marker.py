@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 '''
-File which publishes fake artifact detections
+File which publishes fake interactive marker.
+Not actually used in final code, more for exploratory
+purposes.
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
 '''
 import rospy
