@@ -53,16 +53,27 @@ class GuiEngine:
         Add an incoming artifact to the queue
         '''
 
-        #convert the detection into a gui artifact type, which includes more data
-        artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                            msg.artifact_robot_id, msg.artifact_report_id)
+        #make sure we don't have a duplicate artifact
+        found_duplicate = False
 
-        #add the artifact to the list of queued objects and to the all_artifacts list
-        self.queued_artifacts.append(artifact)
-        self.all_artifacts.append(artifact)
+        for artifact in self.all_artifacts:
+            if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
+                int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
-        #call a function to graphically add it to the queue
-        self.gui.sendToQueue(artifact)
+                print "Duplicate artifact detection thrown away"
+                found_duplicate = True
+
+        if (not found_duplicate):
+            #convert the detection into a gui artifact type, which includes more data
+            artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                msg.artifact_robot_id, msg.artifact_report_id)
+
+            #add the artifact to the list of queued objects and to the all_artifacts list
+            self.queued_artifacts.append(artifact)
+            self.all_artifacts.append(artifact)
+
+            #call a function to graphically add it to the queue
+            self.gui.sendToQueue(artifact)
 
 
 

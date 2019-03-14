@@ -50,7 +50,13 @@ from argparse import ArgumentParser
 from GuiEngine import GuiEngine
 
 
-
+class NumericItem(qt.QTableWidgetItem):
+    '''
+    Class whic overwrites a pyqt table widget item in order to allow for better sorting (e.g. '2'<'100')
+    '''
+    def __lt__(self, other):
+        return (self.data(core.Qt.UserRole) <\
+                other.data(core.Qt.UserRole))
 
 
 class BasestationGuiPlugin(Plugin):
@@ -389,11 +395,28 @@ class BasestationGuiPlugin(Plugin):
                     response_item.setBackground(submission_color)
 
                     self.arthist_table.insertRow(self.arthist_table.rowCount())
+                    row = self.arthist_table.rowCount() - 1
 
-                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact_type)))
-                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(submission_time)))
-                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(int(x))+'/'+str(int(y))+'/'+str(int(z))))
-                    self.arthist_table.setItem(self.arthist_table.rowCount() - 1, 3, response_item)
+                    row_data = [artifact_type, submission_time, str(int(x))+'/'+str(int(y))+'/'+str(int(z))]
+
+                    for col, val in enumerate(row_data):
+                    
+                        if (str(val).find(':')==-1): #if we're not dealing with a display time
+                            item = NumericItem(str(val))
+                            item.setData(core.Qt.UserRole, val)
+                            
+                        
+                        else:
+                            colon = submission_time.find(':')
+                            val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
+                            item = NumericItem(str(submission_time))
+                            item.setData(core.Qt.UserRole, val)
+
+                        self.arthist_table.setItem(row, col, item)
+
+                    #add the response item, we don't want this to be a NumericItem
+                    self.arthist_table.setItem(row, 3, response_item)
+
 
 
 
@@ -443,12 +466,10 @@ class BasestationGuiPlugin(Plugin):
         if(self.displayed_artifact!=None): #if we have actually set the artifact
             for i in range(self.queue_table.rowCount()):
                 robot_id = self.queue_table.item(i, 0).text()
-                detection_time = self.dispToSeconds(self.queue_table.item(i, 2).text())
-                category = self.queue_table.item(i, 3).text()
+                art_id = self.queue_table.item(i, 5).text()
 
                 if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
-                   (int(self.displayed_artifact.time_from_robot) == int(detection_time)) and \
-                   (self.displayed_artifact.category == category):
+                   (int(self.displayed_artifact.artifact_report_id) == int(art_id)):
 
                     return i
 
@@ -569,40 +590,53 @@ class BasestationGuiPlugin(Plugin):
                 return False
 
             else:
+
                 self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
 
                 self.queue_table.insertRow(self.queue_table.rowCount())
-                self.queue_table.setItem(self.queue_table.rowCount() - 1, 0, qt.QTableWidgetItem(str(artifact.source_robot)))
-                self.queue_table.setItem(self.queue_table.rowCount() - 1, 1, qt.QTableWidgetItem(str(artifact.priority)))
-                
-                if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
-                    self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(\
-                                                                                    float(self.darpa_gui_bridge.darpa_status_update['run_clock'])))))
-                    
-                    artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
-                
-                else:
-                    rand_time = float(random.random()*5000)
-                    self.queue_table.setItem(self.queue_table.rowCount() - 1, 2, qt.QTableWidgetItem(str(self.darpa_gui_bridge.displaySeconds(rand_time))))
-                    
-                    artifact.time_from_robot = int(rand_time)
+                row = self.queue_table.rowCount() - 1
 
-                self.queue_table.setItem(self.queue_table.rowCount() - 1, 3, qt.QTableWidgetItem(str(artifact.category)))
-                self.queue_table.setItem(self.queue_table.rowCount() - 1, 4, qt.QTableWidgetItem(str('!')))
+                #fill in the row data
+                disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+
+                # random.sample(rand_list,1)[0]
+
+                row_data = [artifact.source_robot, artifact.priority, disp_time, \
+                            artifact.category, '!', artifact.artifact_report_id]
+
+
+                for col, val in enumerate(row_data):
+                    
+                    if (str(val).find(':')==-1): #if we're not dealing with a display time
+                        item = NumericItem(str(val))
+                        item.setData(core.Qt.UserRole, val)
+                        
+                    
+                    else:
+                        colon = disp_time.find(':')
+                        val = float(disp_time[:colon])*60 + float(disp_time[colon+1:])
+                        item = NumericItem(str(disp_time))
+                        item.setData(core.Qt.UserRole, val)
+
+                    self.queue_table.setItem(row, col, item)
+
+
+                artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
 
                 #color the unread green
-                self.queue_table.item(self.queue_table.rowCount() - 1, 4).setBackground(gui.QColor(0,255,0))
+                self.queue_table.item(row, 4).setBackground(gui.QColor(0,255,0))
 
-                for i in range(5): #make the cells not editable and make the text centered
-                    self.queue_table.item(self.queue_table.rowCount() - 1, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
-                    self.queue_table.item(self.queue_table.rowCount() - 1, i).setTextAlignment(Qt.AlignHCenter) 
+                for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
+                    if self.queue_table.item(row, i) != None: 
+                        self.queue_table.item(row, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+                        self.queue_table.item(row, i).setTextAlignment(Qt.AlignHCenter) 
 
                 self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
 
                 if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                     self.queue_table.sortItems(2, core.Qt.DescendingOrder)
 
-
+   
 
     def initStatusPanel(self, pos):
         '''
@@ -702,8 +736,8 @@ class BasestationGuiPlugin(Plugin):
 
             clicked_robot_id =  int(self.queue_table.item(row, 0).text())
             priority = self.queue_table.item(row, 1).text()
-            detection_time = self.dispToSeconds(self.queue_table.item(row, 2).text())
             category = self.queue_table.item(row, 3).text()
+            artifact_report_id  = self.queue_table.item(row, 5).text()
 
             #highlight the entire row
             self.queue_table.selectRow(row)
@@ -726,10 +760,9 @@ class BasestationGuiPlugin(Plugin):
         #associate with a specific artifact
         #todo: put in some error checking
         for art in self.gui_engine.queued_artifacts:
-            # print detection_time, art.time_from_robot
+
             if (int(art.source_robot) == int(clicked_robot_id)) and\
-               (int(art.time_from_robot) == int(detection_time)) and\
-               (art.category == category):
+               (int(art.artifact_report_id) == int(artifact_report_id)):
                 
                 artifact = art
 
@@ -792,8 +825,11 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         # self.queue_table.resizeColumnsToContents()
 
-        self.queue_table.setColumnCount(5) # set column count        
-        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread']) #make the column headers
+        self.queue_table.setColumnCount(6) # set column count        
+        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Artifact Report ID']) #make the column headers
+
+        #hide the artifact
+        self.queue_table.setColumnHidden(5,True)
 
         #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()

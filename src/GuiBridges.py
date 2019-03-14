@@ -260,6 +260,7 @@ class DarpaGuiBridge:
             seconds_str = '0'+str(seconds_int)
         else:
             seconds_str = str(seconds_int)
+
         return str((int(seconds)/60))+':'+seconds_str
 
 
