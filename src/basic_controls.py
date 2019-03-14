@@ -452,53 +452,28 @@ def generateInteractiveMarker():
 
     server.applyChanges()
 
+def moveInteractiveMarker(pose):
+    '''
+    Move the interactive marker to a specific position
+    '''
+
+    int_marker.pose.position = pose
+
+    server.insert(int_marker, processFeedback)
+    menu_handler.apply( server, int_marker.name )
+    server.applyChanges()
+
     
 
 def hideInteractiveMarker():
     '''
     Function to hide interactive marker
     '''
-    global marker_control, int_marker, server
+    global int_marker, server
 
-    # int_marker.pose.position = position
-
-    # marker_control.markers[0].scale.x = 1E-3
-    # marker_control.markers[0].scale.y = 1E-3
-    # marker_control.markers[0].scale.z = 1E-3
-
-    # marker_control.markers[0].color.a = 0.
-
-    # int_marker.controls[0].markers[0].color.r = 1.
-    # int_marker.controls[0].markers[0].color.g = 0.
-    # int_marker.controls[0].markers[0].color.b = 0.
-
-    # print int_marker.controls[0].markers[0].color
-
-    # # marker_control.markers[0].color.r = 0.
-    # # marker_control.markers[0].color.g = 0.
-    # # marker_control.markers[0].color.b = 1.0
-
-    # server.insert(int_marker, processFeedback)
-    # menu_handler.apply( server, int_marker.name )
-
-    # server.applyChanges()
-
-    # pose = int_marker.pose
-
-    # pose.position.x = 0
-    # pose.position.y = 0
-    # pose.position.z = -5
-
-    # server.setPose(int_marker.name, pose)
-    # server.applyChanges()
-
-    # print int_marker.name
-
+    server.erase(int_marker.name)
+    server.applyChanges()
     
-
-    # print server.get(int_marker.name)
-
-    # rospy.spin()
 
 
 if __name__=="__main__":
@@ -508,59 +483,13 @@ if __name__=="__main__":
 
     rate = rospy.Rate(0.5)
 
-    while not rospy.is_shutdown():
+    # while not rospy.is_shutdown():
 
-        if(server.get(int_marker.name)!=None):
-            server.erase(int_marker.name)
-            server.applyChanges()
-        else:
-            server.insert(int_marker, processFeedback)
-            menu_handler.apply( server, int_marker.name )
-            server.applyChanges()
-        rate.sleep()
+    #     if(server.get(int_marker.name)!=None):
+    #         hideInteractiveMarker()
 
-    # rospy.init_node("basic_controls")
-    # br = TransformBroadcaster()
-    
-    # create a timer to update the published transforms
-    # rospy.Timer(rospy.Duration(0.01), frameCallback)
-
-    # server = InteractiveMarkerServer("basic_controls")
-
-    # menu_handler.insert( "First Entry", callback=processFeedback )
-    # menu_handler.insert( "Second Entry", callback=processFeedback )
-    # sub_menu_handle = menu_handler.insert( "Submenu" )
-    # menu_handler.insert( "First Entry", parent=sub_menu_handle, callback=processFeedback )
-    # menu_handler.insert( "Second Entry", parent=sub_menu_handle, callback=processFeedback )
-  
-    
-    # position = Point(-3, 3, 0)
-    # make6DofMarker( False, InteractiveMarkerControl.NONE, position, True)
-    # position = Point( 0, 3, 0)
-    # make6DofMarker( True, InteractiveMarkerControl.NONE, position, True)
-    # position = Point( 3, 3, 0)
-    # makeRandomDofMarker( position )
-    # position = Point(-3, 0, 0)
-    # make6DofMarker( False, InteractiveMarkerControl.ROTATE_3D, position, False)
-    # position = Point( 0, 0, 0)
-    # make6DofMarker( False, InteractiveMarkerControl.MOVE_ROTATE_3D, position, True )
-    # position = Point( 3, 0, 0)
-    # make6DofMarker( False, InteractiveMarkerControl.MOVE_3D, position, False)
-    # position = Point(-3, -3, 0)
-    # makeViewFacingMarker( position )
-    # position = Point( 0, -3, 0)
-    # makeQuadrocopterMarker( position )
-    # position = Point( 3, -3, 0)
-    # makeChessPieceMarker( position )
-    # position = Point(-3, -6, 0)
-    # makePanTiltMarker( position )
-    # position = Point( 0, -6, 0)
-    # makeMovingMarker( position )
-    # position = Point( 3, -6, 0)
-    # makeMenuMarker( position )
-    
-
-    # server.applyChanges()
-
-    # rospy.spin()
+    #     else:
+    #         pose = Point( random()*3,random()*3,random()*3 )
+    #         moveInteractiveMarker(pose)
+    #     rate.sleep()
 

@@ -49,6 +49,9 @@ from argparse import ArgumentParser
 
 from GuiEngine import GuiEngine
 
+# from geometry_msgs.msg import Point
+# from interactiveMarkerProcessing import CustomInteractiveMarker
+
 
 class NumericItem(qt.QTableWidgetItem):
     '''
@@ -102,6 +105,8 @@ class BasestationGuiPlugin(Plugin):
 
         self.dont_change_art_priority = False #if we click in the artifact  queue, just update the gui and nothing else
         self.dont_change_art_category = False
+
+       
 
 
     def initControlPanel(self, pos):
@@ -220,6 +225,13 @@ class BasestationGuiPlugin(Plugin):
         self.artvis_widget.setLayout(self.artvis_layout)
         self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1], pos[2], pos[3])
 
+    def processArtRefinementPress(self):
+        if (self.displayed_artifact != None):
+            self.ros_gui_bridge.publishRefinementMarkerPos(self.displayed_artifact)
+        else:
+            print "Request not processed. No artifact currently being displayed"
+        pass
+
     def initArtifactManipulator(self, pos):
         '''
         Buttons and textboxes to refine the position and complete actions with the  artifact
@@ -228,6 +240,12 @@ class BasestationGuiPlugin(Plugin):
          #define the overall widget
         self.artmanip_widget = QWidget()
         self.artmanip_layout = qt.QGridLayout()
+
+        #add button for displaying the interactive marker
+        button = qt.QPushButton("Show Refinement Marker")
+        button.setCheckable(True)
+        button.clicked.connect(self.processArtRefinementPress)
+        self.artmanip_layout.addWidget(button, 0, 0 , 1, 4)
 
         #add in information about 3d position     
         dimensions = ['X', 'Y', 'Z'] 
@@ -240,46 +258,46 @@ class BasestationGuiPlugin(Plugin):
             dim_label.setText(dim)
             dim_label.setAlignment(Qt.AlignCenter)
             dim_label.setFont(boldFont)
-            self.artmanip_layout.addWidget(dim_label, 0, i+1)
+            self.artmanip_layout.addWidget(dim_label, 1, i+1)
 
         #information about the detected position
         robot_pos = ['N/A', 'N/A', 'N/A'] #fake data
 
         self.orig_pos_label = qt.QLabel()
         self.orig_pos_label.setText('Original Position')
-        self.artmanip_layout.addWidget(self.orig_pos_label, 1, 0)
+        self.artmanip_layout.addWidget(self.orig_pos_label, 2, 0)
 
         self.orig_pos_label_x = qt.QLabel()
         self.orig_pos_label_x.setText(str(robot_pos[0]))
         self.orig_pos_label_x.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(self.orig_pos_label_x, 1, 1)
+        self.artmanip_layout.addWidget(self.orig_pos_label_x, 2, 1)
 
         self.orig_pos_label_y = qt.QLabel()
         self.orig_pos_label_y.setText(str(robot_pos[1]))
         self.orig_pos_label_y.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(self.orig_pos_label_y, 1, 2)
+        self.artmanip_layout.addWidget(self.orig_pos_label_y, 2, 2)
 
         self.orig_pos_label_z = qt.QLabel()
         self.orig_pos_label_z.setText(str(robot_pos[2]))
         self.orig_pos_label_z.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(self.orig_pos_label_z, 1, 3)
+        self.artmanip_layout.addWidget(self.orig_pos_label_z, 2, 3)
 
         #editable information about the position, to send to darpa
         refined_pos_label = qt.QLabel()
         refined_pos_label.setText('Refined Position')
-        self.artmanip_layout.addWidget(refined_pos_label, 2, 0)
+        self.artmanip_layout.addWidget(refined_pos_label, 3, 0)
 
         self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
        
         #fill in some fake data
         self.art_pos_textbox_x.setText(str(robot_pos[0]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 2, 1)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 3, 1)
 
         self.art_pos_textbox_y.setText(str(robot_pos[1]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 2, 2)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 3, 2)
 
         self.art_pos_textbox_z.setText(str(robot_pos[2]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 2, 3)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 3, 3)
 
 
 
@@ -297,17 +315,17 @@ class BasestationGuiPlugin(Plugin):
         art_action_label2.setText('\n\nCategory')
         art_action_label2.setFont(boldFont)
         art_action_label2.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label2, 3, 0, 1, 3)
+        self.artmanip_layout.addWidget(art_action_label2, 4, 0, 1, 3)
 
         art_action_label3 = qt.QLabel()
         art_action_label3.setText('\n\nPriority')
         art_action_label3.setFont(boldFont)
         art_action_label3.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label3, 3, 3, 1, 2)
+        self.artmanip_layout.addWidget(art_action_label3, 4, 3, 1, 2)
 
         button = qt.QPushButton("To DARPA")
         button.clicked.connect(partial(self.proposeArtifact))
-        self.artmanip_layout.addWidget(button, 5, 0, 1, 4)
+        self.artmanip_layout.addWidget(button, 6, 0, 1, 4)
 
         # button = qt.QPushButton("ARCHIVE")
         # # button.setSizePolicy(QSizePolicy.Expanding, 0)
@@ -321,7 +339,7 @@ class BasestationGuiPlugin(Plugin):
         
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        self.artmanip_layout.addWidget(self.darpa_cat_box, 4, 0, 1, 3)
+        self.artmanip_layout.addWidget(self.darpa_cat_box, 5, 0, 1, 3)
 
         #make the combobox for setting the artifact priority
         self.artifact_priority_box = qt.QComboBox() 
@@ -333,7 +351,7 @@ class BasestationGuiPlugin(Plugin):
         
         self.artifact_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
 
-        self.artmanip_layout.addWidget(self.artifact_priority_box, 4, 3, 1, 1)
+        self.artmanip_layout.addWidget(self.artifact_priority_box, 5, 3, 1, 1)
 
 
 
@@ -1061,8 +1079,9 @@ class BasestationGuiPlugin(Plugin):
         self.ros_gui_bridge = RosGuiBridge(self.config_filename)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
         self.gui_engine = GuiEngine(self)
+        
         self.buildGui()
-        pass
+
 
     #def trigger_configuration(self):
         # Comment in to signal that the plugin has a way to configure

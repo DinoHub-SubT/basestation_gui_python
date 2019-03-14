@@ -9,7 +9,7 @@ import rospy
 from std_msgs.msg import String
 import yaml
 import sys
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point
 import pdb
 from basestation_gui_python.msg import RadioMsg
 import numpy as np
@@ -59,6 +59,10 @@ class RosGuiBridge:
         self.artifact_categories = []
         for category in darpa_params['artifact_categories']:
             self.artifact_categories.append(category)
+
+
+        #publisher for moving the refinment marker
+        self.refinement_marker_pos_pub = rospy.Publisher('/refinement_marker_pos', Point, queue_size=50)
 
         
         
@@ -117,6 +121,17 @@ class RosGuiBridge:
         radio_msg.message_type = RadioMsg.RETURN_HOME
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         self.radio_pub.publish(radio_msg)
+
+    def publishRefinementMarkerPos(self, artifact):
+        '''
+        Publish a position change to the refinement marker
+        '''
+
+        pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
+        self.refinement_marker_pos_pub.publish(pose)
+
+
+
         
 
     def publishWaypointGoal(self, msg, robot_name):
