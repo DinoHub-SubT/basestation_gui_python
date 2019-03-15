@@ -106,6 +106,8 @@ class BasestationGuiPlugin(Plugin):
         self.dont_change_art_priority = False #if we click in the artifact  queue, just update the gui and nothing else
         self.dont_change_art_category = False
 
+
+
        
 
 
@@ -226,11 +228,34 @@ class BasestationGuiPlugin(Plugin):
         self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1], pos[2], pos[3])
 
     def processArtRefinementPress(self):
+        '''
+        Process pressing of the button, which visualizes the 
+        interactive marker for artifact refinement
+        '''
         if (self.displayed_artifact != None):
-            self.ros_gui_bridge.publishRefinementMarkerPos(self.displayed_artifact)
+            self.ros_gui_bridge.publishRefinementMarkerPos(self.displayed_artifact, self.art_refinement_button)
         else:
             print "Request not processed. No artifact currently being displayed"
-        pass
+        
+    def updateRefinmentPos(self, msg):
+        '''
+        When the interactive marker moves, this 
+        is called to update the appropriate textboxes and 
+        update the artifact position
+        '''
+
+        #change the textboxes
+        self.art_pos_textbox_x.setText(str(msg.pose.position.x)[:7])
+        self.art_pos_textbox_y.setText(str(msg.pose.position.y)[:7])
+        self.art_pos_textbox_z.setText(str(msg.pose.position.z)[:7])
+
+        #change the artifact 
+        if(self.displayed_artifact != None):
+            self.displayed_artifact.pos[0] = msg.pose.position.x
+            self.displayed_artifact.pos[1] = msg.pose.position.y
+            self.displayed_artifact.pos[2] = msg.pose.position.z
+
+
 
     def initArtifactManipulator(self, pos):
         '''
@@ -242,10 +267,10 @@ class BasestationGuiPlugin(Plugin):
         self.artmanip_layout = qt.QGridLayout()
 
         #add button for displaying the interactive marker
-        button = qt.QPushButton("Show Refinement Marker")
-        button.setCheckable(True)
-        button.clicked.connect(self.processArtRefinementPress)
-        self.artmanip_layout.addWidget(button, 0, 0 , 1, 4)
+        self.art_refinement_button = qt.QPushButton("Show Refinement Marker")
+        self.art_refinement_button.setCheckable(True)
+        self.art_refinement_button.clicked.connect(self.processArtRefinementPress)
+        self.artmanip_layout.addWidget(self.art_refinement_button, 0, 0 , 1, 4)
 
         #add in information about 3d position     
         dimensions = ['X', 'Y', 'Z'] 
@@ -786,11 +811,12 @@ class BasestationGuiPlugin(Plugin):
 
                 #change the text of the xyz positions
                 robot_pos = artifact.pos
+                orig_robot_pos = artifact.orig_pos
 
                 #fill in the positional data
-                self.orig_pos_label_x.setText(str(robot_pos[0])[:7])
-                self.orig_pos_label_y.setText(str(robot_pos[1])[:7])
-                self.orig_pos_label_z.setText(str(robot_pos[2])[:7])
+                self.orig_pos_label_x.setText(str(orig_robot_pos[0])[:7])
+                self.orig_pos_label_y.setText(str(orig_robot_pos[1])[:7])
+                self.orig_pos_label_z.setText(str(orig_robot_pos[2])[:7])
                 
                 self.art_pos_textbox_x.setText(str(robot_pos[0])[:7])
                 self.art_pos_textbox_y.setText(str(robot_pos[1])[:7])
@@ -1076,7 +1102,7 @@ class BasestationGuiPlugin(Plugin):
         config file. 
         '''
         self.config_filename = instance_settings.value('config_filename')
-        self.ros_gui_bridge = RosGuiBridge(self.config_filename)
+        self.ros_gui_bridge = RosGuiBridge(self.config_filename, self)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
         self.gui_engine = GuiEngine(self)
         

@@ -16,9 +16,10 @@ import numpy as np
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
 import time
+from visualization_msgs.msg import InteractiveMarkerFeedback
 
 class RosGuiBridge:
-    def __init__(self, config_filename):
+    def __init__(self, config_filename, gui):
 
         # parse the config file
         config = yaml.load(open(config_filename, 'r').read())
@@ -63,6 +64,13 @@ class RosGuiBridge:
 
         #publisher for moving the refinment marker
         self.refinement_marker_pos_pub = rospy.Publisher('/refinement_marker_pos', Point, queue_size=50)
+
+        #publisher for turning the marker off
+        self.refinement_marker_off_pub = rospy.Publisher('/refinement_marker_off', Point, queue_size=50)
+
+        #subscriber for updating the corresponding textboxes for the refinement marker
+        self.gui = gui
+        rospy.Subscriber('/basic_controls/feedback', InteractiveMarkerFeedback, self.gui.updateRefinmentPos)
 
         
         
@@ -122,13 +130,17 @@ class RosGuiBridge:
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         self.radio_pub.publish(radio_msg)
 
-    def publishRefinementMarkerPos(self, artifact):
+    def publishRefinementMarkerPos(self, artifact, button):
         '''
         Publish a position change to the refinement marker
         '''
+        if(not button.isChecked()):
+            pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
+            self.refinement_marker_off_pub.publish(pose)
 
-        pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
-        self.refinement_marker_pos_pub.publish(pose)
+        else:
+            pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
+            self.refinement_marker_pos_pub.publish(pose)
 
 
 

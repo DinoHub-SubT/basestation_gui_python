@@ -36,10 +36,14 @@ class CustomInteractiveMarker:
         self.counter = 0
         self.ref_frame = '/map'
 
-        #setup a Subscriber listenting to position changes  
-        rospy.Subscriber('/refinement_marker_pos', Point, self.moveInteractiveMarkerAndShow)      
+        #setup a subscriber listenting to position changes  
+        rospy.Subscriber('/refinement_marker_pos', Point, self.moveInteractiveMarkerAndShow)  
+
+        #subscriber for hiding the refinement marker
+        rospy.Subscriber('/refinement_marker_off', Point, self.hideMarkerCallback)      
 
         self.generateInteractiveMarker(position)
+        self.hideInteractiveMarker()
 
     def generateInteractiveMarker(self, position):
         '''
@@ -81,16 +85,16 @@ class CustomInteractiveMarker:
             mp += ", " + str(feedback.mouse_point.z)
             mp += " in frame " + feedback.header.frame_id
 
-        if feedback.event_type == InteractiveMarkerFeedback.BUTTON_CLICK:
-            rospy.loginfo( s + ": button click" + mp + "." )
-        elif feedback.event_type == InteractiveMarkerFeedback.MENU_SELECT:
-            rospy.loginfo( s + ": menu item " + str(feedback.menu_entry_id) + " clicked" + mp + "." )
-        elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
-            rospy.loginfo( s + ": pose changed")
-        elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
-            rospy.loginfo( s + ": mouse down" + mp + "." )
-        elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
-            rospy.loginfo( s + ": mouse up" + mp + "." )
+        # if feedback.event_type == InteractiveMarkerFeedback.BUTTON_CLICK:
+        #     rospy.loginfo( s + ": button click" + mp + "." )
+        # elif feedback.event_type == InteractiveMarkerFeedback.MENU_SELECT:
+        #     rospy.loginfo( s + ": menu item " + str(feedback.menu_entry_id) + " clicked" + mp + "." )
+        # elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
+        #     rospy.loginfo( s + ": pose changed")
+        # elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
+        #     rospy.loginfo( s + ": mouse down" + mp + "." )
+        # elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
+        #     rospy.loginfo( s + ": mouse up" + mp + "." )
 
         self.server.applyChanges()
 
@@ -140,13 +144,13 @@ class CustomInteractiveMarker:
                               InteractiveMarkerControl.ROTATE_3D : "ROTATE_3D",
                               InteractiveMarkerControl.MOVE_ROTATE_3D : "MOVE_ROTATE_3D" }
             int_marker.name += "_" + control_modes_dict[interaction_mode]
-            int_marker.description = "3D Control"
-            if show_6dof: 
-              int_marker.description += " + 6-DOF controls"
-            int_marker.description += "\n" + control_modes_dict[interaction_mode]
+            int_marker.description = "Artifact Refinement Marker"
+            # if show_6dof: 
+            #   int_marker.description += " + 6-DOF controls"
+            # int_marker.description += "\n" + control_modes_dict[interaction_mode]
 
-        self.server.insert(int_marker, self.processFeedback)
-        self.menu_handler.apply( self.server, int_marker.name )
+        # self.server.insert(int_marker, self.processFeedback)
+        # self.menu_handler.apply( self.server, int_marker.name )
 
         return int_marker
 
@@ -173,6 +177,9 @@ class CustomInteractiveMarker:
 
         self.server.erase(self.int_marker.name)
         self.server.applyChanges()
+
+    def hideMarkerCallback(self, msg):
+        self.hideInteractiveMarker()
     
 
 

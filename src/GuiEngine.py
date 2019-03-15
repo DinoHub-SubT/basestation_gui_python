@@ -9,7 +9,7 @@ import rospy
 from basestation_gui_python.msg import RadioMsg
 import pdb
 import time
-import Gui
+import copy
 
 # pdb.set_trace()
 
@@ -87,6 +87,7 @@ class Artifact:
     def __init__(self, category, position, source_robot_id, artifact_report_id):
         self.category = category
         self.pos = position
+        self.orig_pos = copy.deepcopy(position)
         self.source_robot = source_robot_id
         self.artifact_report_id = artifact_report_id
         self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
