@@ -291,8 +291,10 @@ class DarpaGuiBridge:
         self.run_length = darpa_params['run_length'][0]
 
         #have an initial darpa status update
-        self.darpa_status_update={}
+        self.darpa_status_update = {}
         self.darpa_status_update['run_clock'] = None
+        self.darpa_status_update['score'] = None
+        self.darpa_status_update['remaining_reports'] = None
 
         #setup the http client (bridge for interacting with DARPA)
         self.http_client = TeamClient()

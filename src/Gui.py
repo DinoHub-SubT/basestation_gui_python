@@ -422,11 +422,11 @@ class BasestationGuiPlugin(Plugin):
                 proposal_return = self.darpa_gui_bridge.startArtifactProposal(data)
 
                 if(len(proposal_return) > 0):
-                    [submission_time, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
+                    [submission_time_raw, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
                                                                                                     proposal_return
 
                     #add this to the submission history panel 
-                    submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time))
+                    submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time_raw))
 
                     if(score_change==0):
                         submission_correct='False'
@@ -439,6 +439,17 @@ class BasestationGuiPlugin(Plugin):
                     response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
                                              '\nSubmission Correct? '+submission_correct)
                     response_item.setBackground(submission_color)
+
+                    #update the artifact's darpa_response property
+                    self.displayed_artifact.darpa_response = 'DARPA response: '+str(report_status)+'\nHTTP Response: '+\
+                                                             str(http_response)+str(http_reason)+\
+                                                             '\nSubmission Correct? '+submission_correct
+
+                    #update the artifacts' to_darpa time
+                    self.displayed_artifact.time_to_darpa = int(float(submission_time_raw))
+
+
+                    #add the stuff to the submission history table
 
                     self.arthist_table.insertRow(self.arthist_table.rowCount())
                     row = self.arthist_table.rowCount() - 1

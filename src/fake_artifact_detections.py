@@ -19,7 +19,7 @@ import time
 def talker():
     pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
     rospy.init_node('fake_artifact_node', anonymous=True)
-    artifact_types = ['extinguisher']# ['human', 'extinguisher', 'phone', 'backpack', 'drill']
+    artifact_types = ['human', 'extinguisher', 'phone', 'backpack', 'drill']
 
     rate = rospy.Rate(0.2) #0.3 rate in hz
 
