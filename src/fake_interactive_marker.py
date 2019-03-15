@@ -1,11 +1,10 @@
 #!/usr/bin/python
 
 '''
-File which publishes fake artifact detections
+File which publishes fake interactive marker.
+Not actually used in final code, more for exploratory
+purposes.
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
-
-Copyright Carnegie Mellon University / Oregon State University <2019>
-This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
 from basestation_gui_python.msg import RadioMsg
@@ -19,7 +18,7 @@ import time
 def talker():
     pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
     rospy.init_node('fake_artifact_node', anonymous=True)
-    artifact_types = ['extinguisher']# ['human', 'extinguisher', 'phone', 'backpack', 'drill']
+    artifact_types = ['human', 'extinguisher', 'phone', 'backpack', 'drill']
 
     rate = rospy.Rate(0.2) #0.3 rate in hz
 
@@ -37,9 +36,9 @@ def talker():
         msg.artifact_report_id =  random.randint(0,1000)
         msg.artifact_type =  random.sample(artifact_types,1)[0]
         msg.artifact_robot_id = num_pubbed#random.randint(0,1)
-        msg.artifact_x =  random.random()*5.
-        msg.artifact_y =  random.random()*5.
-        msg.artifact_z =  random.random()*5.
+        msg.artifact_x =  random.random()*2000
+        msg.artifact_y =  random.random()*2000
+        msg.artifact_z =  random.random()*2000
 
         print "pubbed: ", num_pubbed
         pub.publish(msg)

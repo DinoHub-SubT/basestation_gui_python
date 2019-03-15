@@ -1,7 +1,7 @@
 #internal parameters for defining experimental parameters relevant to the gui
 experiment_params:
   robot_names: ['Ground1', 'Aerial1']
-  robot_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop Comms']
+  robot_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop comms', "Highlight robot"]
 
 #parameters for communicating with the DARPA command post
 darpa_params:
@@ -9,6 +9,6 @@ darpa_params:
   scoring_uris: ['http://api/status', 'http://api/artifact_reports']
   artifact_categories: ['human', 'extinguisher', 'phone', 'backpack', 'drill']
   total_num_reports: ['51']
-  run_length: ['360'] #length of the run in seconds
+  run_length: ['3600'] #length of the run in seconds
 
 

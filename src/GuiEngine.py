@@ -4,12 +4,15 @@
 File which handles the backend of the GUI (storing states, incoming artifacts, 
 artifact proposal history, periodic saving of the gui state, etc. )
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
+
+Copyright Carnegie Mellon University / Oregon State University <2019>
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
 from basestation_gui_python.msg import RadioMsg
 import pdb
 import time
-import Gui
+import copy
 
 # pdb.set_trace()
 
@@ -53,16 +56,27 @@ class GuiEngine:
         Add an incoming artifact to the queue
         '''
 
-        #convert the detection into a gui artifact type, which includes more data
-        artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                            msg.artifact_robot_id, msg.artifact_report_id)
+        #make sure we don't have a duplicate artifact
+        found_duplicate = False
 
-        #add the artifact to the list of queued objects and to the all_artifacts list
-        self.queued_artifacts.append(artifact)
-        self.all_artifacts.append(artifact)
+        for artifact in self.all_artifacts:
+            if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
+                int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
-        #call a function to graphically add it to the queue
-        self.gui.sendToQueue(artifact)
+                print "Duplicate artifact detection thrown away"
+                found_duplicate = True
+
+        if (not found_duplicate):
+            #convert the detection into a gui artifact type, which includes more data
+            artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                msg.artifact_robot_id, msg.artifact_report_id)
+
+            #add the artifact to the list of queued objects and to the all_artifacts list
+            self.queued_artifacts.append(artifact)
+            self.all_artifacts.append(artifact)
+
+            #call a function to graphically add it to the queue
+            self.gui.sendToQueue(artifact)
 
 
 
@@ -76,11 +90,13 @@ class Artifact:
     def __init__(self, category, position, source_robot_id, artifact_report_id):
         self.category = category
         self.pos = position
+        self.orig_pos = copy.deepcopy(position)
         self.source_robot = source_robot_id
         self.artifact_report_id = artifact_report_id
         self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
         self.time_to_darpa = -1 #time submitted to darpa
         self.unread = True
+        self.priority = 'Med'
 
 
 
