@@ -3,6 +3,9 @@
 '''
 File containing classes for interacting with ROS from the gui and the DARPA command post from the GUI
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
+
+Copyright Carnegie Mellon University (CMU) / Oregon State University <2019>
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 
 import rospy
@@ -16,7 +19,7 @@ import numpy as np
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
 import time
-from visualization_msgs.msg import InteractiveMarkerFeedback
+from visualization_msgs.msg import InteractiveMarkerFeedback, Marker
 
 class RosGuiBridge:
     def __init__(self, config_filename, gui):
@@ -68,11 +71,40 @@ class RosGuiBridge:
         #publisher for turning the marker off
         self.refinement_marker_off_pub = rospy.Publisher('/refinement_marker_off', Point, queue_size=50)
 
+        [self.highlight_robot_marker, self.orig_pos_marker] = self.initMarkers()
+        
+        #publisher for displaying the original position        
+        self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', Marker, queue_size=50)
+
+         #publisher for displaying the original position        
+        self.highlight_robot_pub = rospy.Publisher('/highlight_robot_pub', Marker, queue_size=50)
+
+
         #subscriber for updating the corresponding textboxes for the refinement marker
         self.gui = gui
         rospy.Subscriber('/basic_controls/feedback', InteractiveMarkerFeedback, self.gui.updateRefinmentPos)
 
-        
+    def initMarkers(self):
+        '''
+        Initialize and return the various markers
+        '''  
+        marker_list = []
+        for i in range(2):
+            marker = Marker()
+            marker.type = Marker.SPHERE
+            marker.scale.x = 0.3
+            marker.scale.y = 0.3
+            marker.scale.z = 0.3
+            marker.color.r = 0.
+            marker.color.g = 1.
+            marker.color.b = 0.
+            marker.color.a = 1.0
+            marker.header.frame_id = '/map'
+
+            marker_list.append(marker)
+
+        return marker_list
+
         
     def publishRobotCommand(self, command, robot_name, button):
         '''
@@ -97,8 +129,42 @@ class RosGuiBridge:
                 self.defineWaypoint(robot_name)
             elif(command == "Return home"):
                 self.publishReturnHome(robot_name)
+            elif(command == "Highlight robot"):
+                self.highlightRobot(robot_name)
             else:
                 print 'WARNING: Button pressed does not have a function call associated with it!'
+
+    def highlightRobot(self, robot_name):
+        '''
+        Publish a ball which zoom into the robot position
+        '''
+
+
+        #get the robot's position
+
+        #for right now we use fake data
+        robot_pos = [0,0,0]
+
+        scale_list = [5,4,3,2,0.3]
+        self.highlight_robot_marker.pose.position.x = robot_pos[0]
+        self.highlight_robot_marker.pose.position.y = robot_pos[1]
+        self.highlight_robot_marker.pose.position.z = robot_pos[2]
+        self.highlight_robot_marker.color.a = 1. #turn in back to visible if it was invisible
+
+        for scale in scale_list:            
+
+            self.highlight_robot_marker.scale.x = scale
+            self.highlight_robot_marker.scale.y = scale
+            self.highlight_robot_marker.scale.z = scale
+            self.highlight_robot_pub.publish(self.highlight_robot_marker)
+
+            rospy.sleep(0.75)
+
+        #make the marker disappear
+        self.highlight_robot_marker.color.a = 0.
+        self.highlight_robot_pub.publish(self.highlight_robot_marker)
+
+
 
     def publishEstop(self, command, robot_name):
         '''
@@ -126,7 +192,7 @@ class RosGuiBridge:
         Send out a message for the robot to return home
         '''
         radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.RETURN_HOME
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_RETURN_HOME
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
         self.radio_pub.publish(radio_msg)
 
@@ -135,12 +201,45 @@ class RosGuiBridge:
         Publish a position change to the refinement marker
         '''
         if(not button.isChecked()):
+            #change the alpha of the orig_pos marker to make it invisible
+            self.orig_pos_marker.color.a = 0.
+            self.marker_orig_pos_pub.publish(self.orig_pos_marker)
+
+            #publish a bogus message to put something on this topic to turn off the refinment marker
             pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
             self.refinement_marker_off_pub.publish(pose)
 
         else:
+
+            #publish the interactive marker
             pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
             self.refinement_marker_pos_pub.publish(pose)
+
+            scale_list = [5,4,3,2,0.3]
+            self.orig_pos_marker.pose.position.x = artifact.pos[0]
+            self.orig_pos_marker.pose.position.y = artifact.pos[1]
+            self.orig_pos_marker.pose.position.z = artifact.pos[2]
+            self.orig_pos_marker.color.a = 1. #turn in back to visible if it was invisible
+
+            for scale in scale_list:
+                
+                self.orig_pos_marker.scale.x = scale
+                self.orig_pos_marker.scale.y = scale
+                self.orig_pos_marker.scale.z = scale
+
+                # self.orig_pos_marker_label.pose.position.x = artifact.pos[0]
+                # self.orig_pos_marker_label.pose.position.y = artifact.pos[1]
+                # self.orig_pos_marker_label.pose.position.z = artifact.pos[2]+0.5
+
+                #publish the text
+                # self.marker_orig_pos_pub.publish(self.orig_pos_marker_label)
+
+                #publish a marker for the original position
+                self.marker_orig_pos_pub.publish(self.orig_pos_marker)
+
+                rospy.sleep(0.75)
+
+            
 
 
 

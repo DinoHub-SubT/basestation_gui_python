@@ -3,6 +3,9 @@
 '''
 File which publishes fake artifact detections
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
+
+Copyright Carnegie Mellon University / Oregon State University <2019>
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
 from basestation_gui_python.msg import RadioMsg
@@ -16,7 +19,7 @@ import time
 def talker():
     pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
     rospy.init_node('fake_artifact_node', anonymous=True)
-    artifact_types = ['human', 'extinguisher', 'phone', 'backpack', 'drill']
+    artifact_types = ['extinguisher']# ['human', 'extinguisher', 'phone', 'backpack', 'drill']
 
     rate = rospy.Rate(0.2) #0.3 rate in hz
 

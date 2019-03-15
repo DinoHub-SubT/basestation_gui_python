@@ -4,6 +4,9 @@
 File which handles the backend of the GUI (storing states, incoming artifacts, 
 artifact proposal history, periodic saving of the gui state, etc. )
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
+
+Copyright Carnegie Mellon University / Oregon State University <2019>
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
 from basestation_gui_python.msg import RadioMsg

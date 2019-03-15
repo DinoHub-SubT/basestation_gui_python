@@ -2,6 +2,9 @@
 '''
 File containing all things related to the frontend of the gui (buttons, colors, panel positions, etc.)
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
+
+Copyright Carnegie Mellon University / Oregon State University <2019>
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 
 import os
@@ -619,7 +622,7 @@ class BasestationGuiPlugin(Plugin):
 
     def sendToQueue(self, artifact):
         '''
-        Send the artifact being examined to the queue
+        Send the artifact subscribed to, to the queue
         '''
 
         with self.update_queue_lock:
@@ -678,6 +681,7 @@ class BasestationGuiPlugin(Plugin):
 
                 if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                     self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+
 
    
 
@@ -867,7 +871,8 @@ class BasestationGuiPlugin(Plugin):
 
         #resize the cells to fill the widget 
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
-        # self.queue_table.resizeColumnsToContents()
+        # self.queue_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.ResizeToContents)
+        # self.queue_table.resizeRowsToContents() #to enable word wrapping on the categories
 
         self.queue_table.setColumnCount(6) # set column count        
         self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Artifact Report ID']) #make the column headers
