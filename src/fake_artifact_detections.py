@@ -19,14 +19,14 @@ import time
 def talker():
     pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
     rospy.init_node('fake_artifact_node', anonymous=True)
-    artifact_types = ['extinguisher']# ['human', 'extinguisher', 'phone', 'backpack', 'drill']
+    artifact_types = ['Human', 'Fire extinguisher', 'Phone', 'Backpack', 'Drill']
 
-    rate = rospy.Rate(0.2) #0.3 rate in hz
+    rate = rospy.Rate(0.2) #rate in hz
 
     msg = RadioMsg()
     msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
 
-    total_num_to_pub = 10
+    total_num_to_pub = 10#1000
     num_pubbed = 0    
 
     time.sleep(2.)
@@ -34,14 +34,14 @@ def talker():
 
 
     while not rospy.is_shutdown() and num_pubbed < total_num_to_pub:
-        msg.artifact_report_id =  random.randint(0,1000)
+        msg.artifact_report_id =  random.randint(0,9999)
         msg.artifact_type =  random.sample(artifact_types,1)[0]
-        msg.artifact_robot_id = num_pubbed#random.randint(0,1)
+        msg.artifact_robot_id = random.randint(0,1)
         msg.artifact_x =  random.random()*5.
         msg.artifact_y =  random.random()*5.
         msg.artifact_z =  random.random()*5.
 
-        print "pubbed: ", num_pubbed
+        # print "pubbed: ", num_pubbed
         pub.publish(msg)
         rate.sleep()
 

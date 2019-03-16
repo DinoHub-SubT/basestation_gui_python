@@ -1,1 +1,3 @@
 *.pyc
+custom_logs/*.csv
+*lock*#
