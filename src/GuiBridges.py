@@ -174,13 +174,13 @@ class RosGuiBridge:
         radio_msg = RadioMsg()
         radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        if(command=="Resume"):
+        if(command==self.estop_commands[1]):
             radio_msg.data = RadioMsg.ESTOP_RESUME
-        elif(command=="Pause"):
+        elif(command==self.estop_commands[0]):
             radio_msg.data = RadioMsg.ESTOP_PAUSE
-        elif(command=="Soft e-stop"):
+        elif(command==self.estop_commands[2]):
             radio_msg.data = RadioMsg.ESTOP_SOFT
-        elif(command=="Hard e-stop"):
+        elif(command==self.estop_commands[3]):
             radio_msg.data = RadioMsg.ESTOP_HARD
         else:
             print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
@@ -330,7 +330,7 @@ class DarpaGuiBridge:
         # thread.join()
 
         results = self.http_client.send_artifact_report(artifact_report)
-        print "\n\nResults: ",results
+        # print "\n\nResults: ",results
 
 
         if(results==[]): #if nothing got returned from the http reqest

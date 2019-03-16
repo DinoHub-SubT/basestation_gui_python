@@ -54,6 +54,22 @@ You may get some red text involving "TypeError: coercing to Unicode: need string
 
 The first time you may have to click the "Open Config..." button in the GUI and select the config/gui_params.yaml file. This will get saved as the default when you run it in the future.
 
+# Artifact Refinement
+
+To do artifact refinement, two markers in RViz need to be subscribed to:
+
+```bash
+/basic_controls/update
+```
+which is an interactive marker for updating the artifact location. And
+
+```bash
+/refinement_marker_orig_pos
+```
+
+which is a marker to designate the original location of the artifact. 
+
+
 
 
 # Depricated: How to install and run old simple 4-button estop gui

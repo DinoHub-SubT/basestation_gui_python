@@ -45,6 +45,8 @@ class GuiEngine:
         self.gui = gui
 
         self.initLogFile()
+
+        self.duplicate_count = 0
         
 
     def processIncomingMsg(self, msg):
@@ -69,7 +71,9 @@ class GuiEngine:
             if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
                 int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
-                print "Duplicate artifact detection thrown away"
+                self.duplicate_count +=1
+                print "Duplicate artifact detection thrown away", self.duplicate_count
+                
                 found_duplicate = True
 
         if (not found_duplicate):

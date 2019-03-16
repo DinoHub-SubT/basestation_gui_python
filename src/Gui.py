@@ -112,6 +112,8 @@ class BasestationGuiPlugin(Plugin):
         self.dont_change_art_priority = False #if we click in the artifact  queue, just update the gui and nothing else
         self.dont_change_art_category = False
 
+        self.save_count = 0 #way to ensure we don't save the gui too often
+
 
 
        
@@ -420,6 +422,8 @@ class BasestationGuiPlugin(Plugin):
             
                 data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
                          float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
+
+                print "\n\nSubmitted cat: --"+self.darpa_cat_box.currentText()+'--\n\n'
 
                 
                 proposal_return = self.darpa_gui_bridge.startArtifactProposal(data)
@@ -1085,6 +1089,13 @@ class BasestationGuiPlugin(Plugin):
 
         self.info_label.setText(msg.data)
 
+        #save the state of the gui
+        if (self.save_count == 30): #to make sure we save every x seconds
+            self.gui_engine.savePeriodically(self)
+            self.save_count = 0
+        else:
+            self.save_count += 1
+
     def fillInGuiFromCsv(self, filename):
         '''
         From a selected filename, fill in the various gui components
@@ -1113,7 +1124,7 @@ class BasestationGuiPlugin(Plugin):
 
                     #build the artifact object
                     artifact = Artifact()
-                    artifact.category = split_artifact[0].replace('//','').replace(' ','')
+                    artifact.category = split_artifact[0]
                     artifact.pos = [float(i) for i in split_artifact[1].split(',')]
                     artifact.orig_pos = [float(i) for i in split_artifact[2].split(',')]
                     artifact.source_robot = int(split_artifact[3])
@@ -1121,7 +1132,7 @@ class BasestationGuiPlugin(Plugin):
                     artifact.time_from_robot = float(split_artifact[5]) #time the detection has come in from the robot. TODO: change to be something different?
                     artifact.time_to_darpa = float(split_artifact[6]) #time submitted to darpa
                     artifact.unread = (split_artifact[7] == 'True')
-                    artifact.priority = split_artifact[8].replace('//','').replace(' ','')
+                    artifact.priority = split_artifact[8]
 
                     if (split_artifact[9] != ''): #if we actually have a darpa response
                         artifact.darpa_response = split_artifact[9][:split_artifact[9].find('HTTP')]+'\n'+\
@@ -1289,6 +1300,7 @@ class BasestationGuiPlugin(Plugin):
         self.gui_engine = GuiEngine(self)
         
         self.buildGui()
+
 
 
     #def trigger_configuration(self):
