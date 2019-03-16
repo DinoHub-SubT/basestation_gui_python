@@ -69,6 +69,10 @@ which is an interactive marker for updating the artifact location. And
 
 which is a marker to designate the original location of the artifact. 
 
+Once these are subscribed to, back in the GUI, select an artifact to display in the artifact panel (by double-clicking on the artifact in the queue). Then, in the middle of the GUI there is a Show Refinement Marker button, click it. A large green sphere should appear and get smaller over the course of about 5 seconds. This is used to easily see where the artifact is.
+
+The orange sphere will then appear. This can be moved around and designates the refined position. The green sphere remains as an indication of the original artifact location (as deteced by the robot). 
+
 
 
 
