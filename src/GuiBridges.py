@@ -238,11 +238,7 @@ class RosGuiBridge:
                 self.marker_orig_pos_pub.publish(self.orig_pos_marker)
 
                 rospy.sleep(0.75)
-
-            
-
-
-
+       
         
 
     def publishWaypointGoal(self, msg, robot_name):

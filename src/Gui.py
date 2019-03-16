@@ -50,7 +50,9 @@ import pdb
 
 from argparse import ArgumentParser
 
-from GuiEngine import GuiEngine
+from GuiEngine import GuiEngine, Artifact
+
+import csv
 
 # from geometry_msgs.msg import Point
 # from interactiveMarkerProcessing import CustomInteractiveMarker
@@ -89,10 +91,11 @@ class BasestationGuiPlugin(Plugin):
 
         self.config_button = qt.QPushButton('Open Config...')
         self.config_button.clicked.connect(self.select_config_file)
-        self.top_layout.addWidget(self.config_button)
+        self.top_layout.addWidget(self.config_button, 0, 0)
 
-        self.state_label = qt.QLabel('state: ')
-        self.top_layout.addWidget(self.state_label)
+        self.load_from_csv = qt.QPushButton('Load from CSV...')
+        self.load_from_csv.clicked.connect(self.loadFromCsv)
+        self.top_layout.addWidget(self.load_from_csv, 0, 1)
 
 
         self.global_widget.addWidget(self.top_widget)
@@ -654,7 +657,11 @@ class BasestationGuiPlugin(Plugin):
                 row = self.queue_table.rowCount() - 1
 
                 #fill in the row data
-                disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                if (artifact.time_from_robot == -1): #this si coming directly from the robot
+                    disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                
+                else:
+                    disp_time = self.darpa_gui_bridge.displaySeconds(float(artifact.time_from_robot))
 
                 # random.sample(rand_list,1)[0]
 
@@ -730,49 +737,49 @@ class BasestationGuiPlugin(Plugin):
         self.status_table.setHorizontalHeaderLabels(self.ros_gui_bridge.robot_names) 
 
         #add fake data for each robot
-        self.status_table.setItem(0,0, qt.QTableWidgetItem('15'))
-        self.status_table.setItem(0,1, qt.QTableWidgetItem('44'))
+        self.status_table.setItem(0,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(0,1, qt.QTableWidgetItem(''))
 
-        self.status_table.setItem(1,0, qt.QTableWidgetItem('In-range'))
-        self.status_table.setItem(1,1, qt.QTableWidgetItem('Near-limits'))
+        self.status_table.setItem(1,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(1,1, qt.QTableWidgetItem(''))
 
-        self.status_table.setItem(2,0, qt.QTableWidgetItem('Moving'))
-        self.status_table.setItem(2,1, qt.QTableWidgetItem('Stuck'))
+        self.status_table.setItem(2,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(2,1, qt.QTableWidgetItem(''))
 
-        self.status_table.setItem(3,0, qt.QTableWidgetItem('Ok'))
-        self.status_table.setItem(3,1, qt.QTableWidgetItem('Ok'))
+        self.status_table.setItem(3,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(3,1, qt.QTableWidgetItem(''))
 
-        self.status_table.setItem(4,0, qt.QTableWidgetItem('Ok'))
-        self.status_table.setItem(4,1, qt.QTableWidgetItem('Warning'))
+        self.status_table.setItem(4,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(4,1, qt.QTableWidgetItem(''))
 
-        self.status_table.setItem(5,0, qt.QTableWidgetItem('90%'))
-        self.status_table.setItem(5,1, qt.QTableWidgetItem('40%'))
+        self.status_table.setItem(5,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(5,1, qt.QTableWidgetItem(''))
 
-        self.status_table.setItem(6,0, qt.QTableWidgetItem('90%'))
-        self.status_table.setItem(6,1, qt.QTableWidgetItem('40%'))
+        self.status_table.setItem(6,0, qt.QTableWidgetItem(''))
+        self.status_table.setItem(6,1, qt.QTableWidgetItem(''))
 
 
         #color the squares
-        self.status_table.item(0,0).setBackground(gui.QColor(220,0,0))
-        self.status_table.item(0,1).setBackground(gui.QColor(255,165,0))
+        # self.status_table.item(0,0).setBackground(gui.QColor(220,0,0))
+        # self.status_table.item(0,1).setBackground(gui.QColor(255,165,0))
 
-        self.status_table.item(1,0).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(1,1).setBackground(gui.QColor(255,165,0))
+        # self.status_table.item(1,0).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(1,1).setBackground(gui.QColor(255,165,0))
 
-        self.status_table.item(2,0).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(2,1).setBackground(gui.QColor(220,0,0))
+        # self.status_table.item(2,0).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(2,1).setBackground(gui.QColor(220,0,0))
 
-        self.status_table.item(3,0).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(3,1).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(3,0).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(3,1).setBackground(gui.QColor(0,220,0))
 
-        self.status_table.item(4,0).setBackground(gui.QColor(0,220,0))
-        self.status_table.item(4,1).setBackground(gui.QColor(255,165,0))
+        # self.status_table.item(4,0).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(4,1).setBackground(gui.QColor(255,165,0))
 
-        self.status_table.item(5,0).setBackground(gui.QColor(220,0,0))
-        self.status_table.item(5,1).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(5,0).setBackground(gui.QColor(220,0,0))
+        # self.status_table.item(5,1).setBackground(gui.QColor(0,220,0))
 
-        self.status_table.item(6,0).setBackground(gui.QColor(220,0,0))
-        self.status_table.item(6,1).setBackground(gui.QColor(0,220,0))
+        # self.status_table.item(6,0).setBackground(gui.QColor(220,0,0))
+        # self.status_table.item(6,1).setBackground(gui.QColor(0,220,0))
 
         #add the table to the layout
         self.status_layout.addWidget(self.status_table)
@@ -1051,7 +1058,7 @@ class BasestationGuiPlugin(Plugin):
         control_pos = [5,2,2,1]
         artvis_pos  = [1,1,4,1]
         arthist_pos = [5,0,2,1]     
-        artmanip_pos = [5,1,1,1]   
+        artmanip_pos =[5,1,1,1]   
         
 
         #initialize the panels
@@ -1078,16 +1085,168 @@ class BasestationGuiPlugin(Plugin):
 
         self.info_label.setText(msg.data)
 
+    def fillInGuiFromCsv(self, filename):
+        '''
+        From a selected filename, fill in the various gui components
+        '''
+
+        #all we really need is the last line
+        csv_data = None
+        with open(filename, 'r') as f:
+            for row in reversed(list(csv.reader(f))):
+                csv_data = row
+                break
+
+        if (csv_data == None):
+            print "There was nothing in the csv file!!"
+
+        else:
+            #parse the artifacts
+            artifact_data = csv_data[1]
+            split_art_data = artifact_data.split('//')
+
+            for art_str in split_art_data:
+
+                split_artifact = art_str.split('|')
+
+                if (len(split_artifact)>9): #if we actually have something here
+
+                    #build the artifact object
+                    artifact = Artifact()
+                    artifact.category = split_artifact[0].replace('//','').replace(' ','')
+                    artifact.pos = [float(i) for i in split_artifact[1].split(',')]
+                    artifact.orig_pos = [float(i) for i in split_artifact[2].split(',')]
+                    artifact.source_robot = int(split_artifact[3])
+                    artifact.artifact_report_id = int(split_artifact[4])
+                    artifact.time_from_robot = float(split_artifact[5]) #time the detection has come in from the robot. TODO: change to be something different?
+                    artifact.time_to_darpa = float(split_artifact[6]) #time submitted to darpa
+                    artifact.unread = (split_artifact[7] == 'True')
+                    artifact.priority = split_artifact[8].replace('//','').replace(' ','')
+
+                    if (split_artifact[9] != ''): #if we actually have a darpa response
+                        artifact.darpa_response = split_artifact[9][:split_artifact[9].find('HTTP')]+'\n'+\
+                                                  split_artifact[9][split_artifact[9].find('HTTP') : split_artifact[9].find('Submission')] +'\n'+\
+                                                  split_artifact[9][split_artifact[9].find('Submission') : ]
+                    else:
+                        artifact.darpa_response = None
+
+
+                    
+                    if (artifact.darpa_response != None): #this artifact has been submitted to darpa
+
+                        with self.artifact_proposal_lock:
+
+                            self.arthist_table.setSortingEnabled(False) 
+
+                            #add to the engine
+                            self.gui_engine.all_artifacts.append(artifact)
+                            self.gui_engine.submitted_artifacts.append(artifact)
+
+                            #add to the submission panel
+                            submission_time = self.darpa_gui_bridge.displaySeconds(artifact.time_to_darpa)
+
+                            submission_correct = artifact.darpa_response[artifact.darpa_response.find('?'):]
+                            
+                            if (submission_correct=='False'):
+                                submission_color = gui.QColor(220,0,0)
+                            else:
+                                submission_color = gui.QColor(0,220,0)
+
+                            response_item = qt.QTableWidgetItem('Info')
+                            response_item.setToolTip(artifact.darpa_response)
+                            response_item.setBackground(submission_color)
+
+                            self.arthist_table.insertRow(self.arthist_table.rowCount())
+                            row = self.arthist_table.rowCount() - 1
+
+                            row_data = [artifact.category, submission_time, str(int(artifact.pos[0]))+'/'+str(int(artifact.pos[1]))+'/'+str(int(artifact.pos[2]))]
+
+                            for col, val in enumerate(row_data):
+                            
+                                if (str(val).find(':')==-1): #if we're not dealing with a display time
+                                    item = NumericItem(str(val))
+                                    item.setData(core.Qt.UserRole, val)
+                                    
+                                
+                                else:
+                                    colon = submission_time.find(':')
+                                    val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
+                                    item = NumericItem(str(submission_time))
+                                    item.setData(core.Qt.UserRole, val)
+
+                                self.arthist_table.setItem(row, col, item)
+
+                            #add the response item, we don't want this to be a NumericItem
+                            self.arthist_table.setItem(row, 3, response_item)
+
+                            self.arthist_table.setSortingEnabled(True) 
+
+                            if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
+                                    self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+
+
+
+                    else: #this artifact is still in the queue
+
+                        #add the artifact to the list of queued objects and to the all_artifacts list
+                        self.gui_engine.queued_artifacts.append(artifact)
+                        self.gui_engine.all_artifacts.append(artifact)
+
+                        #call a function to graphically add it to the queue
+                        self.sendToQueue(artifact)
+
+
+
+            #parse the vehicle states
+            vehicle_data = csv_data[2] 
+
+            vehicle_data_split = vehicle_data.split('|')
+
+            for i, command in enumerate(vehicle_data_split):
+
+                if (len(command)>1): #we actually have something here
+
+                    #go find the button this corresponds to and "press" it
+                    found_button = False
+
+                    for button in self.control_buttons[i]:
+                        if(button.text() == command):
+                            found_button = True
+                            button.click()
+
+                    if(found_button != True):
+                        print "Could not find the appropriate command button to be pressed"
+
+
+            #parse the info
+            info_data = csv_data[3] 
+
+
+            #save periodically
+            self.gui_engine.savePeriodically(self)
+
+            print "Data loaded from csv"
+
+
+
+
+
 
 
     def select_config_file(self):
         starting_path = os.path.join(rospkg.RosPack().get_path('basestation_gui_python'), 'config')
         filename = qt.QFileDialog.getOpenFileName(self.widget, 'Open Config File', starting_path, "Config Files (*.yaml)")[0]
         if filename != '':
-            self.config_filename = filename
-            self.ros_gui_bridge = RosGuiBridge(self.config_filename)
-            self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
-            self.buildGui()
+            self.initiateSettings(filename)
+
+    def loadFromCsv(self):
+        '''
+        Function for loading the gui state from a csv file (used if
+        gui crashes or something like that)
+        '''
+        starting_path = os.path.join(rospkg.RosPack().get_path('basestation_gui_python'), 'custom_logs')
+        filename = qt.QFileDialog.getOpenFileName(self.widget, 'Load From CSV', starting_path, "CSV (*.csv)")[0]
+        self.fillInGuiFromCsv(filename)
             
 
     def state_callback(self, msg):
@@ -1117,7 +1276,14 @@ class BasestationGuiPlugin(Plugin):
         Function which lays out all of the widgets from a pre-specified .yaml 
         config file. 
         '''
-        self.config_filename = instance_settings.value('config_filename')
+        self.initiateSettings(instance_settings.value('config_filename'))
+        
+
+    def initiateSettings(self, config_filename):
+        '''
+        Generates the gui using either start fresh or from using previous settings
+        '''
+        self.config_filename = config_filename
         self.ros_gui_bridge = RosGuiBridge(self.config_filename, self)
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
         self.gui_engine = GuiEngine(self)

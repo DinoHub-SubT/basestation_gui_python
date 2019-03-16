@@ -109,11 +109,17 @@ class GuiEngine:
         #artifact save format: [category, pos, orig_pos, source_robot, report_id, time_from_robot, time_to_darpa, unread_priority, darpa_response, image filenames]
         artifact_str = ''
         for artifact in self.all_artifacts:
-            artifact_str+=       artifact.category+'|'+ str(artifact.pos[0])+','+str(artifact.pos[0])+','+str(artifact.pos[0])+'|'+ \
+
+            if (artifact.darpa_response == None):
+                darpa_text = ''
+            else:
+                darpa_text = artifact.darpa_response.replace('\n','')
+
+            artifact_str   +=    artifact.category+'|'+ str(artifact.pos[0])+','+str(artifact.pos[0])+','+str(artifact.pos[0])+'|'+ \
                                  str(artifact.orig_pos[0])+','+str(artifact.orig_pos[1])+','+str(artifact.orig_pos[2])+\
                                  '|'+ str(artifact.source_robot)+'|'+\
                                  str(artifact.artifact_report_id)+'|'+ str(artifact.time_from_robot)+'|'+ str(artifact.time_to_darpa)+'|'+\
-                                 str(artifact.unread)+ '|'+artifact.priority+'|'+ artifact.darpa_response.replace('\n','')+ '|'+ '//'
+                                 str(artifact.unread)+ '|'+artifact.priority+'|'+ darpa_text + '|'+ '//'
 
         #save the vehicle statuses
         vehicle_state_str = ''
@@ -155,17 +161,19 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, category, position, source_robot_id, artifact_report_id):
-        self.category = category
-        self.pos = position
-        self.orig_pos = copy.deepcopy(position)
-        self.source_robot = source_robot_id
-        self.artifact_report_id = artifact_report_id
-        self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
-        self.time_to_darpa = -1 #time submitted to darpa
-        self.unread = True
-        self.priority = 'Med'
-        self.darpa_response = ''
+    def __init__(self, category="", position="", source_robot_id="", artifact_report_id=""):
+        
+        if(category != ""): #we're actually passing params in
+            self.category = category
+            self.pos = position
+            self.orig_pos = copy.deepcopy(position)
+            self.source_robot = source_robot_id
+            self.artifact_report_id = artifact_report_id
+            self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
+            self.time_to_darpa = -1 #time submitted to darpa
+            self.unread = True
+            self.priority = 'Med'
+            self.darpa_response = ''
 
 
 
