@@ -13,6 +13,9 @@ from basestation_gui_python.msg import RadioMsg
 import pdb
 import time
 import copy
+import rospkg
+import csv
+import datetime
 
 # pdb.set_trace()
 
@@ -41,9 +44,14 @@ class GuiEngine:
 
         self.gui = gui
 
+        self.initLogFile()
+
+        self.duplicate_count = 0
+        
+
     def processIncomingMsg(self, msg):
         '''
-        Process an incoming RadioMsg
+        !!! DEPRICATED !!!  Process an incoming RadioMsg !!! DEPRICATED !!!
         '''
         if (msg.message_type==RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
             self.addIncomingArtifact(msg)
@@ -63,7 +71,9 @@ class GuiEngine:
             if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
                 int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
-                print "Duplicate artifact detection thrown away"
+                self.duplicate_count +=1
+                print "Duplicate artifact detection thrown away", self.duplicate_count
+                
                 found_duplicate = True
 
         if (not found_duplicate):
@@ -78,6 +88,74 @@ class GuiEngine:
             #call a function to graphically add it to the queue
             self.gui.sendToQueue(artifact)
 
+            #add updated info to the csv
+            self.savePeriodically(self.gui)
+
+    def initLogFile(self):
+        '''
+        Make the log file to save gui information to
+        '''
+
+        rospack = rospkg.RosPack()
+        self.log_filename = rospack.get_path('basestation_gui_python')+'/custom_logs/log_'+datetime.datetime.now().strftime("%m-%d-%y-%H-%M-%S")+'.csv'
+
+        with open(self.log_filename, 'w') as writeFile:
+            writer = csv.writer(writeFile)
+            writer.writerow(['Time Standard', 'Artifacts', 'Vehicle E-stop State', 'Score/Remaining Reports/Run Clock'])
+
+
+
+    def savePeriodically(self, gui):
+        '''
+        Saves the information in the gui in a re-loadable fromat, should the gui crash
+        '''
+
+        #artifact save format: [category, pos, orig_pos, source_robot, report_id, time_from_robot, time_to_darpa, unread_priority, darpa_response, image filenames]
+        artifact_str = ''
+        for artifact in self.all_artifacts:
+
+            if (artifact.darpa_response == None):
+                darpa_text = ''
+            else:
+                darpa_text = artifact.darpa_response.replace('\n','')
+
+            artifact_str   +=    artifact.category+'|'+ str(artifact.pos[0])+','+str(artifact.pos[0])+','+str(artifact.pos[0])+'|'+ \
+                                 str(artifact.orig_pos[0])+','+str(artifact.orig_pos[1])+','+str(artifact.orig_pos[2])+\
+                                 '|'+ str(artifact.source_robot)+'|'+\
+                                 str(artifact.artifact_report_id)+'|'+ str(artifact.time_from_robot)+'|'+ str(artifact.time_to_darpa)+'|'+\
+                                 str(artifact.unread)+ '|'+artifact.priority+'|'+ darpa_text + '|'+ '//'
+
+        #save the vehicle statuses
+        vehicle_state_str = ''
+        for robot_buttons in self.gui.control_buttons:
+            for i, button in enumerate(robot_buttons):
+                if (button.isChecked()) and  (button.text() in self.gui.ros_gui_bridge.estop_commands): #if the estop button is checked
+                    vehicle_state_str+=str(button.text())
+            vehicle_state_str+='|'
+
+
+        #save the run info
+        info_str = ''
+        if (self.gui.darpa_gui_bridge.darpa_status_update != {}): #we have actually received a message
+
+            if (self.gui.darpa_gui_bridge.darpa_status_update['score'] != None):
+                info_str += str(self.gui.darpa_gui_bridge.darpa_status_update['score'])
+
+            info_str += '|'
+
+            if (self.gui.darpa_gui_bridge.darpa_status_update['remaining_reports'] != None):
+                info_str += str(self.gui.darpa_gui_bridge.darpa_status_update['remaining_reports'])
+
+            info_str += '|'
+
+            if (self.gui.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
+                info_str += str(self.gui.darpa_gui_bridge.darpa_status_update['run_clock'])
+
+
+        with open(self.log_filename, 'a') as writeFile:
+            writer = csv.writer(writeFile)
+
+            writer.writerow([time.time(), artifact_str, vehicle_state_str, info_str])         
 
 
 
@@ -87,16 +165,19 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, category, position, source_robot_id, artifact_report_id):
-        self.category = category
-        self.pos = position
-        self.orig_pos = copy.deepcopy(position)
-        self.source_robot = source_robot_id
-        self.artifact_report_id = artifact_report_id
-        self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
-        self.time_to_darpa = -1 #time submitted to darpa
-        self.unread = True
-        self.priority = 'Med'
+    def __init__(self, category="", position="", source_robot_id="", artifact_report_id=""):
+        
+        if(category != ""): #we're actually passing params in
+            self.category = category
+            self.pos = position
+            self.orig_pos = copy.deepcopy(position)
+            self.source_robot = source_robot_id
+            self.artifact_report_id = artifact_report_id
+            self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
+            self.time_to_darpa = -1 #time submitted to darpa
+            self.unread = True
+            self.priority = 'Med'
+            self.darpa_response = ''
 
 
 

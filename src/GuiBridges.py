@@ -174,13 +174,13 @@ class RosGuiBridge:
         radio_msg = RadioMsg()
         radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        if(command=="Resume"):
+        if(command==self.estop_commands[1]):
             radio_msg.data = RadioMsg.ESTOP_RESUME
-        elif(command=="Pause"):
+        elif(command==self.estop_commands[0]):
             radio_msg.data = RadioMsg.ESTOP_PAUSE
-        elif(command=="Soft e-stop"):
+        elif(command==self.estop_commands[2]):
             radio_msg.data = RadioMsg.ESTOP_SOFT
-        elif(command=="Hard e-stop"):
+        elif(command==self.estop_commands[3]):
             radio_msg.data = RadioMsg.ESTOP_HARD
         else:
             print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
@@ -238,11 +238,7 @@ class RosGuiBridge:
                 self.marker_orig_pos_pub.publish(self.orig_pos_marker)
 
                 rospy.sleep(0.75)
-
-            
-
-
-
+       
         
 
     def publishWaypointGoal(self, msg, robot_name):
@@ -291,8 +287,10 @@ class DarpaGuiBridge:
         self.run_length = darpa_params['run_length'][0]
 
         #have an initial darpa status update
-        self.darpa_status_update={}
+        self.darpa_status_update = {}
         self.darpa_status_update['run_clock'] = None
+        self.darpa_status_update['score'] = None
+        self.darpa_status_update['remaining_reports'] = None
 
         #setup the http client (bridge for interacting with DARPA)
         self.http_client = TeamClient()
@@ -332,7 +330,7 @@ class DarpaGuiBridge:
         # thread.join()
 
         results = self.http_client.send_artifact_report(artifact_report)
-        print "\n\nResults: ",results
+        # print "\n\nResults: ",results
 
 
         if(results==[]): #if nothing got returned from the http reqest

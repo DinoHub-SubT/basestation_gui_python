@@ -105,12 +105,12 @@ class CustomInteractiveMarker:
     def makeBox(self, msg):
         marker = Marker()
 
-        marker.type = Marker.CUBE
-        marker.scale.x = msg.scale * 0.45
-        marker.scale.y = msg.scale * 0.45
-        marker.scale.z = msg.scale * 0.45
+        marker.type = Marker.SPHERE
+        marker.scale.x = msg.scale * 0.4
+        marker.scale.y = msg.scale * 0.4
+        marker.scale.z = msg.scale * 0.4
         marker.color.r = 1.
-        marker.color.g = 0.
+        marker.color.g = 165./255.
         marker.color.b = 0.
         marker.color.a = 1.0
 
