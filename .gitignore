@@ -1,3 +1,4 @@
 *.pyc
 custom_logs/*.csv
 *lock*#
+ji_pose.csv
