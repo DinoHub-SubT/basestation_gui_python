@@ -9,13 +9,14 @@ Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
-from basestation_gui_python.msg import RadioMsg
+from basestation_gui_python.msg import RadioMsg, FakeWifiDetection
 import pdb
 import time
 import copy
 import rospkg
 import csv
 import datetime
+from cv_bridge import CvBridge
 
 # pdb.set_trace()
 
@@ -28,6 +29,7 @@ class GuiEngine:
         self.queued_artifacts = [] #saved for later
         self.submitted_artifacts = [] #submitted to darpa
         self.all_artifacts = [] #every artifact ever detected, submitted, deleted, etc.
+        self.br = CvBridge() #bridge from opencv to ros image messages
 
 
         #if we're simulating incoming artifact detections
@@ -36,11 +38,16 @@ class GuiEngine:
         if(self.simulating_artifact_detections):
 
             #start subscriber to listen for incoming artifact detections
-            rospy.Subscriber('/fake_artifact_detections', RadioMsg, self.addIncomingArtifact)
+            rospy.Subscriber('/fake_artifact_detections', RadioMsg, self.addRadioMsgDetection)
+
+            #start subscriber to listen for incoming artifact detection images
+            rospy.Subscriber('/fake_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
+
+
 
         else:
             #here is where we would put the scubscriber for real detections
-            rospy.Subscriber('/real_artifact_detections', RadioMsg, self.addIncomingArtifact)
+            rospy.Subscriber('/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
 
         self.gui = gui
 
@@ -54,18 +61,60 @@ class GuiEngine:
         !!! DEPRICATED !!!  Process an incoming RadioMsg !!! DEPRICATED !!!
         '''
         if (msg.message_type==RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
-            self.addIncomingArtifact(msg)
+            self.addRadioMsgDetection(msg)
         else:
             print "We are getting messages other than artifact detections and we don't know what to do with it"
 
 
-    def addIncomingArtifact(self, msg):
+    def addWifiMsgDetection(self, msg):
+        '''
+        Add an incoming artifact to the queue, or update an existing one
+        '''
+
+        #convert the message to an opencv image
+        img = self.br.imgmsg_to_cv2(msg.img)
+
+        #check if the artifact already exists
+        already_object = False
+
+        for artifact in self.all_artifacts:
+            if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
+                int(msg.artifact_report_id) == int(artifact.artifact_report_id):
+
+                artifact.imgs.append(img)
+
+                already_object = True
+
+
+        #else, make a new artifact
+        if (not already_object):
+
+            artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                    msg.artifact_robot_id, msg.artifact_report_id)
+
+            #add the artifact to the list of queued objects and to the all_artifacts list
+            self.queued_artifacts.append(artifact)
+            self.all_artifacts.append(artifact)
+
+            #call a function to graphically add it to the queue
+            self.gui.sendToQueue(artifact)
+
+            #add updated info to the csv
+            self.savePeriodically(self.gui)
+
+
+
+
+
+
+
+    def addRadioMsgDetection(self, msg):
         '''
         Add an incoming artifact to the queue
         '''
 
         #make sure we don't have a duplicate artifact
-        found_duplicate = False
+        already_object = False
 
         for artifact in self.all_artifacts:
             if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
@@ -74,9 +123,9 @@ class GuiEngine:
                 self.duplicate_count +=1
                 print "Duplicate artifact detection thrown away", self.duplicate_count
                 
-                found_duplicate = True
+                already_object = True
 
-        if (not found_duplicate):
+        if (not already_object):
             #convert the detection into a gui artifact type, which includes more data
             artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
                                 msg.artifact_robot_id, msg.artifact_report_id)
@@ -90,6 +139,7 @@ class GuiEngine:
 
             #add updated info to the csv
             self.savePeriodically(self.gui)
+
 
     def initLogFile(self):
         '''
@@ -154,7 +204,6 @@ class GuiEngine:
 
         with open(self.log_filename, 'a') as writeFile:
             writer = csv.writer(writeFile)
-
             writer.writerow([time.time(), artifact_str, vehicle_state_str, info_str])         
 
 
@@ -165,7 +214,7 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, category="", position="", source_robot_id="", artifact_report_id=""):
+    def __init__(self, category="", position="", source_robot_id="", artifact_report_id="", imgs = []):
         
         if(category != ""): #we're actually passing params in
             self.category = category
@@ -178,6 +227,7 @@ class Artifact:
             self.unread = True
             self.priority = 'Med'
             self.darpa_response = ''
+            self.imgs = imgs
 
 
 

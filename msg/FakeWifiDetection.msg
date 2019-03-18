@@ -1,0 +1,7 @@
+sensor_msgs/Image img
+uint8 artifact_robot_id
+uint16 artifact_report_id
+string artifact_type
+float32 artifact_x
+float32 artifact_y
+float32 artifact_z

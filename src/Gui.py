@@ -39,20 +39,16 @@ if QT_BINDING == 'pyside':
         raise ImportError('A PySide version newer than 1.1.0 is required.')
 
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
-from python_qt_binding.QtGui import QColor
+from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
 from GuiBridges import RosGuiBridge, DarpaGuiBridge
-
 from functools import partial
-
 import pdb
-
 from argparse import ArgumentParser
-
 from GuiEngine import GuiEngine, Artifact
-
 import csv
+import cv2
 
 # from geometry_msgs.msg import Point
 # from interactiveMarkerProcessing import CustomInteractiveMarker
@@ -246,9 +242,12 @@ class BasestationGuiPlugin(Plugin):
 
         #add in a blank label to represent an object
         self.art_image = qt.QLabel()
+
+        # img = cv2.imread('/home/bob/basestation_ws/src/basestation_gui_python/fake_artifact_imgs/test_img.jpg')
+        
         self.art_image.setText('thing\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
         self.art_image.setStyleSheet('background: black')
-        # self.art_image.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 4) #last 2 parameters are rowspan and columnspan
 
         
@@ -256,6 +255,24 @@ class BasestationGuiPlugin(Plugin):
         #add to the overall gui
         self.artvis_widget.setLayout(self.artvis_layout)
         self.global_widget.addWidget(self.artvis_widget, pos[0], pos[1], pos[2], pos[3])
+
+    def displayArtifactImg(self, artifact, index = 0):
+        '''
+        Display an artifact's index-th image
+        '''
+
+        if (index+1) > len(artifact.imgs):
+            print "The index referenced is too high given the number of images associated with this image"
+       
+        else:
+            img = artifact.imgs[index]
+        
+            img = cv2.resize(img,(600, 450))
+
+            img_height, img_width = img.shape[:2]
+            img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
+            img = gui.QPixmap.fromImage(img)
+            self.art_image.setPixmap(img)
 
     def processArtRefinementPress(self):
         '''
@@ -873,6 +890,9 @@ class BasestationGuiPlugin(Plugin):
 
                 #update the global info for what artifact is being displayed
                 self.updateDisplayedArtifact(artifact)
+
+                #update the image being shown
+                self.displayArtifactImg(artifact, 0)
 
                 if(self.displayed_artifact!=None):
                     self.displayed_artifact.unread = False
