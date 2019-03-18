@@ -46,6 +46,7 @@ catkin_python_setup() #uncommented for the rqt plugin
 add_message_files(
    FILES
    RadioMsg.msg
+   StatusPanelUpdate.msg
 #   Message1.msg
 #   Message2.msg
 )
