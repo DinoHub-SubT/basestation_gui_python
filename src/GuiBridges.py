@@ -13,6 +13,7 @@ from std_msgs.msg import String
 import yaml
 import sys
 from geometry_msgs.msg import PoseStamped, Point
+from nav_msgs.msg import Odometry
 import pdb
 from basestation_gui_python.msg import RadioMsg
 import numpy as np
@@ -84,6 +85,10 @@ class RosGuiBridge:
         self.gui = gui
         rospy.Subscriber('/basic_controls/feedback', InteractiveMarkerFeedback, self.gui.updateRefinmentPos)
 
+        #subscriber for saving the robot pose
+        self.robot_pos = None
+        rospy.Subscriber('/integrated_to_map', Odometry, self.saveRobotPose)
+
     def initMarkers(self):
         '''
         Initialize and return the various markers
@@ -104,6 +109,16 @@ class RosGuiBridge:
             marker_list.append(marker)
 
         return marker_list
+
+    def saveRobotPose(self, msg):
+        '''
+        Function to save the robot pose for Ji's button
+        '''
+        self.robot_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+
+    def getRobotPose(self):
+        return self.robot_pos
+
 
         
     def publishRobotCommand(self, command, robot_name, button):

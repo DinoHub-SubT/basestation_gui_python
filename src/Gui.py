@@ -97,6 +97,10 @@ class BasestationGuiPlugin(Plugin):
         self.load_from_csv.clicked.connect(self.loadFromCsv)
         self.top_layout.addWidget(self.load_from_csv, 0, 1)
 
+        self.save_pose_button = qt.QPushButton('Save robot pose')
+        self.save_pose_button.clicked.connect(self.saveRobotPoseGui)
+        self.top_layout.addWidget(self.save_pose_button, 1,0)
+
 
         self.global_widget.addWidget(self.top_widget)
         
@@ -116,7 +120,25 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-       
+    def saveRobotPoseGui(self):
+        '''
+        When a button is pressed, its pose gets saved to a textfile
+        '''
+        rospack = rospkg.RosPack()
+        pose_filename = rospack.get_path('basestation_gui_python')+'/ji_pose.csv'
+
+        robot_pos = self.ros_gui_bridge.getRobotPose()
+
+        if (robot_pos != None):
+            with open(pose_filename, 'a') as writeFile:
+                writer = csv.writer(writeFile)
+                writer.writerow([robot_pos[0], robot_pos[1], robot_pos[2]]) 
+
+        print "Saved robot pose."
+
+
+
+
 
 
     def initControlPanel(self, pos):
