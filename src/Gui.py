@@ -1257,6 +1257,7 @@ class BasestationGuiPlugin(Plugin):
         
         self.status_table.item(row_index, column_index).setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
         self.status_table.item(row_index, column_index).setText(msg.value)
+        self.status_table.viewport().update()
 
 
     def select_config_file(self):
