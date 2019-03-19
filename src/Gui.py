@@ -1247,7 +1247,14 @@ class BasestationGuiPlugin(Plugin):
 
     def status_panel_update_callback(self, msg):
         column_index = msg.robot_id
+        if column_index < 0 or column_index >= self.status_table.columnCount():
+            rospy.logerr('robot_id %d is out of bounds: ' % column_index)
+            return
+        if msg.key not in self.statuses:
+            rospy.logerr('key %s is not the name of a row in the status panel' % msg.key)
+            return
         row_index = self.statuses.index(msg.key)
+        
         self.status_table.item(row_index, column_index).setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
         self.status_table.item(row_index, column_index).setText(msg.value)
 
