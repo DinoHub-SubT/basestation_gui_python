@@ -245,8 +245,16 @@ class BasestationGuiPlugin(Plugin):
 
         # img = cv2.imread('/home/bob/basestation_ws/src/basestation_gui_python/fake_artifact_imgs/test_img.jpg')
         
-        self.art_image.setText('thing\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
-        self.art_image.setStyleSheet('background: black')
+        rospack = rospkg.RosPack()
+        img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
+
+        img = cv2.imread(img_filename)
+        img = cv2.resize(img,(600, 450))
+
+        img_height, img_width = img.shape[:2]
+        img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
+        img = gui.QPixmap.fromImage(img)
+        self.art_image.setPixmap(img)
 
         self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 4) #last 2 parameters are rowspan and columnspan
 
@@ -262,17 +270,20 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         if (index+1) > len(artifact.imgs):
-            print "The index referenced is too high given the number of images associated with this image"
+            rospack = rospkg.RosPack()
+            img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
+
+            img = cv2.imread(img_filename)
        
         else:
             img = artifact.imgs[index]
         
-            img = cv2.resize(img,(600, 450))
+        img = cv2.resize(img,(600, 450))
 
-            img_height, img_width = img.shape[:2]
-            img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
-            img = gui.QPixmap.fromImage(img)
-            self.art_image.setPixmap(img)
+        img_height, img_width = img.shape[:2]
+        img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
+        img = gui.QPixmap.fromImage(img)
+        self.art_image.setPixmap(img)
 
     def processArtRefinementPress(self):
         '''
@@ -914,6 +925,11 @@ class BasestationGuiPlugin(Plugin):
 
                 row = i
 
+                #to refresh the data
+                self.queue_table.removeRow(row)
+                self.queue_table.insertRow(row)
+                # print "found: ",self.queue_table.item(row, 0).text(), self.queue_table.item(row, 1).text(), self.queue_table.item(row, 2).text()  
+
                 #update the necessary info
                 if (artifact.time_from_robot == -1): #this is coming directly from the robot
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
@@ -944,20 +960,22 @@ class BasestationGuiPlugin(Plugin):
                             item.setData(core.Qt.UserRole, val)
 
                         self.queue_table.setItem(row, col, item)
+                        # self.queue_table.itemChanged(item)#self.queue_table.item(row, col))
 
 
                     #color the unread green
                     self.queue_table.item(row, 4).setBackground(gui.QColor(0,255,0))
 
-                    for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
-                        if self.queue_table.item(row, i) != None: 
-                            self.queue_table.item(row, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
-                            self.queue_table.item(row, i).setTextAlignment(Qt.AlignHCenter) 
+                    for k in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
+                        if self.queue_table.item(row, k) != None: 
+                            self.queue_table.item(row, k).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+                            self.queue_table.item(row, k).setTextAlignment(Qt.AlignHCenter) 
 
                     self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
 
                     if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                         self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+        
 
 
 

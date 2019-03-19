@@ -100,6 +100,8 @@ class GuiEngine:
                 if(msg.artifact_type != ''):
                     artifact.category = msg.artifact_type
 
+
+
                 #update the GUI
                 self.gui.updateArtifactInQueue(artifact)
                 
@@ -150,6 +152,9 @@ class GuiEngine:
                 already_object = True
 
         if (not already_object):
+
+            print msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                msg.artifact_robot_id, msg.artifact_report_id
 
             #convert the detection into a gui artifact type, which includes more data
             artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \

@@ -38,6 +38,8 @@ def talker():
     
     rate = rospy.Rate(0.2) #rate in hz
 
+    time.sleep(2.) #necessary because launch order is random
+
     msg = RadioMsg()
     msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
 
@@ -51,11 +53,26 @@ def talker():
 
         pub.publish(msg)
 
-        img_msg = getFakeWifiMsg(artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
-                                 artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
-                                #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
+        if (num_pubbed == 0):
+            initial_report_id = msg.artifact_report_id
+            initial_type = msg.artifact_type
+            initial_robot_id = msg.artifact_robot_id
+            initial_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
 
-        img_pub.publish(img_msg)
+            # print initial_robot_id, initial_report_id, initial_type
+
+        if(num_pubbed == total_num_to_pub - 1):
+
+            # print "here"
+            # print initial_robot_id, initial_report_id
+
+            img_msg = getFakeWifiMsg(artifact_report_id = initial_report_id, artifact_type = 'Drill', \
+                                     artifact_robot_id = initial_robot_id, artifact_pos = [initial_pos[0]+1, initial_pos[1], initial_pos[2]+1])
+                                    # (artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
+                                    #  artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
+                                    #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
+
+            img_pub.publish(img_msg)
 
         rate.sleep()
 
@@ -99,7 +116,7 @@ def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artif
         msg.img = img 
         msg.artifact_robot_id = artifact_robot_id
         msg.artifact_report_id = artifact_report_id
-        msg.artifact_type = 'Fire extinguisher'#artifact_type
+        msg.artifact_type = artifact_type
         msg.artifact_x = artifact_pos[0]
         msg.artifact_y = artifact_pos[1]
         msg.artifact_z = artifact_pos[2]
