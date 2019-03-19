@@ -900,6 +900,65 @@ class BasestationGuiPlugin(Plugin):
                 break
 
         
+    def updateArtifactInQueue(self, artifact):
+        '''
+        An artifact's info has been changed and the queue needs to be updated
+        '''
+
+        for i in range(self.queue_table.rowCount()):
+            robot_id = self.queue_table.item(i, 0).text()
+            art_id = self.queue_table.item(i, 5).text()
+
+            if (int(artifact.source_robot) == int(robot_id)) and \
+               (int(artifact.artifact_report_id) == int(art_id)):
+
+                row = i
+
+                #update the necessary info
+                if (artifact.time_from_robot == -1): #this is coming directly from the robot
+                    disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                
+                else:
+                    disp_time = self.darpa_gui_bridge.displaySeconds(float(artifact.time_from_robot))
+
+
+                row_data = [artifact.source_robot, artifact.priority, disp_time, \
+                            artifact.category, 'Updtd', artifact.artifact_report_id]
+
+
+                with self. update_queue_lock:
+
+                    self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
+
+                    for col, val in enumerate(row_data):
+                        
+                        if (str(val).find(':')==-1): #if we're not dealing with a display time
+                            item = NumericItem(str(val))
+                            item.setData(core.Qt.UserRole, val)
+                            
+                        
+                        else:
+                            colon = disp_time.find(':')
+                            val = float(disp_time[:colon])*60 + float(disp_time[colon+1:])
+                            item = NumericItem(str(disp_time))
+                            item.setData(core.Qt.UserRole, val)
+
+                        self.queue_table.setItem(row, col, item)
+
+
+                    #color the unread green
+                    self.queue_table.item(row, 4).setBackground(gui.QColor(0,255,0))
+
+                    for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
+                        if self.queue_table.item(row, i) != None: 
+                            self.queue_table.item(row, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+                            self.queue_table.item(row, i).setTextAlignment(Qt.AlignHCenter) 
+
+                    self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
+
+                    if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
+                        self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+
 
 
     def removeQueueItem(self, row):

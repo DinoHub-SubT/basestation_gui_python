@@ -71,8 +71,13 @@ class GuiEngine:
         Add an incoming artifact to the queue, or update an existing one
         '''
 
+
         #convert the message to an opencv image
-        img = self.br.imgmsg_to_cv2(msg.img)
+        if (msg.img.data != ''):
+            img = self.br.imgmsg_to_cv2(msg.img)
+        else:
+            img = np.array([])
+
 
         #check if the artifact already exists
         already_object = False
@@ -81,7 +86,23 @@ class GuiEngine:
             if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
                 int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
-                artifact.imgs.append(img)
+                #update the current information if it exists!
+                if (len(img.shape)>1):
+                    artifact.imgs.append(img)
+
+                if (msg.artifact_x != 0):
+                    artifact.pos[0] = msg.artifact_x
+                if (msg.artifact_y != 0):
+                    artifact.pos[1] = msg.artifact_y
+                if (msg.artifact_z != 0):
+                    artifact.pos[2] = msg.artifact_z
+
+                if(msg.artifact_type != ''):
+                    artifact.category = msg.artifact_type
+
+                #update the GUI
+                self.gui.updateArtifactInQueue(artifact)
+                
 
                 already_object = True
 
@@ -89,8 +110,14 @@ class GuiEngine:
         #else, make a new artifact
         if (not already_object):
 
-            artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                    msg.artifact_robot_id, msg.artifact_report_id)
+            if(len(img.shape)>1):
+                artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                        msg.artifact_robot_id, msg.artifact_report_id, [img])
+
+            else:
+                artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                        msg.artifact_robot_id, msg.artifact_report_id, [])
+
 
             #add the artifact to the list of queued objects and to the all_artifacts list
             self.queued_artifacts.append(artifact)
@@ -104,14 +131,11 @@ class GuiEngine:
 
 
 
-
-
-
-
     def addRadioMsgDetection(self, msg):
         '''
         Add an incoming artifact to the queue
         '''
+
 
         #make sure we don't have a duplicate artifact
         already_object = False
@@ -126,9 +150,13 @@ class GuiEngine:
                 already_object = True
 
         if (not already_object):
+
             #convert the detection into a gui artifact type, which includes more data
             artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                msg.artifact_robot_id, msg.artifact_report_id)
+                                msg.artifact_robot_id, msg.artifact_report_id, [])
+
+
+
 
             #add the artifact to the list of queued objects and to the all_artifacts list
             self.queued_artifacts.append(artifact)
@@ -216,18 +244,18 @@ class Artifact:
     '''
     def __init__(self, category="", position="", source_robot_id="", artifact_report_id="", imgs = []):
         
-        if(category != ""): #we're actually passing params in
-            self.category = category
-            self.pos = position
-            self.orig_pos = copy.deepcopy(position)
-            self.source_robot = source_robot_id
-            self.artifact_report_id = artifact_report_id
-            self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
-            self.time_to_darpa = -1 #time submitted to darpa
-            self.unread = True
-            self.priority = 'Med'
-            self.darpa_response = ''
-            self.imgs = imgs
+        self.category = category
+        self.pos = position
+        self.orig_pos = copy.deepcopy(position)
+        self.source_robot = source_robot_id
+        self.artifact_report_id = artifact_report_id
+        self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
+        self.time_to_darpa = -1 #time submitted to darpa
+        self.unread = True
+        self.priority = 'Med'
+        self.darpa_response = ''
+        self.imgs = imgs
+
 
 
 

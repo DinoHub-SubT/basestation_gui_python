@@ -70,9 +70,20 @@ def getJiFakePose():
 
     return ji_msg
 
-def getFakeWifiMsg(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None):
+def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artifact_pos ):
     rospack = rospkg.RosPack()
-    image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/test_img.jpg'
+    if (artifact_type == 'Fire extinguisher'):
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/test_img.jpg'
+    elif (artifact_type == 'Human'):
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/human.png'
+    elif (artifact_type == 'Drill'):
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/drill.jpg'
+    elif (artifact_type == 'Backpack'):
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/backpack.png'
+    elif (artifact_type == 'Phone'):
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
+    else:
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
 
     img = cv2.imread(image_filename)
 
@@ -88,7 +99,7 @@ def getFakeWifiMsg(artifact_report_id = None, artifact_type = None, artifact_rob
         msg.img = img 
         msg.artifact_robot_id = artifact_robot_id
         msg.artifact_report_id = artifact_report_id
-        msg.artifact_type = artifact_type
+        msg.artifact_type = 'Fire extinguisher'#artifact_type
         msg.artifact_x = artifact_pos[0]
         msg.artifact_y = artifact_pos[1]
         msg.artifact_z = artifact_pos[2]
