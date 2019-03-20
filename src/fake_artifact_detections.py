@@ -30,7 +30,7 @@ def talker():
     rospy.init_node('fake_artifact_node', anonymous=True)
     artifact_types = ['Human', 'Fire extinguisher', 'Phone', 'Backpack', 'Drill']
 
-    total_num_to_pub = 10#1000
+    total_num_to_pub = 20#1000
     num_pubbed = 0    
 
     #add stuff for testing ji button pipeline
@@ -43,6 +43,8 @@ def talker():
     msg = RadioMsg()
     msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
 
+    published_list = []
+
     while not rospy.is_shutdown() and num_pubbed < total_num_to_pub:
         msg.artifact_report_id =  random.randint(0,9999)
         msg.artifact_type =  random.sample(artifact_types,1)[0]
@@ -51,28 +53,40 @@ def talker():
         msg.artifact_y =  random.random()*5.
         msg.artifact_z =  random.random()*5.
 
-        pub.publish(msg)
+        if (num_pubbed < total_num_to_pub * 0.3):
+            published_list.append([msg.artifact_robot_id, msg.artifact_report_id])
+            pub.publish(msg)
 
-        if (num_pubbed == 0):
-            initial_report_id = msg.artifact_report_id
-            initial_type = msg.artifact_type
-            initial_robot_id = msg.artifact_robot_id
-            initial_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
+        else: #update some artifacts
 
-            # print initial_robot_id, initial_report_id, initial_type
+            rand_ind = random.randint(0,len(published_list)-1)
+            robot_id = published_list[rand_ind][0]
+            report_id = published_list[rand_ind][1]
 
-        if(num_pubbed == total_num_to_pub - 1):
+            if (random.random()>0.5): #update by radio message
+                msg.artifact_report_id =  report_id
+                msg.artifact_type =  random.sample(artifact_types,1)[0]
+                msg.artifact_robot_id = robot_id
+                msg.artifact_x =  random.random()*5.
+                msg.artifact_y =  random.random()*5.
+                msg.artifact_z =  random.random()*5.
 
-            # print "here"
-            # print initial_robot_id, initial_report_id
+                print "updated row", rand_ind, " to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
+                pub.publish(msg)
+                
 
-            img_msg = getFakeWifiMsg(artifact_report_id = initial_report_id, artifact_type = 'Drill', \
-                                     artifact_robot_id = initial_robot_id, artifact_pos = [initial_pos[0]+1, initial_pos[1], initial_pos[2]+1])
-                                    # (artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
-                                    #  artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
-                                    #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
+            else: #update by wifi message
 
-            img_pub.publish(img_msg)
+                typ = random.sample(artifact_types,1)[0]
+
+                img_msg = getFakeWifiMsg(artifact_report_id = report_id, artifact_type = typ, \
+                                         artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2])
+                                        # (artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
+                                        #  artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
+                                        #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
+                print "updated row", rand_ind, " to be ",typ
+
+                img_pub.publish(img_msg)
 
         rate.sleep()
 
@@ -98,8 +112,6 @@ def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artif
     elif (artifact_type == 'Backpack'):
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/backpack.png'
     elif (artifact_type == 'Phone'):
-        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
-    else:
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
 
     img = cv2.imread(image_filename)

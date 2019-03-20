@@ -89,17 +89,16 @@ class GuiEngine:
                 #update the current information if it exists!
                 if (len(img.shape)>1):
                     artifact.imgs.append(img)
+                else:
+                    print "image data not updated"
 
-                if (msg.artifact_x != 0):
+                if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
                     artifact.pos[0] = msg.artifact_x
-                if (msg.artifact_y != 0):
                     artifact.pos[1] = msg.artifact_y
-                if (msg.artifact_z != 0):
                     artifact.pos[2] = msg.artifact_z
 
                 if(msg.artifact_type != ''):
                     artifact.category = msg.artifact_type
-
 
 
                 #update the GUI
@@ -147,14 +146,24 @@ class GuiEngine:
                 int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
                 self.duplicate_count +=1
-                print "Duplicate artifact detection thrown away", self.duplicate_count
+                
+                #update the current information if it exists!
+                if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
+                    artifact.pos[0] = msg.artifact_x
+                    artifact.pos[1] = msg.artifact_y
+                    artifact.pos[2] = msg.artifact_z
+
+                if(msg.artifact_type != ''):
+                    artifact.category = msg.artifact_type
+
+
+                #update the GUI
+                self.gui.updateArtifactInQueue(artifact)
                 
                 already_object = True
 
         if (not already_object):
 
-            print msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                msg.artifact_robot_id, msg.artifact_report_id
 
             #convert the detection into a gui artifact type, which includes more data
             artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
