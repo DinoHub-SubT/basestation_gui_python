@@ -117,6 +117,8 @@ class BasestationGuiPlugin(Plugin):
 
         self.save_count = 0 #way to ensure we don't save the gui too often
 
+        self.artifact_image_index = 0 #the index of the image currently being displayed
+
 
 
     def saveRobotPoseGui(self):
@@ -239,14 +241,30 @@ class BasestationGuiPlugin(Plugin):
 
         #exapnd to fill the space vertically
         art_label = qt.QLabel()
-        art_label.setText('ARTIFACT PANEL')
+        art_label.setText('ARTIFACT VISUALIZATION')
         art_label.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(art_label, 0, 0, 1, 4)
+        self.artvis_layout.addWidget(art_label, 0, 0, 1, 2)
+
+        #add in multimodal feedback indicators
+        # self.multimodal_label = qt.QLabel()
+        # self.multimodal_label.setText('Multimodal feedback')
+        # self.multimodal_label.setFont(boldFont)
+        # self.artmanip_layout.addWidget(self.multimodal_label, 1, 0, 1, 3)
+
+        self.bluetooth_indicator_label = qt.QLabel()
+        self.bluetooth_indicator_label.setText('Bluetooth: Good (Fake)')
+        self.bluetooth_indicator_label.setAlignment(Qt.AlignCenter)
+        self.artvis_layout.addWidget(self.bluetooth_indicator_label, 1,0 )
+
+        self.audio_indicator_label = qt.QLabel()
+        self.audio_indicator_label.setText('Audio: Good (Fake)')
+        self.audio_indicator_label.setAlignment(Qt.AlignCenter)
+        self.artvis_layout.addWidget(self.audio_indicator_label, 1,1 )  
+
+
 
         #add in a blank label to represent an object
         self.art_image = qt.QLabel()
-
-        # img = cv2.imread('/home/bob/basestation_ws/src/basestation_gui_python/fake_artifact_imgs/test_img.jpg')
         
         rospack = rospkg.RosPack()
         img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
@@ -258,8 +276,9 @@ class BasestationGuiPlugin(Plugin):
         img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
         img = gui.QPixmap.fromImage(img)
         self.art_image.setPixmap(img)
+        self.art_image.setAlignment(Qt.AlignCenter)
 
-        self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 4) #last 2 parameters are rowspan and columnspan
+        self.artvis_layout.addWidget(self.art_image, 2, 0, 1, 2) #last 2 parameters are rowspan and columnspan
 
         
 
@@ -287,6 +306,16 @@ class BasestationGuiPlugin(Plugin):
         img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
         img = gui.QPixmap.fromImage(img)
         self.art_image.setPixmap(img)
+        self.art_image.setAlignment(Qt.AlignCenter)
+
+
+        self.artifact_image_index = index
+
+        #change the label
+        if (len(artifact.imgs) == 0):
+            self.img_displayed_label.setText('Img 0/0')
+        else:
+            self.img_displayed_label.setText('Img'+str(index+1)+'/'+str(len(artifact.imgs)))
 
     def processArtRefinementPress(self):
         '''
@@ -316,7 +345,48 @@ class BasestationGuiPlugin(Plugin):
             self.displayed_artifact.pos[1] = msg.pose.position.y
             self.displayed_artifact.pos[2] = msg.pose.position.z
 
+    def imgBack(self):
+        '''
+        Display the previous image for an artifact
+        '''
 
+        if(self.displayed_artifact != None):
+
+            if (len(self.displayed_artifact.imgs) == 0):
+                print "There are no images to show"
+
+            else:
+                #check if we cannot go back any farther
+                if (self.artifact_image_index == 0):
+                    self.displayArtifactImg(self.displayed_artifact, len(self.displayed_artifact.imgs) - 1)
+
+                #else, just go back normally
+                else:
+                    self.displayArtifactImg(self.displayed_artifact, self.artifact_image_index - 1)
+        
+        else:
+            print "No artifact currently being displayed. Select one from the queue."
+
+    def imgForward(self):
+        '''
+        Display the next image for an artifact
+        '''
+        if(self.displayed_artifact != None):
+
+            if (len(self.displayed_artifact.imgs) == 0):
+                print "There are no images to show"
+
+            else:
+                #check if we cannot go forward any farther
+                if (self.artifact_image_index == (len(self.displayed_artifact.imgs) - 1)):
+                    self.displayArtifactImg(self.displayed_artifact,  0)
+
+                #else, just go forward normally
+                else:
+                    self.displayArtifactImg(self.displayed_artifact, self.artifact_image_index + 1)
+        
+        else:
+            print "No artifact currently being displayed. Select one from the queue."
 
     def initArtifactManipulator(self, pos):
         '''
@@ -325,65 +395,78 @@ class BasestationGuiPlugin(Plugin):
 
          #define the overall widget
         self.artmanip_widget = QWidget()
-        self.artmanip_layout = qt.QGridLayout()
-
-        #add button for displaying the interactive marker
-        self.art_refinement_button = qt.QPushButton("Show Refinement Marker")
-        self.art_refinement_button.setCheckable(True)
-        self.art_refinement_button.clicked.connect(self.processArtRefinementPress)
-        self.artmanip_layout.addWidget(self.art_refinement_button, 0, 0 , 1, 4)
-
-        #add in information about 3d position     
-        dimensions = ['X', 'Y', 'Z'] 
+        self.artmanip_layout = qt.QGridLayout() 
 
         boldFont = gui.QFont()
-        boldFont.setBold(True)
+        boldFont.setBold(True) 
 
-        for i,dim in enumerate(dimensions):
-            dim_label = qt.QLabel()
-            dim_label.setText(dim)
-            dim_label.setAlignment(Qt.AlignCenter)
-            dim_label.setFont(boldFont)
-            self.artmanip_layout.addWidget(dim_label, 1, i+1)
+        #add arrow buttons and label in the middle to indicate what image we're on
+        self.img_back_button = qt.QPushButton("<-")
+        self.img_back_button.clicked.connect(self.imgBack)
+        self.artmanip_layout.addWidget(self.img_back_button, 0, 0 )
+
+        self.img_displayed_label = qt.QLabel()
+        self.img_displayed_label.setText('Img 0/0')
+        self.img_displayed_label.setAlignment(Qt.AlignCenter)
+        self.artmanip_layout.addWidget(self.img_displayed_label, 0,1)
+
+        self.img_forward_button = qt.QPushButton("->")
+        self.img_forward_button.clicked.connect(self.imgForward)
+        self.artmanip_layout.addWidget(self.img_forward_button, 0, 2 )
+
+              
+
+
+        #add in information about 3d position        
 
         #information about the detected position
         robot_pos = ['N/A', 'N/A', 'N/A'] #fake data
 
         self.orig_pos_label = qt.QLabel()
-        self.orig_pos_label.setText('Original Position')
-        self.artmanip_layout.addWidget(self.orig_pos_label, 2, 0)
+        self.orig_pos_label.setText('\n\nOriginal Position (XYZ)')
+        self.orig_pos_label.setAlignment(Qt.AlignCenter)
+        self.orig_pos_label.setFont(boldFont)
+        self.artmanip_layout.addWidget(self.orig_pos_label, 1, 0, 1, 3)
 
         self.orig_pos_label_x = qt.QLabel()
         self.orig_pos_label_x.setText(str(robot_pos[0]))
         self.orig_pos_label_x.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(self.orig_pos_label_x, 2, 1)
+        self.artmanip_layout.addWidget(self.orig_pos_label_x, 2, 0)
 
         self.orig_pos_label_y = qt.QLabel()
         self.orig_pos_label_y.setText(str(robot_pos[1]))
         self.orig_pos_label_y.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(self.orig_pos_label_y, 2, 2)
+        self.artmanip_layout.addWidget(self.orig_pos_label_y, 2, 1)
 
         self.orig_pos_label_z = qt.QLabel()
         self.orig_pos_label_z.setText(str(robot_pos[2]))
         self.orig_pos_label_z.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(self.orig_pos_label_z, 2, 3)
+        self.artmanip_layout.addWidget(self.orig_pos_label_z, 2, 2)
 
         #editable information about the position, to send to darpa
-        refined_pos_label = qt.QLabel()
-        refined_pos_label.setText('Refined Position')
-        self.artmanip_layout.addWidget(refined_pos_label, 3, 0)
+        self.refined_pos_label = qt.QLabel()
+        self.refined_pos_label.setText('\nRefined Position (XYZ)')
+        self.refined_pos_label.setFont(boldFont)
+        self.refined_pos_label.setAlignment(Qt.AlignCenter)
+        self.artmanip_layout.addWidget(self.refined_pos_label, 3, 0, 1, 3)
 
         self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
        
         #fill in some fake data
         self.art_pos_textbox_x.setText(str(robot_pos[0]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 3, 1)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_x, 4, 0)
 
         self.art_pos_textbox_y.setText(str(robot_pos[1]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 3, 2)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_y, 4, 1)
 
         self.art_pos_textbox_z.setText(str(robot_pos[2]))
-        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 3, 3)
+        self.artmanip_layout.addWidget(self.art_pos_textbox_z, 4, 2)
+
+        #add button for displaying the interactive marker
+        self.art_refinement_button = qt.QPushButton("Show Refinement Marker")
+        self.art_refinement_button.setCheckable(True)
+        self.art_refinement_button.clicked.connect(self.processArtRefinementPress)
+        self.artmanip_layout.addWidget(self.art_refinement_button, 5, 0 , 1, 3)
 
 
 
@@ -401,23 +484,15 @@ class BasestationGuiPlugin(Plugin):
         art_action_label2.setText('\n\nCategory')
         art_action_label2.setFont(boldFont)
         art_action_label2.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label2, 4, 0, 1, 3)
+        self.artmanip_layout.addWidget(art_action_label2, 6, 0, 1, 2)
 
         art_action_label3 = qt.QLabel()
         art_action_label3.setText('\n\nPriority')
         art_action_label3.setFont(boldFont)
         art_action_label3.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(art_action_label3, 4, 3, 1, 2)
+        self.artmanip_layout.addWidget(art_action_label3, 6, 2)
 
-        button = qt.QPushButton("To DARPA")
-        button.clicked.connect(partial(self.proposeArtifact))
-        self.artmanip_layout.addWidget(button, 6, 0, 1, 4)
-
-        # button = qt.QPushButton("ARCHIVE")
-        # # button.setSizePolicy(QSizePolicy.Expanding, 0)
-        # self.artmanip_layout.addWidget(button, 6,0,1,4)
-
-        #make the combobox for setting the artifact category
+         #make the combobox for setting the artifact category
         self.darpa_cat_box = qt.QComboBox()
         
         for category in self.ros_gui_bridge.artifact_categories:
@@ -425,7 +500,7 @@ class BasestationGuiPlugin(Plugin):
         
         self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        self.artmanip_layout.addWidget(self.darpa_cat_box, 5, 0, 1, 3)
+        self.artmanip_layout.addWidget(self.darpa_cat_box, 7, 0, 1, 2)
 
         #make the combobox for setting the artifact priority
         self.artifact_priority_box = qt.QComboBox() 
@@ -433,11 +508,17 @@ class BasestationGuiPlugin(Plugin):
         self.artifact_priority_box.addItem('High')
         self.artifact_priority_box.addItem('Med')
         self.artifact_priority_box.addItem('Low')
-
         
         self.artifact_priority_box.currentTextChanged.connect(self.updateArtifactPriority)
+        self.artmanip_layout.addWidget(self.artifact_priority_box, 7, 2)
 
-        self.artmanip_layout.addWidget(self.artifact_priority_box, 5, 3, 1, 1)
+
+        button = qt.QPushButton("To DARPA")
+        button.clicked.connect(partial(self.proposeArtifact))
+        self.artmanip_layout.addWidget(button, 8, 0, 1, 3)
+       
+
+        
 
 
 
@@ -930,8 +1011,6 @@ class BasestationGuiPlugin(Plugin):
                 row = i
 
                 #to refresh the data
-                self.queue_table.removeRow(row)
-                self.queue_table.insertRow(row)
                 # print "found: ",self.queue_table.item(row, 0).text(), self.queue_table.item(row, 1).text(), self.queue_table.item(row, 2).text()  
 
                 #update the necessary info
@@ -974,6 +1053,9 @@ class BasestationGuiPlugin(Plugin):
                         if self.queue_table.item(row, k) != None: 
                             self.queue_table.item(row, k).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
                             self.queue_table.item(row, k).setTextAlignment(Qt.AlignHCenter) 
+
+                    #refresh the table
+                    self.queue_table.viewport().update()
 
                     self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
 
