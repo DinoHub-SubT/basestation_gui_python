@@ -50,6 +50,8 @@ from GuiEngine import GuiEngine, Artifact
 import csv
 import cv2
 
+from basestation_gui_python.msg import StatusPanelUpdate
+
 # from geometry_msgs.msg import Point
 # from interactiveMarkerProcessing import CustomInteractiveMarker
 
@@ -71,6 +73,7 @@ class BasestationGuiPlugin(Plugin):
         #if we're also simulating the darpa command post
         self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
 
+        self.status_panel_update_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.status_panel_update_callback)
         
         self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
         self.transition_pub = rospy.Publisher('/transition', String, queue_size=1)
@@ -770,6 +773,7 @@ class BasestationGuiPlugin(Plugin):
         #preliminaries to build the rest of the panel
         num_robots = len(self.ros_gui_bridge.robot_names) #get the number of robots
         statuses = ['Battery(mins)', 'Comms', 'Mobility', 'Camera', 'Velodyne', 'CPU', 'Disk Space'] #define the status each robot will have
+        self.statuses = statuses
 
         status_label = qt.QLabel()
         status_label.setText('STATUS PANEL')
@@ -1360,7 +1364,19 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-
+    def status_panel_update_callback(self, msg):
+        column_index = msg.robot_id
+        if column_index < 0 or column_index >= self.status_table.columnCount():
+            rospy.logerr('robot_id %d is out of bounds: ' % column_index)
+            return
+        if msg.key not in self.statuses:
+            rospy.logerr('key %s is not the name of a row in the status panel' % msg.key)
+            return
+        row_index = self.statuses.index(msg.key)
+        
+        self.status_table.item(row_index, column_index).setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
+        self.status_table.item(row_index, column_index).setText(msg.value)
+        self.status_table.viewport().update()
 
 
     def select_config_file(self):

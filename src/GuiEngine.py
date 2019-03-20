@@ -46,8 +46,9 @@ class GuiEngine:
 
 
         else:
-            #here is where we would put the scubscriber for real detections
-            rospy.Subscriber('/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
+            #here is where we would put the subscriber for real detections
+            rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.addIncomingArtifact)
+            rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.addIncomingArtifact)
 
         self.gui = gui
 

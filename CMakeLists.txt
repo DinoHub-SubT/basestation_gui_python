@@ -47,6 +47,7 @@ add_message_files(
    FILES
    RadioMsg.msg
    FakeWifiDetection.msg
+   StatusPanelUpdate.msg
 #   Message1.msg
 #   Message2.msg
 )
