@@ -1207,6 +1207,7 @@ class BasestationGuiPlugin(Plugin):
 
         self.message_textbox = qt.QListWidget()
         self.message_textbox.setWordWrap(True)
+
         self.message_box_layout.addWidget(self.message_textbox, 1, 0)
 
 
@@ -1221,31 +1222,37 @@ class BasestationGuiPlugin(Plugin):
         '''
         Add a message to the message box from a rostopic
         '''
-        
         with self.update_message_box_lock:
+            self.message_textbox.setSortingEnabled(False)
+            
             if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
                 self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg.data)
             else:
                 self.message_textbox.addItem('[--] '+msg.data)
+
+            self.message_textbox.setSortingEnabled(True)
+
+            self.message_textbox.sortItems(core.Qt.DescendingOrder)
+
 
     def printMessage(self, msg):
         '''
         Add message to the messag box that is simply a string from
         this application (not ROS)
         '''
-
+        
         with self.update_message_box_lock:
+            self.message_textbox.setSortingEnabled(False)
+
             if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
                 self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
             else:
                 self.message_textbox.addItem('[--] '+msg)
 
+            self.message_textbox.setSortingEnabled(True)
 
-        # with self.update_message_box_lock:
-        #     if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
-        #         self.message_textbox.append('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
-        #     else:
-        #         self.message_textbox.append('[--] '+msg)
+            self.message_textbox.sortItems(core.Qt.DescendingOrder)
+
 
 
 
