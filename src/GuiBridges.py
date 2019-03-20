@@ -89,6 +89,9 @@ class RosGuiBridge:
         self.robot_pos = None
         rospy.Subscriber('/integrated_to_map', Odometry, self.saveRobotPose)
 
+        #subscriber for listening to messages
+        rospy.Subscriber('/gui_message_listener', String, self.gui.addMessage)
+
     def initMarkers(self):
         '''
         Initialize and return the various markers
@@ -394,6 +397,9 @@ class DarpaGuiBridge:
         '''
         Function to convert seconds float into a min:sec string
         '''
+        #convert strings to floats
+        seconds = float(seconds)
+
         seconds_int = int(seconds-(int(seconds)/60)*60)
         if seconds_int < 10:
             seconds_str = '0'+str(seconds_int)

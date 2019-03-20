@@ -9,6 +9,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 '''
 import rospy
 from basestation_gui_python.msg import RadioMsg, FakeWifiDetection
+from std_msgs.msg import String
 import pdb
 import random
 import time
@@ -26,6 +27,7 @@ import rospkg
 def talker():
     pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
     img_pub = rospy.Publisher('/fake_artifact_imgs', FakeWifiDetection, queue_size=10)
+    message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
     
     rospy.init_node('fake_artifact_node', anonymous=True)
     artifact_types = ['Human', 'Fire extinguisher', 'Phone', 'Backpack', 'Drill']
@@ -87,6 +89,8 @@ def talker():
                 print "updated row", rand_ind, " to be ",typ
 
                 img_pub.publish(img_msg)
+
+        message_pub.publish('Message system testing')
 
         rate.sleep()
 

@@ -109,6 +109,7 @@ class BasestationGuiPlugin(Plugin):
 
         self.artifact_proposal_lock = threading.Lock()
         self.update_queue_lock = threading.Lock()
+        self.update_message_box_lock = threading.Lock()
 
         self.displayed_artifact = None #which artifact is currently being displayed
 
@@ -118,6 +119,7 @@ class BasestationGuiPlugin(Plugin):
         self.save_count = 0 #way to ensure we don't save the gui too often
 
         self.artifact_image_index = 0 #the index of the image currently being displayed
+
 
 
 
@@ -135,7 +137,7 @@ class BasestationGuiPlugin(Plugin):
                 writer = csv.writer(writeFile)
                 writer.writerow([robot_pos[0], robot_pos[1], robot_pos[2]]) 
 
-        print "Saved robot pose."
+        self.printMessage("Saved robot pose.")
 
 
 
@@ -219,7 +221,6 @@ class BasestationGuiPlugin(Plugin):
             if (robot_ind!=-1):
                 control_buttons = self.control_buttons[robot_ind]
 
-                # print control_buttons
 
                 for cmd_button in control_buttons:
                     if (cmd_button != button) and  (cmd_button.text() in self.ros_gui_bridge.estop_commands):
@@ -245,11 +246,6 @@ class BasestationGuiPlugin(Plugin):
         art_label.setAlignment(Qt.AlignCenter)
         self.artvis_layout.addWidget(art_label, 0, 0, 1, 2)
 
-        #add in multimodal feedback indicators
-        # self.multimodal_label = qt.QLabel()
-        # self.multimodal_label.setText('Multimodal feedback')
-        # self.multimodal_label.setFont(boldFont)
-        # self.artmanip_layout.addWidget(self.multimodal_label, 1, 0, 1, 3)
 
         self.bluetooth_indicator_label = qt.QLabel()
         self.bluetooth_indicator_label.setText('Bluetooth: Good (Fake)')
@@ -325,7 +321,7 @@ class BasestationGuiPlugin(Plugin):
         if (self.displayed_artifact != None):
             self.ros_gui_bridge.publishRefinementMarkerPos(self.displayed_artifact, self.art_refinement_button)
         else:
-            print "Request not processed. No artifact currently being displayed"
+            self.printMessage("Request not processed. No artifact currently being displayed")
         
     def updateRefinmentPos(self, msg):
         '''
@@ -353,7 +349,7 @@ class BasestationGuiPlugin(Plugin):
         if(self.displayed_artifact != None):
 
             if (len(self.displayed_artifact.imgs) == 0):
-                print "There are no images to show"
+                self.printMessage("There are no images to show")
 
             else:
                 #check if we cannot go back any farther
@@ -365,7 +361,7 @@ class BasestationGuiPlugin(Plugin):
                     self.displayArtifactImg(self.displayed_artifact, self.artifact_image_index - 1)
         
         else:
-            print "No artifact currently being displayed. Select one from the queue."
+            self.printMessage("No artifact currently being displayed. Select one from the queue.")
 
     def imgForward(self):
         '''
@@ -374,7 +370,7 @@ class BasestationGuiPlugin(Plugin):
         if(self.displayed_artifact != None):
 
             if (len(self.displayed_artifact.imgs) == 0):
-                print "There are no images to show"
+                self.printMessage("There are no images to show")
 
             else:
                 #check if we cannot go forward any farther
@@ -386,7 +382,7 @@ class BasestationGuiPlugin(Plugin):
                     self.displayArtifactImg(self.displayed_artifact, self.artifact_image_index + 1)
         
         else:
-            print "No artifact currently being displayed. Select one from the queue."
+            self.printMessage("No artifact currently being displayed. Select one from the queue.")
 
     def initArtifactManipulator(self, pos):
         '''
@@ -516,22 +512,10 @@ class BasestationGuiPlugin(Plugin):
         button = qt.QPushButton("To DARPA")
         button.clicked.connect(partial(self.proposeArtifact))
         self.artmanip_layout.addWidget(button, 8, 0, 1, 3)
-       
 
-        
-
-
-
-        # button = qt.QPushButton("    Discard    ")
-        # # button.setSizePolicy(QSizePolicy.Expanding, 0)
-        # self.artmanip_layout.addWidget(button, 6, 0, 1, 2)
-
-         #add to the overall gui
+        #add to the overall gui
         self.artmanip_widget.setLayout(self.artmanip_layout)
-        self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])
-
-
-    
+        self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])    
 
 
     def proposeArtifact(self):
@@ -543,10 +527,10 @@ class BasestationGuiPlugin(Plugin):
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
         if (self.art_pos_textbox_x.text()=='') or (self.art_pos_textbox_y.text()=='') or (self.art_pos_textbox_z.text()==''):
-            print "Nothing proposed. Please select an artifact"
+            self.printMessage("Nothing proposed. Please select an artifact from the queue")
 
         elif (self.displayed_artifact==None):
-            print "Nothing proposed. No artifact being displayed. Please select an artifact"
+            self.printMessage("Nothing proposed. Please select an artifact from the queue")
 
         elif(self.connect_to_command_post):
             
@@ -557,7 +541,7 @@ class BasestationGuiPlugin(Plugin):
                 data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
                          float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
 
-                print "\n\nSubmitted cat: --"+self.darpa_cat_box.currentText()+'--\n\n'
+                self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText())
 
                 
                 proposal_return = self.darpa_gui_bridge.startArtifactProposal(data)
@@ -579,6 +563,10 @@ class BasestationGuiPlugin(Plugin):
                     response_item = qt.QTableWidgetItem('Info')
                     response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
                                              '\nSubmission Correct? '+submission_correct)
+
+                    self.printMessage('DARPA response: '+str(report_status)+' HTTP Response: '+str(http_response)+str(http_reason)+\
+                                             ' Submission Correct? '+submission_correct)
+
                     response_item.setBackground(submission_color)
 
                     #update the artifact's darpa_response property
@@ -658,7 +646,7 @@ class BasestationGuiPlugin(Plugin):
         Returns the row of the artifact table for the displayed artifact
         '''
         if (self.queue_table.isSortingEnabled()):
-            print "\n\n Table did not have sorting disabled!! \n\n"
+            self.printMessage("Table did not have sorting disabled!! (Debugging message)")
             self.queue_table.setSortingEnabled(False)
 
         if(self.displayed_artifact!=None): #if we have actually set the artifact
@@ -755,7 +743,7 @@ class BasestationGuiPlugin(Plugin):
                     found_match = True
 
             if(found_match): #we already have an artifact of this robot_id/time/category
-                print "Cannot complete request. Already have an artifact of the same robot_id/time/category"
+                self.printMessage("Cannot complete request. Already have an artifact of the same robot_id/time/category")
 
             else:
                 if(row_ind!=-1):
@@ -849,7 +837,7 @@ class BasestationGuiPlugin(Plugin):
 
         #define the overall widget
         self.status_widget = QWidget()
-        self.status_layout = qt.QVBoxLayout()
+        self.status_layout = qt.QGridLayout()
 
         #preliminaries to build the rest of the panel
         num_robots = len(self.ros_gui_bridge.robot_names) #get the number of robots
@@ -859,7 +847,7 @@ class BasestationGuiPlugin(Plugin):
         status_label = qt.QLabel()
         status_label.setText('STATUS PANEL')
         status_label.setAlignment(Qt.AlignCenter)
-        self.status_layout.addWidget(status_label)
+        self.status_layout.addWidget(status_label, 0,0)
 
         #make a table
         self.status_table = qt.QTableWidget()
@@ -875,53 +863,10 @@ class BasestationGuiPlugin(Plugin):
         self.status_table.setVerticalHeaderLabels(statuses) 
         self.status_table.setHorizontalHeaderLabels(self.ros_gui_bridge.robot_names) 
 
-        #add fake data for each robot
-        self.status_table.setItem(0,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(0,1, qt.QTableWidgetItem(''))
-
-        self.status_table.setItem(1,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(1,1, qt.QTableWidgetItem(''))
-
-        self.status_table.setItem(2,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(2,1, qt.QTableWidgetItem(''))
-
-        self.status_table.setItem(3,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(3,1, qt.QTableWidgetItem(''))
-
-        self.status_table.setItem(4,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(4,1, qt.QTableWidgetItem(''))
-
-        self.status_table.setItem(5,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(5,1, qt.QTableWidgetItem(''))
-
-        self.status_table.setItem(6,0, qt.QTableWidgetItem(''))
-        self.status_table.setItem(6,1, qt.QTableWidgetItem(''))
-
-
-        #color the squares
-        # self.status_table.item(0,0).setBackground(gui.QColor(220,0,0))
-        # self.status_table.item(0,1).setBackground(gui.QColor(255,165,0))
-
-        # self.status_table.item(1,0).setBackground(gui.QColor(0,220,0))
-        # self.status_table.item(1,1).setBackground(gui.QColor(255,165,0))
-
-        # self.status_table.item(2,0).setBackground(gui.QColor(0,220,0))
-        # self.status_table.item(2,1).setBackground(gui.QColor(220,0,0))
-
-        # self.status_table.item(3,0).setBackground(gui.QColor(0,220,0))
-        # self.status_table.item(3,1).setBackground(gui.QColor(0,220,0))
-
-        # self.status_table.item(4,0).setBackground(gui.QColor(0,220,0))
-        # self.status_table.item(4,1).setBackground(gui.QColor(255,165,0))
-
-        # self.status_table.item(5,0).setBackground(gui.QColor(220,0,0))
-        # self.status_table.item(5,1).setBackground(gui.QColor(0,220,0))
-
-        # self.status_table.item(6,0).setBackground(gui.QColor(220,0,0))
-        # self.status_table.item(6,1).setBackground(gui.QColor(0,220,0))
+        
 
         #add the table to the layout
-        self.status_layout.addWidget(self.status_table)
+        self.status_layout.addWidget(self.status_table, 1, 0)
 
         #add to the overall gui
         self.status_widget.setLayout(self.status_layout)
@@ -1008,10 +953,7 @@ class BasestationGuiPlugin(Plugin):
             if (int(artifact.source_robot) == int(robot_id)) and \
                (int(artifact.artifact_report_id) == int(art_id)):
 
-                row = i
-
-                #to refresh the data
-                # print "found: ",self.queue_table.item(row, 0).text(), self.queue_table.item(row, 1).text(), self.queue_table.item(row, 2).text()  
+                row = i  
 
                 #update the necessary info
                 if (artifact.time_from_robot == -1): #this is coming directly from the robot
@@ -1248,7 +1190,62 @@ class BasestationGuiPlugin(Plugin):
         return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
       
 
+    def initMessagePanel(self, pos):
+        '''
+        Initialize the pnale which displays ros loginfo messages
+        '''
 
+        #define the overall widget
+        self.message_box_widget = QWidget()
+        self.message_box_layout = qt.QGridLayout()
+
+        message_label = qt.QLabel()
+        message_label.setText('MESSAGE PANEL')
+        message_label.setAlignment(Qt.AlignCenter)
+        self.message_box_layout.addWidget(message_label, 0, 0)
+
+
+        self.message_textbox = qt.QListWidget()
+        self.message_textbox.setWordWrap(True)
+        self.message_box_layout.addWidget(self.message_textbox, 1, 0)
+
+
+
+
+        #add to the overall gui
+        self.message_box_widget.setLayout(self.message_box_layout)
+        self.global_widget.addWidget(self.message_box_widget, pos[0], pos[1], pos[2], pos[3]) 
+
+
+    def addMessage(self, msg):
+        '''
+        Add a message to the message box from a rostopic
+        '''
+        
+        with self.update_message_box_lock:
+            if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
+                self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg.data)
+            else:
+                self.message_textbox.addItem('[--] '+msg.data)
+
+    def printMessage(self, msg):
+        '''
+        Add message to the messag box that is simply a string from
+        this application (not ROS)
+        '''
+
+        with self.update_message_box_lock:
+            if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
+                self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
+            else:
+                self.message_textbox.addItem('[--] '+msg)
+
+
+        # with self.update_message_box_lock:
+        #     if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
+        #         self.message_textbox.append('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
+        #     else:
+        #         self.message_textbox.append('[--] '+msg)
 
 
 
@@ -1262,12 +1259,13 @@ class BasestationGuiPlugin(Plugin):
         #define the position of everything in terms of row, column
         info_pos    = [0,1,1,1]
         bigred_pos  = [0,2]
-        status_pos  = [1,2,4,1]
+        status_pos  = [3,2,2,1]
         queue_pos   = [1,0,4,1] #last 2 parameters are rowspan and columnspan
         control_pos = [5,2,2,1]
         artvis_pos  = [1,1,4,1]
         arthist_pos = [5,0,2,1]     
-        artmanip_pos =[5,1,1,1]   
+        artmanip_pos = [5,1,1,1] 
+        message_pos = [1,2,2,1]   
         
 
         #initialize the panels
@@ -1279,6 +1277,7 @@ class BasestationGuiPlugin(Plugin):
         self.initInfoPanel(info_pos) #table to display information (score, artifacts proposed, etc.) about our run
         self.initArtHistoryPanel(arthist_pos) #table to display artifact proposals
         self.initArtifactManipulator(artmanip_pos) #panel to complete actions w.r.t. artifacts
+        self.initMessagePanel(message_pos) #panel to display ros loginfo messages
 
         #initialize the subscribers for updating different parts of the GUI
         self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
@@ -1314,7 +1313,7 @@ class BasestationGuiPlugin(Plugin):
                 break
 
         if (csv_data == None):
-            print "There was nothing in the csv file!!"
+            self.printMessage("There was nothing in the csv file!!")
 
         else:
             #parse the artifacts
@@ -1431,7 +1430,7 @@ class BasestationGuiPlugin(Plugin):
                             button.click()
 
                     if(found_button != True):
-                        print "Could not find the appropriate command button to be pressed"
+                        self.printMessage("Could not find the appropriate command button to be pressed")
 
 
             #parse the info
@@ -1441,7 +1440,7 @@ class BasestationGuiPlugin(Plugin):
             #save periodically
             self.gui_engine.savePeriodically(self)
 
-            print "Data loaded from csv"
+            self.printMessage("Data loaded from csv")
 
 
 
