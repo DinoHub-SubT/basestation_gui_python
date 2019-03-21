@@ -1461,9 +1461,13 @@ class BasestationGuiPlugin(Plugin):
             rospy.logerr('key %s is not the name of a row in the status panel' % msg.key)
             return
         row_index = self.statuses.index(msg.key)
-        
-        self.status_table.item(row_index, column_index).setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
-        self.status_table.item(row_index, column_index).setText(msg.value)
+
+        item = self.status_table.item(row_index, column_index)
+        if item == None:
+            self.status_table.setItem(row_index, column_index, qt.QTableWidgetItem(''))
+        item = self.status_table.item(row_index, column_index)
+        item.setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
+        item.setText(msg.value)
         self.status_table.viewport().update()
 
 
