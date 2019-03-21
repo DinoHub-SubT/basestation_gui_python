@@ -3,6 +3,7 @@ uint8 MESSAGE_TYPE_ESTOP=1
 uint8 MESSAGE_TYPE_DEFINE_WAYPOINT=2
 uint8 MESSAGE_TYPE_ARTIFACT_REPORT=3
 uint8 MESSAGE_TYPE_RETURN_HOME=4
+uint8 MESSAGE_TYPE_ODOM_REPORT=5
 uint8 ROBOT_ODOM=5
 uint8 message_type
 
@@ -17,6 +18,17 @@ float32 artifact_z
 string artifact_type
 uint8 artifact_robot_id
 uint16 artifact_report_id
+float32 bluetooth_strength
+float32 audio_strength
+
+#field relevant to odom message
+uint32 timestamp
+float32 robot_x
+float32 robot_y
+float32 robot_z
+float32 robot_roll
+float32 robot_pitch
+float32 robot_yaw
 
 # constants relevant to MESSAGE_TYPE_ESTOP
 string ESTOP_RESUME=0
