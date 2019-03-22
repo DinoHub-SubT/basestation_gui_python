@@ -30,7 +30,7 @@ def talker():
     message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
     
     rospy.init_node('fake_artifact_node', anonymous=True)
-    artifact_types = ['Human', 'Fire extinguisher', 'Phone', 'Backpack', 'Drill']
+    artifact_types = [4, 3, 5, 1, 2]
 
     total_num_to_pub = 20#1000
     num_pubbed = 0    
@@ -54,9 +54,10 @@ def talker():
         msg.artifact_x =  random.random()*5.
         msg.artifact_y =  random.random()*5.
         msg.artifact_z =  random.random()*5.
+        msg.artifact_stamp.secs = time.time() 
 
-        if (num_pubbed < total_num_to_pub * 0.3):
-            published_list.append([msg.artifact_robot_id, msg.artifact_report_id])
+        if (num_pubbed < total_num_to_pub * 0.1):
+            published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
             pub.publish(msg)
 
         else: #update some artifacts
@@ -64,31 +65,34 @@ def talker():
             rand_ind = random.randint(0,len(published_list)-1)
             robot_id = published_list[rand_ind][0]
             report_id = published_list[rand_ind][1]
+            timestamp = published_list[rand_ind][2]
 
             if (random.random()>0.5): #update by radio message
                 msg.artifact_report_id =  report_id
-                msg.artifact_type =  random.sample(artifact_types,1)[0]
+                msg.artifact_type =  FakeWifiDetection.ARTIFACT_REMOVE #random.sample(artifact_types,1)[0]
                 msg.artifact_robot_id = robot_id
                 msg.artifact_x =  random.random()*5.
                 msg.artifact_y =  random.random()*5.
                 msg.artifact_z =  random.random()*5.
+                msg.artifact_stamp.secs = timestamp
+
 
                 print "updated row", rand_ind, " to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
                 pub.publish(msg)
                 
 
-            else: #update by wifi message
+        #     else: #update by wifi message
 
-                typ = random.sample(artifact_types,1)[0]
+        #         typ = random.sample(artifact_types,1)[0]
 
-                img_msg = getFakeWifiMsg(artifact_report_id = report_id, artifact_type = typ, \
-                                         artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2])
-                                        # (artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
-                                        #  artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
-                                        #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
-                print "updated row", rand_ind, " to be ",typ
+        #         img_msg = getFakeWifiMsg(artifact_report_id = report_id, artifact_type = typ, \
+        #                                  artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2])
+        #                                 # (artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
+        #                                 #  artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
+        #                                 #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
+        #         print "updated row", rand_ind, " to be ",typ
 
-                img_pub.publish(img_msg)
+        #         img_pub.publish(img_msg)
 
         message_pub.publish('Message system testing')
 

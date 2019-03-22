@@ -290,19 +290,21 @@ class RosGuiBridge:
 
 
 class DarpaGuiBridge:
-    def __init__(self, config_filename):
+    def __init__(self, config_filename, gui):
 
         # parse the config file
         config = yaml.load(open(config_filename, 'r').read())
         
         #read info on the experiment parameters (# of robots, etc.)
         darpa_params = config['darpa_params']
+        
 
         self.auth_bearer_token = darpa_params['auth_bearer_token'][0]
         self.request_info_uri = darpa_params['scoring_uris'][0] #uri for requesting information (time,score,etc) from darpa
         self.post_artifact_uri = darpa_params['scoring_uris'][1] #uri for posting artifact proposals to DARPA
         # self.total_num_reports = darpa_params['total_num_reports'][0] #number of reports we can send to darpa in a run
         # self.run_length = darpa_params['run_length'][0]
+
 
         #have an initial darpa status update
         self.darpa_status_update = {}

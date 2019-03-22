@@ -45,10 +45,10 @@ class GuiEngine:
 
 
 
-        else:
-            #here is where we would put the subscriber for real detections
-            rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
-            rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
+        # else:
+        #     #here is where we would put the subscriber for real detections
+        #     rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
+        #     rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
 
         self.gui = gui
 
@@ -61,10 +61,11 @@ class GuiEngine:
         '''
         !!! DEPRICATED !!!  Process an incoming RadioMsg !!! DEPRICATED !!!
         '''
-        if (msg.message_type==RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
-            self.addRadioMsgDetection(msg)
-        else:
-            print "We are getting messages other than artifact detections and we don't know what to do with it"
+        pass
+        # if (msg.message_type==RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
+        #     self.addRadioMsgDetection(msg)
+        # else:
+        #     print "We are getting messages other than artifact detections and we don't know what to do with it"
 
 
     def addWifiMsgDetection(self, msg):
@@ -203,50 +204,71 @@ class GuiEngine:
         Add an incoming artifact to the queue
         '''
 
+        if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
 
-        #make sure we don't have a duplicate artifact
-        already_object = False
+            #find the artifact being referneced
+            artifact = None
 
-        for artifact in self.all_artifacts:
-            if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
-                int(msg.artifact_report_id) == int(artifact.artifact_report_id):
+            for art in self.all_artifacts:
 
-                self.duplicate_count +=1
+                msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
                 
-                #update the current information if it exists!
-                if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
-                    artifact.pos[0] = msg.artifact_x
-                    artifact.pos[1] = msg.artifact_y
-                    artifact.pos[2] = msg.artifact_z
-
-                if(msg.artifact_type != ''):
-                    artifact.category = msg.artifact_type
+                if msg_unique_id == art.unique_id:
+                    artifact = art
+                    break
 
 
-                #update the GUI
-                self.gui.updateArtifactInQueue(artifact)
+            if(artifact == None):
+                self.gui.printMessage('Did not delete artifact, could not find it')
+            
+            else:
+                self.gui.removeQueueArtifact(artifact)
+
+
+        else: #add an artifact
+
+            #make sure we don't have a duplicate artifact
+            already_object = False
+
+            for artifact in self.all_artifacts:
+
+                msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
                 
-                already_object = True
+                if msg_unique_id == artifact.unique_id:
+                    
+                    #update the current information if it exists!
+                    if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
+                        artifact.pos[0] = msg.artifact_x
+                        artifact.pos[1] = msg.artifact_y
+                        artifact.pos[2] = msg.artifact_z
 
-        if (not already_object):
+                    if(msg.artifact_type != ''):
+                        artifact.category = self.gui.label_to_cat_dict[msg.artifact_type]
+
+                    #update the GUI
+                    self.gui.updateArtifactInQueue(artifact)
+                    
+                    already_object = True
+
+            if (not already_object):
 
 
-            #convert the detection into a gui artifact type, which includes more data
-            artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                msg.artifact_robot_id, msg.artifact_report_id, [])
+                #convert the detection into a gui artifact type, which includes more data
+                artifact = Artifact(msg.artifact_stamp.secs, self.gui.label_to_cat_dict[msg.artifact_type],  [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                    msg.artifact_robot_id, msg.artifact_report_id, [])
 
 
+                #add the artifact to the list of queued objects and to the all_artifacts list
+                self.queued_artifacts.append(artifact)
+                self.all_artifacts.append(artifact)
 
+                #call a function to graphically add it to the queue
+                self.gui.sendToQueue(artifact)
 
-            #add the artifact to the list of queued objects and to the all_artifacts list
-            self.queued_artifacts.append(artifact)
-            self.all_artifacts.append(artifact)
+                #add updated info to the csv
+                self.savePeriodically(self.gui)
 
-            #call a function to graphically add it to the queue
-            self.gui.sendToQueue(artifact)
-
-            #add updated info to the csv
-            self.savePeriodically(self.gui)
+            print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
 
 
     def initLogFile(self):
@@ -322,7 +344,7 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, category="", position="", source_robot_id="", artifact_report_id="", imgs = []):
+    def __init__(self, original_timestamp, category=-1, position="", source_robot_id="", artifact_report_id="", imgs = []):
         
         self.category = category
         self.pos = position
@@ -335,6 +357,8 @@ class Artifact:
         self.priority = 'Med'
         self.darpa_response = ''
         self.imgs = imgs
+        self.original_timestamp = original_timestamp
+        self.unique_id = str(source_robot_id)+'/'+str(artifact_report_id)+'/'+str(original_timestamp)
 
 
 

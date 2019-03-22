@@ -82,8 +82,6 @@ class BasestationGuiPlugin(Plugin):
         self.widget = QWidget()
         self.global_widget = qt.QGridLayout()
 
-
-
         self.top_widget = qt.QWidget()
         self.top_layout = qt.QGridLayout()
         self.top_widget.setLayout(self.top_layout)
@@ -119,6 +117,21 @@ class BasestationGuiPlugin(Plugin):
         self.save_count = 0 #way to ensure we don't save the gui too often
 
         self.artifact_image_index = 0 #the index of the image currently being displayed
+
+        #associate the categories with the vasu labels
+        # parse the config file
+        
+
+
+
+    def associateCatsWithLabels(self, labels):
+        '''
+        Associating the category indices that vasu sends back 
+        '''
+        self.label_to_cat_dict = {}
+        
+        for i, lab in enumerate(labels):
+            self.label_to_cat_dict[lab] = self.ros_gui_bridge.artifact_categories[i]
 
 
 
@@ -247,15 +260,15 @@ class BasestationGuiPlugin(Plugin):
         self.artvis_layout.addWidget(art_label, 0, 0, 1, 2)
 
 
-        self.bluetooth_indicator_label = qt.QLabel()
-        self.bluetooth_indicator_label.setText('Bluetooth: Good (Fake)')
-        self.bluetooth_indicator_label.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(self.bluetooth_indicator_label, 1,0 )
+        # self.bluetooth_indicator_label = qt.QLabel()
+        # self.bluetooth_indicator_label.setText('Bluetooth: Good (Fake)')
+        # self.bluetooth_indicator_label.setAlignment(Qt.AlignCenter)
+        # self.artvis_layout.addWidget(self.bluetooth_indicator_label, 1,0 )
 
-        self.audio_indicator_label = qt.QLabel()
-        self.audio_indicator_label.setText('Audio: Good (Fake)')
-        self.audio_indicator_label.setAlignment(Qt.AlignCenter)
-        self.artvis_layout.addWidget(self.audio_indicator_label, 1,1 )  
+        # self.audio_indicator_label = qt.QLabel()
+        # self.audio_indicator_label.setText('Audio: Good (Fake)')
+        # self.audio_indicator_label.setAlignment(Qt.AlignCenter)
+        # self.artvis_layout.addWidget(self.audio_indicator_label, 1,1 )  
 
 
 
@@ -274,7 +287,7 @@ class BasestationGuiPlugin(Plugin):
         self.art_image.setPixmap(img)
         self.art_image.setAlignment(Qt.AlignCenter)
 
-        self.artvis_layout.addWidget(self.art_image, 2, 0, 1, 2) #last 2 parameters are rowspan and columnspan
+        self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 2) #last 2 parameters are rowspan and columnspan
 
         
 
@@ -613,8 +626,6 @@ class BasestationGuiPlugin(Plugin):
                     self.arthist_table.setItem(row, 3, response_item)
 
 
-
-
                     #go find the artifact in the queue and remove it
                     with self.update_queue_lock:
                         self.queue_table.setSortingEnabled(False)
@@ -780,6 +791,7 @@ class BasestationGuiPlugin(Plugin):
         Send the artifact subscribed to, to the queue
         '''
 
+
         with self.update_queue_lock:
 
             #if we need to connect to the command post, wait
@@ -797,6 +809,7 @@ class BasestationGuiPlugin(Plugin):
                 self.queue_table.insertRow(self.queue_table.rowCount())
                 row = self.queue_table.rowCount() - 1
 
+
                 #fill in the row data
                 if (artifact.time_from_robot == -1 and self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None): #this is coming directly from the robot
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
@@ -809,7 +822,7 @@ class BasestationGuiPlugin(Plugin):
 
 
                 row_data = [artifact.source_robot, artifact.priority, disp_time, \
-                            artifact.category, '!', artifact.artifact_report_id]
+                            artifact.category, '!', artifact.unique_id]
 
 
                 for col, val in enumerate(row_data):
@@ -1049,6 +1062,27 @@ class BasestationGuiPlugin(Plugin):
         '''
         self.queue_table.removeRow(row)
 
+    def removeQueueArtifact(self, artifact):
+        '''
+        Function to remove an artifact from the queue
+        '''
+
+        with self.update_queue_lock:
+
+            #find the artifact row
+            for row in range(self.queue_table.rowCount()):
+
+                print self.queue_table.item(row, 5).text(), artifact.unique_id
+
+                if self.queue_table.item(row, 5).text() == artifact.unique_id: #remove the artifact from the queue
+                    self.queue_table.removeRow(self.queue_table.item(row,0).row())
+
+            
+
+        #remove the artifact from the engine lists
+        self.gui_engine.queued_artifacts.remove(artifact)
+        self.gui_engine.all_artifacts.remove(artifact)
+
 
     def manuallyAddArtifact(self):
         '''
@@ -1116,7 +1150,7 @@ class BasestationGuiPlugin(Plugin):
         # self.queue_table.resizeRowsToContents() #to enable word wrapping on the categories
 
         self.queue_table.setColumnCount(6) # set column count        
-        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Artifact Report ID']) #make the column headers
+        self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Unique ID']) #make the column headers
 
         #hide the artifact
         self.queue_table.setColumnHidden(5,True)
@@ -1525,6 +1559,8 @@ class BasestationGuiPlugin(Plugin):
             self.printMessage("Data loaded from csv")
 
 
+    
+
 
 
     def status_panel_update_callback(self, msg):
@@ -1598,7 +1634,13 @@ class BasestationGuiPlugin(Plugin):
         '''
         self.config_filename = config_filename
         self.ros_gui_bridge = RosGuiBridge(self.config_filename, self)
-        self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename)
+        
+        config = yaml.load(open(self.config_filename, 'r').read())
+        darpa_params = config['darpa_params']
+        self.associateCatsWithLabels(darpa_params['artifact_labels'])
+
+        
+        self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename, self)
         self.gui_engine = GuiEngine(self)
         
         self.buildGui()
