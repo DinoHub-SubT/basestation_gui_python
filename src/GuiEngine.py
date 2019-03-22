@@ -149,7 +149,7 @@ class GuiEngine:
         if (artifact_id < 0):
 
             #generate the artifact object
-            artifact = Artifact(artifact.category, artifact.pos, \
+            artifact = Artifact(copy.deepcopy(artifact.category), copy.deepcopy(artifact.pos), \
                                     -1, artifact_id, [])
 
             #add the artifact to the list of queued objects and to the all_artifacts list
@@ -161,6 +161,7 @@ class GuiEngine:
 
             #add updated info to the csv
             self.savePeriodically(self.gui)
+
 
 
     def addArtifactManually(self):
