@@ -56,7 +56,7 @@ def talker():
         msg.artifact_z =  random.random()*5.
         msg.artifact_stamp.secs = time.time() 
 
-        if (num_pubbed < total_num_to_pub * 0.1):
+        if (num_pubbed < total_num_to_pub * 0.3):
             published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
             pub.publish(msg)
 
@@ -69,7 +69,10 @@ def talker():
 
             if (random.random()>0.5): #update by radio message
                 msg.artifact_report_id =  report_id
-                msg.artifact_type =  FakeWifiDetection.ARTIFACT_REMOVE #random.sample(artifact_types,1)[0]
+                if (random.random() < 0.1):
+                    msg.artifact_type = RadioMsg.ARTIFACT_REMOVE
+                else:
+                    msg.artifact_type =  random.sample(artifact_types,1)[0]
                 msg.artifact_robot_id = robot_id
                 msg.artifact_x =  random.random()*5.
                 msg.artifact_y =  random.random()*5.
@@ -77,22 +80,23 @@ def talker():
                 msg.artifact_stamp.secs = timestamp
 
 
-                print "updated row", rand_ind, " to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
+                print "radiomsg update to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
                 pub.publish(msg)
                 
 
-        #     else: #update by wifi message
+            else: #update by wifi message
 
-        #         typ = random.sample(artifact_types,1)[0]
+                if (random.random() < 0.1):
+                    typ = FakeWifiDetection.ARTIFACT_REMOVE
+                else:
+                    typ =  random.sample(artifact_types,1)[0]
 
-        #         img_msg = getFakeWifiMsg(artifact_report_id = report_id, artifact_type = typ, \
-        #                                  artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2])
-        #                                 # (artifact_report_id = msg.artifact_report_id, artifact_type = msg.artifact_type, \
-        #                                 #  artifact_robot_id = msg.artifact_robot_id, artifact_pos = [msg.artifact_x, msg.artifact_y, msg.artifact_z])
-        #                                 #(artifact_report_id = None, artifact_type = None, artifact_robot_id = None, artifact_pos = None)
-        #         print "updated row", rand_ind, " to be ",typ
+                img_msg = getFakeWifiMsg(artifact_report_id = report_id , artifact_type = typ, \
+                                         artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2], timestamp = timestamp)
 
-        #         img_pub.publish(img_msg)
+                print "wifimsg to be cat",typ, "len of imgs:", len(img_msg.imgs)
+
+                img_pub.publish(img_msg)
 
         message_pub.publish('Message system testing')
 
@@ -109,17 +113,23 @@ def getJiFakePose():
 
     return ji_msg
 
-def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artifact_pos ):
+def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artifact_pos, timestamp):
     rospack = rospkg.RosPack()
-    if (artifact_type == 'Fire extinguisher'):
+
+    'survivor', 'fire extinguisher', 'phone', 'backpack', 'drill'
+    [4, 3, 5, 1, 2]
+
+    if (artifact_type == 3):
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/test_img.jpg'
-    elif (artifact_type == 'Human'):
+    elif (artifact_type == 4):
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/human.png'
-    elif (artifact_type == 'Drill'):
+    elif (artifact_type == 2):
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/drill.jpg'
-    elif (artifact_type == 'Backpack'):
+    elif (artifact_type == 1):
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/backpack.png'
-    elif (artifact_type == 'Phone'):
+    elif (artifact_type == 5):
+        image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
+    elif (artifact_type == FakeWifiDetection.ARTIFACT_REMOVE):
         image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
 
     img = cv2.imread(image_filename)
@@ -133,13 +143,14 @@ def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artif
     else:
         msg = FakeWifiDetection()
 
-        msg.img = img 
+        msg.imgs = [img]*random.randint(0,4)
         msg.artifact_robot_id = artifact_robot_id
         msg.artifact_report_id = artifact_report_id
         msg.artifact_type = artifact_type
         msg.artifact_x = artifact_pos[0]
         msg.artifact_y = artifact_pos[1]
         msg.artifact_z = artifact_pos[2]
+        msg.artifact_stamp.secs = timestamp
     
 
     return msg

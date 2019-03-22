@@ -677,14 +677,12 @@ class BasestationGuiPlugin(Plugin):
 
         if(self.displayed_artifact!=None): #if we have actually set the artifact
             for i in range(self.queue_table.rowCount()):
-                robot_id = self.queue_table.item(i, 0).text()
-                art_id = self.queue_table.item(i, 5).text()
+                print self.displayed_artifact.unique_id, self.queue_table.item(i, 5).text()
 
-                if (int(self.displayed_artifact.source_robot) == int(robot_id)) and \
-                   (int(self.displayed_artifact.artifact_report_id) == int(art_id)):
-
+                if (self.displayed_artifact.unique_id == self.queue_table.item(i, 5).text()):
                     return i
 
+        print "Could nto find disp artifact"
         return -1
 
 
@@ -722,20 +720,21 @@ class BasestationGuiPlugin(Plugin):
 
         if (not self.dont_change_art_priority) and self.displayed_artifact!=None :
 
-            self.displayed_artifact.priority = self.artifact_priority_box.currentText()
+            with self.update_queue_lock:
+                
+                #change the text in the queue
+                self.queue_table.setSortingEnabled(False)
+                
+                row_ind = self.findDisplayedArtifact()
 
-            #change the text in the queue
-            self.queue_table.setSortingEnabled(False)
-            
-            row_ind = self.findDisplayedArtifact()
-
-            if(row_ind!=-1):
-                with self.update_queue_lock:
+                if(row_ind!=-1):                
                     self.queue_table.setItem(row_ind, 1, qt.QTableWidgetItem(self.artifact_priority_box.currentText()))
                     self.queue_table.item(row_ind, 1).setTextAlignment(Qt.AlignHCenter) 
                     self.queue_table.item(row_ind, 1).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
 
-            self.queue_table.setSortingEnabled(True)
+                    self.displayed_artifact.priority = self.artifact_priority_box.currentText()
+
+                self.queue_table.setSortingEnabled(True)
 
         self.dont_change_art_priority = False #reset its value
 
@@ -749,38 +748,19 @@ class BasestationGuiPlugin(Plugin):
         if (not self.dont_change_art_category) and self.displayed_artifact!=None :             
 
             #change the text in the queue
-            self.queue_table.setSortingEnabled(False)
-            
-            row_ind = self.findDisplayedArtifact()
-
-            #ensure that there is not an artifact with the same robot_id/time/category
-            found_match = False
-
-            robot_id = int(float(self.queue_table.item(row_ind, 0).text()))
-            detect_time = self.dispToSeconds(self.queue_table.item(row_ind, 2).text())
-            category = self.darpa_cat_box.currentText()
-
-            for i in range(self.queue_table.rowCount()):
-
-                if  (int(float(self.queue_table.item(i, 0).text())) == robot_id) and \
-                    (self.dispToSeconds(self.queue_table.item(i, 2).text()) == detect_time) and \
-                    (self.queue_table.item(i, 3).text() == category):
-
-                    found_match = True
-
-            if(found_match): #we already have an artifact of this robot_id/time/category
-                self.printMessage("Cannot complete request. Already have an artifact of the same robot_id/time/category")
-
-            else:
+            with self.update_queue_lock:
+                self.queue_table.setSortingEnabled(False)
+                
+                row_ind = self.findDisplayedArtifact()
+                
                 if(row_ind!=-1):
-                    with self.update_queue_lock:
-                        self.queue_table.setItem(row_ind, 3, qt.QTableWidgetItem(self.darpa_cat_box.currentText()))
-                        self.queue_table.item(row_ind, 3).setTextAlignment(Qt.AlignHCenter) 
-                        self.queue_table.item(row_ind, 3).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+                    self.queue_table.setItem(row_ind, 3, qt.QTableWidgetItem(self.darpa_cat_box.currentText()))
+                    self.queue_table.item(row_ind, 3).setTextAlignment(Qt.AlignHCenter) 
+                    self.queue_table.item(row_ind, 3).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
 
-                self.displayed_artifact.category = self.darpa_cat_box.currentText()
+                    self.displayed_artifact.category = self.darpa_cat_box.currentText()
 
-            self.queue_table.setSortingEnabled(True)
+                self.queue_table.setSortingEnabled(True)
 
         self.dont_change_art_category = False #reset its value
         
@@ -919,7 +899,7 @@ class BasestationGuiPlugin(Plugin):
             clicked_robot_id =  int(self.queue_table.item(row, 0).text())
             priority = self.queue_table.item(row, 1).text()
             category = self.queue_table.item(row, 3).text()
-            artifact_report_id  = self.queue_table.item(row, 5).text()
+            clicked_unique_id  = self.queue_table.item(row, 5).text()
 
             #highlight the entire row
             self.queue_table.selectRow(row)
@@ -958,8 +938,7 @@ class BasestationGuiPlugin(Plugin):
         #todo: put in some error checking
         for art in self.gui_engine.queued_artifacts:
 
-            if (int(art.source_robot) == int(clicked_robot_id)) and\
-               (int(art.artifact_report_id) == int(artifact_report_id)):
+            if ( art.unique_id == clicked_unique_id):
                 
                 artifact = art
 
@@ -995,11 +974,8 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         for i in range(self.queue_table.rowCount()):
-            robot_id = self.queue_table.item(i, 0).text()
-            art_id = self.queue_table.item(i, 5).text()
 
-            if (int(artifact.source_robot) == int(robot_id)) and \
-               (int(artifact.artifact_report_id) == int(art_id)):
+            if artifact.unique_id == self.queue_table.item(i, 5).text():
 
                 row = i  
 
@@ -1012,7 +988,7 @@ class BasestationGuiPlugin(Plugin):
 
 
                 row_data = [artifact.source_robot, artifact.priority, disp_time, \
-                            artifact.category, 'Updtd', artifact.artifact_report_id]
+                            artifact.category, 'Updtd', artifact.unique_id]
 
 
                 with self. update_queue_lock:
@@ -1072,13 +1048,11 @@ class BasestationGuiPlugin(Plugin):
             #find the artifact row
             for row in range(self.queue_table.rowCount()):
 
-                print self.queue_table.item(row, 5).text(), artifact.unique_id
-
                 if self.queue_table.item(row, 5).text() == artifact.unique_id: #remove the artifact from the queue
                     self.queue_table.removeRow(self.queue_table.item(row,0).row())
+                    break
 
             
-
         #remove the artifact from the engine lists
         self.gui_engine.queued_artifacts.remove(artifact)
         self.gui_engine.all_artifacts.remove(artifact)
@@ -1152,8 +1126,8 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.setColumnCount(6) # set column count        
         self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Unique ID']) #make the column headers
 
-        #hide the artifact
-        self.queue_table.setColumnHidden(5,True)
+        #hide the unique_id
+        # self.queue_table.setColumnHidden(5,True)
 
         #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()
@@ -1439,7 +1413,7 @@ class BasestationGuiPlugin(Plugin):
 
                 split_artifact = art_str.split('|')
 
-                if (len(split_artifact)>9): #if we actually have something here
+                if (len(split_artifact)>12): #if we actually have something here
 
                     #build the artifact object
                     artifact = Artifact()
@@ -1460,6 +1434,8 @@ class BasestationGuiPlugin(Plugin):
                     else:
                         artifact.darpa_response = None
 
+                    artifact.unique_id = split_artifact[10]
+                    artifact.original_timestamp = split_artifact[11]
 
                     
                     if (artifact.darpa_response != None): #this artifact has been submitted to darpa
@@ -1475,8 +1451,9 @@ class BasestationGuiPlugin(Plugin):
                             #add to the submission panel
                             submission_time = self.darpa_gui_bridge.displaySeconds(artifact.time_to_darpa)
 
-                            submission_correct = artifact.darpa_response[artifact.darpa_response.find('?'):]
+                            submission_correct = artifact.darpa_response[artifact.darpa_response.find('?')+1:].replace(' ','')
                             
+                            print "--"+submission_correct+"--"
                             if (submission_correct=='False'):
                                 submission_color = gui.QColor(220,0,0)
                             else:
@@ -1493,7 +1470,7 @@ class BasestationGuiPlugin(Plugin):
 
                             for col, val in enumerate(row_data):
 
-                                if (col==2):
+                                if (col==1):
                                     colon = submission_time.find(':')
                                     val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
                                     item = NumericItem(str(submission_time))

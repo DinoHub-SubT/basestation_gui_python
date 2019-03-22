@@ -73,64 +73,68 @@ class GuiEngine:
         Add an incoming artifact to the queue, or update an existing one
         '''
 
+        if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
 
-        #convert the message to an opencv image
-        if (msg.img.data != ''):
-            img = self.br.imgmsg_to_cv2(msg.img)
-        else:
-            img = np.array([])
+            self.removeArtifactFromGui(msg)
 
+        else: #add an artifact
 
-        #check if the artifact already exists
-        already_object = False
+            #convert the message to an opencv image
+            imgs = []
 
-        for artifact in self.all_artifacts:
-            if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
-                int(msg.artifact_report_id) == int(artifact.artifact_report_id):
-
-                #update the current information if it exists!
-                if (len(img.shape)>1):
-                    artifact.imgs.append(img)
-                else:
-                    print "image data not updated"
-
-                if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
-                    artifact.pos[0] = msg.artifact_x
-                    artifact.pos[1] = msg.artifact_y
-                    artifact.pos[2] = msg.artifact_z
-
-                if(msg.artifact_type != ''):
-                    artifact.category = msg.artifact_type
-
-
-                #update the GUI
-                self.gui.updateArtifactInQueue(artifact)
+            if (len(msg.imgs) > 0):
                 
-
-                already_object = True
-
-
-        #else, make a new artifact
-        if (not already_object):
-
-            if(len(img.shape)>1):
-                artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                        msg.artifact_robot_id, msg.artifact_report_id, [img])
-
-            else:
-                artifact = Artifact(msg.artifact_type, [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                        msg.artifact_robot_id, msg.artifact_report_id, [])
+                for img in msg.imgs:
+                    imgs.append(self.br.imgmsg_to_cv2(img))
 
 
-            #add the artifact to the list of queued objects and to the all_artifacts list
-            self.queued_artifacts.append(artifact)
-            self.all_artifacts.append(artifact)
+            #check if the artifact already exists
+            already_object = False
 
-            #call a function to graphically add it to the queue
-            self.gui.sendToQueue(artifact)
+            for artifact in self.all_artifacts:
+                if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
+                    int(msg.artifact_report_id) == int(artifact.artifact_report_id):
 
-            #add updated info to the csv
-            self.savePeriodically(self.gui)
+                    #update the current information if it exists!
+                    if ( len(imgs) > 0):
+
+                        for img in imgs:
+                            artifact.imgs.append(img)
+
+                    else:
+                        print "image data not updated"
+
+                    if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
+                        artifact.pos[0] = msg.artifact_x
+                        artifact.pos[1] = msg.artifact_y
+                        artifact.pos[2] = msg.artifact_z
+
+                    if(msg.artifact_type != ''):
+                        artifact.category = self.gui.label_to_cat_dict[msg.artifact_type]
+
+
+                    #update the GUI
+                    self.gui.updateArtifactInQueue(artifact)
+                    
+
+                    already_object = True
+
+
+            #else, make a new artifact
+            if (not already_object):
+                artifact = Artifact(msg.artifact_stamp.secs, self.gui.label_to_cat_dict[msg.artifact_type],  [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
+                                    msg.artifact_robot_id, msg.artifact_report_id, imgs)
+
+
+                #add the artifact to the list of queued objects and to the all_artifacts list
+                self.queued_artifacts.append(artifact)
+                self.all_artifacts.append(artifact)
+
+                #call a function to graphically add it to the queue
+                self.gui.sendToQueue(artifact)
+
+                #add updated info to the csv
+                self.savePeriodically(self.gui)
 
     def duplicateArtifact(self, artifact):
         '''
@@ -198,32 +202,43 @@ class GuiEngine:
             #add updated info to the csv
             self.savePeriodically(self.gui)
 
-
-    def addRadioMsgDetection(self, msg):
+    def removeArtifactFromGui(self, msg):
         '''
-        Add an incoming artifact to the queue
+        If an artifact has type removal, remove it from the gui and engine
         '''
 
-        if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+        #find the artifact being referneced
+        artifact = None
 
-            #find the artifact being referneced
-            artifact = None
+        for art in self.all_artifacts:
 
-            for art in self.all_artifacts:
+            msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
+            
+            if msg_unique_id == art.unique_id:
+                artifact = art
+                break
 
-                msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
-                
-                if msg_unique_id == art.unique_id:
-                    artifact = art
-                    break
+        #ensure we dont delete an artifact when we're viewing it
+        if (self.gui.displayed_artifact != None and artifact != None):
+            if (self.gui.displayed_artifact.unique_id == artifact.unique_id):
+                self.gui.printMessage('Did not delete artifact, viewing it now')
 
-
+        else:
             if(artifact == None):
                 self.gui.printMessage('Did not delete artifact, could not find it')
             
             else:
                 self.gui.removeQueueArtifact(artifact)
 
+
+    def addRadioMsgDetection(self, msg):
+        '''
+        Add an incoming artifact to the queue
+        '''
+
+        if (msg.artifact_type == RadioMsg.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+
+            self.removeArtifactFromGui(msg)
 
         else: #add an artifact
 
@@ -303,7 +318,8 @@ class GuiEngine:
                                  str(artifact.orig_pos[0])+','+str(artifact.orig_pos[1])+','+str(artifact.orig_pos[2])+\
                                  '|'+ str(artifact.source_robot)+'|'+\
                                  str(artifact.artifact_report_id)+'|'+ str(artifact.time_from_robot)+'|'+ str(artifact.time_to_darpa)+'|'+\
-                                 str(artifact.unread)+ '|'+artifact.priority+'|'+ darpa_text + '|'+ '//'
+                                 str(artifact.unread)+ '|'+artifact.priority+'|'+ darpa_text + '|'+ artifact.unique_id+ '|'+\
+                                 str(artifact.original_timestamp) +'|'+'//'
 
         #save the vehicle statuses
         vehicle_state_str = ''
@@ -344,7 +360,7 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, original_timestamp, category=-1, position="", source_robot_id="", artifact_report_id="", imgs = []):
+    def __init__(self, original_timestamp=-1, category=-1, position="", source_robot_id="", artifact_report_id="", imgs = []):
         
         self.category = category
         self.pos = position
