@@ -301,8 +301,8 @@ class DarpaGuiBridge:
         self.auth_bearer_token = darpa_params['auth_bearer_token'][0]
         self.request_info_uri = darpa_params['scoring_uris'][0] #uri for requesting information (time,score,etc) from darpa
         self.post_artifact_uri = darpa_params['scoring_uris'][1] #uri for posting artifact proposals to DARPA
-        self.total_num_reports = darpa_params['total_num_reports'][0] #number of reports we can send to darpa in a run
-        self.run_length = darpa_params['run_length'][0]
+        # self.total_num_reports = darpa_params['total_num_reports'][0] #number of reports we can send to darpa in a run
+        # self.run_length = darpa_params['run_length'][0]
 
         #have an initial darpa status update
         self.darpa_status_update = {}
@@ -368,13 +368,13 @@ class DarpaGuiBridge:
         self.darpa_status_update = self.http_client.get_status_from_command_post()
 
         #publish this data as something
-        time_remaining = self.displaySeconds(float(self.run_length) - float(self.darpa_status_update['run_clock']))
+        time_remaining = self.displaySeconds(float(self.darpa_status_update['run_clock']))
 
         msg = String()
         
-        msg.data = str("Time Left: "+str(time_remaining)+'\t Score: '+\
+        msg.data = "Time Elapsed: "+str(time_remaining)+'\t Score: '+\
                    str(self.darpa_status_update['score'])+ '\t Remaining Reports: '+\
-                   str(self.darpa_status_update['remaining_reports'])+'/'+str(self.total_num_reports))
+                   str(self.darpa_status_update['remaining_reports'])
 
         self.status_pub.publish(msg)
 

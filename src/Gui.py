@@ -308,7 +308,7 @@ class BasestationGuiPlugin(Plugin):
         self.artifact_image_index = index
 
         #change the label
-        if (len(artifact.imgs) == 0):
+        if ((index+1) > len(artifact.imgs)) or (len(artifact.imgs) == 0):
             self.img_displayed_label.setText('Img 0/0')
         else:
             self.img_displayed_label.setText('Img '+str(index+1)+'/'+str(len(artifact.imgs)))
@@ -601,9 +601,15 @@ class BasestationGuiPlugin(Plugin):
                             item = NumericItem(str(val))
                             item.setData(core.Qt.UserRole, val)
 
+                        item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled ) #make it non-editable
+                        item.setTextAlignment(Qt.AlignHCenter) 
+
                         self.arthist_table.setItem(row, col, item)
 
+                    
+
                     #add the response item, we don't want this to be a NumericItem
+                    response_item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
                     self.arthist_table.setItem(row, 3, response_item)
 
 
@@ -626,6 +632,10 @@ class BasestationGuiPlugin(Plugin):
 
 
                     #remove the artifact from the main visualization panel
+
+                    #display a blank box for the image
+                    self.displayArtifactImg(self.displayed_artifact, len(self.displayed_artifact.imgs))
+
                     self.orig_pos_label_x.setText('')
                     self.art_pos_textbox_x.setText('')
 
@@ -812,10 +822,7 @@ class BasestationGuiPlugin(Plugin):
                     
                     else: #if we're not dealing with a display time
                         item = NumericItem(str(val))
-                        item.setData(core.Qt.UserRole, val)
-                        
-                    
-                    
+                        item.setData(core.Qt.UserRole, val)                    
 
                     self.queue_table.setItem(row, col, item)
 
@@ -916,7 +923,6 @@ class BasestationGuiPlugin(Plugin):
             if (len(self.art_pos_textbox_z.text()) > 0):
                 self.displayed_artifact.pos[2] = float(self.art_pos_textbox_z.text())    
 
-            print self.displayed_artifact.pos
 
 
 
@@ -1180,7 +1186,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         self.info_label = qt.QLabel()
-        self.info_label.setText('Time Left: -- \t Score: -- \t Proposals Left: --')
+        self.info_label.setText('Time Elapsed: -- \t Score: -- \t Proposals Left: --')
         self.info_label.setAlignment(Qt.AlignCenter)
         self.info_label.setFont(boldFont)
         self.info_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')

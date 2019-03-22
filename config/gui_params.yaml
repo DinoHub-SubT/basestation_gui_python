@@ -8,7 +8,5 @@ darpa_params:
   auth_bearer_token: ['flux230{showroom']
   scoring_uris: ['http://api/status', 'http://api/artifact_reports']
   artifact_categories: ['Human', 'Fire extinguisher', 'Phone', 'Backpack', 'Drill']
-  total_num_reports: ['51']
-  run_length: ['3600'] #length of the run in seconds
 
 
