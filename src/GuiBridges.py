@@ -159,28 +159,28 @@ class RosGuiBridge:
 
 
         #get the robot's position
+        if (self.robot_pos != None):
+            scale_list = [5,4,3,2,0.3]
+            self.highlight_robot_marker.pose.position.x = self.robot_pos[0]
+            self.highlight_robot_marker.pose.position.y = self.robot_pos[1]
+            self.highlight_robot_marker.pose.position.z = self.robot_pos[2]
+            self.highlight_robot_marker.color.a = 1. #turn in back to visible if it was invisible
 
-        #for right now we use fake data
-        robot_pos = [0,0,0]
+            for scale in scale_list:            
 
-        scale_list = [5,4,3,2,0.3]
-        self.highlight_robot_marker.pose.position.x = robot_pos[0]
-        self.highlight_robot_marker.pose.position.y = robot_pos[1]
-        self.highlight_robot_marker.pose.position.z = robot_pos[2]
-        self.highlight_robot_marker.color.a = 1. #turn in back to visible if it was invisible
+                self.highlight_robot_marker.scale.x = scale
+                self.highlight_robot_marker.scale.y = scale
+                self.highlight_robot_marker.scale.z = scale
+                self.highlight_robot_pub.publish(self.highlight_robot_marker)
 
-        for scale in scale_list:            
+                rospy.sleep(0.75)
 
-            self.highlight_robot_marker.scale.x = scale
-            self.highlight_robot_marker.scale.y = scale
-            self.highlight_robot_marker.scale.z = scale
+            #make the marker disappear
+            self.highlight_robot_marker.color.a = 0.
             self.highlight_robot_pub.publish(self.highlight_robot_marker)
 
-            rospy.sleep(0.75)
-
-        #make the marker disappear
-        self.highlight_robot_marker.color.a = 0.
-        self.highlight_robot_pub.publish(self.highlight_robot_marker)
+        else:
+            self.gui.printMessage('Robot position unknown so no way to highlight it')
 
 
 

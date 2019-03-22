@@ -639,7 +639,9 @@ class BasestationGuiPlugin(Plugin):
 
                 if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                         self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
-
+        
+        else:
+            self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
                 
     def findDisplayedArtifact(self):
         '''
@@ -783,11 +785,14 @@ class BasestationGuiPlugin(Plugin):
                 row = self.queue_table.rowCount() - 1
 
                 #fill in the row data
-                if (artifact.time_from_robot == -1): #this si coming directly from the robot
+                if (artifact.time_from_robot == -1 and self.connect_to_command_post): #this is coming directly from the robot
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
                 
-                else:
+                elif(self.connect_to_command_post):
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(artifact.time_from_robot))
+
+                else:
+                    disp_time = self.darpa_gui_bridge.displaySeconds(float(1))
 
                 # random.sample(rand_list,1)[0]
 
@@ -810,8 +815,11 @@ class BasestationGuiPlugin(Plugin):
 
                     self.queue_table.setItem(row, col, item)
 
+                if(self.connect_to_command_post):
+                    artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
 
-                artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                else:
+                    artifact.time_from_robot = 1
 
                 #color the unread green
                 self.queue_table.item(row, 4).setBackground(gui.QColor(0,255,0))
@@ -1014,6 +1022,17 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.removeRow(row)
 
 
+    def manuallyAddArtifact(self):
+        '''
+        For BSM to manually add an artifact
+        '''
+        self.gui_engine.addArtifactManually()
+
+        
+
+
+
+
     def initArtifactQueue(self, pos):
         '''
         Panel to display the queue of artifacts which have not yet been submitted
@@ -1035,7 +1054,14 @@ class BasestationGuiPlugin(Plugin):
 
         self.queue_layout.addWidget(self.queue_table_sort_button, 1, 0)
 
-         #make a table
+
+        #add the insert new artifact button
+        self.queue_insert_artifact_button = qt.QPushButton("Add artifact")
+        self.queue_insert_artifact_button.clicked.connect(self.manuallyAddArtifact)
+
+        self.queue_layout.addWidget(self.queue_insert_artifact_button, 1, 1)
+
+        #make a table
         self.queue_table = qt.QTableWidget()
 
         #resize the cells to fill the widget 
@@ -1067,7 +1093,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         #add the table to the layout
-        self.queue_layout.addWidget(self.queue_table)
+        self.queue_layout.addWidget(self.queue_table, 2, 0, 1,2)
 
         #add to the overall gui
         self.queue_widget.setLayout(self.queue_layout)
@@ -1248,6 +1274,8 @@ class BasestationGuiPlugin(Plugin):
                 self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
             else:
                 self.message_textbox.addItem('[--] '+msg)
+
+
 
             self.message_textbox.setSortingEnabled(True)
 
@@ -1461,9 +1489,13 @@ class BasestationGuiPlugin(Plugin):
             rospy.logerr('key %s is not the name of a row in the status panel' % msg.key)
             return
         row_index = self.statuses.index(msg.key)
-        
-        self.status_table.item(row_index, column_index).setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
-        self.status_table.item(row_index, column_index).setText(msg.value)
+
+        item = self.status_table.item(row_index, column_index)
+        if item == None:
+            self.status_table.setItem(row_index, column_index, qt.QTableWidgetItem(''))
+        item = self.status_table.item(row_index, column_index)
+        item.setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
+        item.setText(msg.value)
         self.status_table.viewport().update()
 
 

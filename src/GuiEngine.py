@@ -131,6 +131,38 @@ class GuiEngine:
             #add updated info to the csv
             self.savePeriodically(self.gui)
 
+    def addArtifactManually(self):
+        '''
+        Function which allows the BSM to manually insert an artifact
+        at any point
+        '''
+
+        #find a unique negative id
+        artifact_id = 0
+
+        negative_id_list = []
+        for artifact in self.all_artifacts:
+            if (artifact.artifact_report_id < 0):
+                negative_id_list.append(artifact.artifact_report_id)
+
+        artifact_id = (len(negative_id_list) + 1) * -1
+
+
+
+        if (artifact_id < 0):
+            #generate the artifact object
+            artifact = Artifact(self.gui.ros_gui_bridge.artifact_categories[0], [-0.1, -0.1, -0.1], \
+                                    0, artifact_id, [])
+
+            #add the artifact to the list of queued objects and to the all_artifacts list
+            self.queued_artifacts.append(artifact)
+            self.all_artifacts.append(artifact)
+
+            #call a function to graphically add it to the queue
+            self.gui.sendToQueue(artifact)
+
+            #add updated info to the csv
+            self.savePeriodically(self.gui)
 
 
     def addRadioMsgDetection(self, msg):
