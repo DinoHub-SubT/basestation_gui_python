@@ -311,7 +311,7 @@ class BasestationGuiPlugin(Plugin):
         if (len(artifact.imgs) == 0):
             self.img_displayed_label.setText('Img 0/0')
         else:
-            self.img_displayed_label.setText('Img'+str(index+1)+'/'+str(len(artifact.imgs)))
+            self.img_displayed_label.setText('Img '+str(index+1)+'/'+str(len(artifact.imgs)))
 
     def processArtRefinementPress(self):
         '''
@@ -403,6 +403,7 @@ class BasestationGuiPlugin(Plugin):
 
         self.img_displayed_label = qt.QLabel()
         self.img_displayed_label.setText('Img 0/0')
+        self.img_displayed_label.setFont(gui.QFont(None, 16, gui.QFont.Bold) )
         self.img_displayed_label.setAlignment(Qt.AlignCenter)
         self.artmanip_layout.addWidget(self.img_displayed_label, 0,1)
 
@@ -517,6 +518,8 @@ class BasestationGuiPlugin(Plugin):
         self.artmanip_widget.setLayout(self.artmanip_layout)
         self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])    
 
+   
+
 
     def proposeArtifact(self):
         thread = threading.Thread(target=self.proposeArtifactThread)
@@ -586,16 +589,16 @@ class BasestationGuiPlugin(Plugin):
                     row_data = [artifact_type, submission_time, str(int(x))+'/'+str(int(y))+'/'+str(int(z))]
 
                     for col, val in enumerate(row_data):
-                    
-                        if (str(val).find(':')==-1): #if we're not dealing with a display time
-                            item = NumericItem(str(val))
-                            item.setData(core.Qt.UserRole, val)
-                            
                         
-                        else:
+                        if (col==1):
                             colon = submission_time.find(':')
                             val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
                             item = NumericItem(str(submission_time))
+                            item.setData(core.Qt.UserRole, val)
+
+
+                        else: #if we're not dealing with a display time
+                            item = NumericItem(str(val))
                             item.setData(core.Qt.UserRole, val)
 
                         self.arthist_table.setItem(row, col, item)
@@ -785,7 +788,7 @@ class BasestationGuiPlugin(Plugin):
                 row = self.queue_table.rowCount() - 1
 
                 #fill in the row data
-                if (artifact.time_from_robot == -1 and self.connect_to_command_post): #this is coming directly from the robot
+                if (artifact.time_from_robot == -1 and self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None): #this is coming directly from the robot
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
                 
                 elif(self.connect_to_command_post):
@@ -794,28 +797,29 @@ class BasestationGuiPlugin(Plugin):
                 else:
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(1))
 
-                # random.sample(rand_list,1)[0]
 
                 row_data = [artifact.source_robot, artifact.priority, disp_time, \
                             artifact.category, '!', artifact.artifact_report_id]
 
 
                 for col, val in enumerate(row_data):
-                    
-                    if (str(val).find(':')==-1): #if we're not dealing with a display time
-                        item = NumericItem(str(val))
-                        item.setData(core.Qt.UserRole, val)
-                        
-                    
-                    else:
+
+                    if (col==2):
                         colon = disp_time.find(':')
                         val = float(disp_time[:colon])*60 + float(disp_time[colon+1:])
                         item = NumericItem(str(disp_time))
                         item.setData(core.Qt.UserRole, val)
+                    
+                    else: #if we're not dealing with a display time
+                        item = NumericItem(str(val))
+                        item.setData(core.Qt.UserRole, val)
+                        
+                    
+                    
 
                     self.queue_table.setItem(row, col, item)
 
-                if(self.connect_to_command_post):
+                if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
                     artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
 
                 else:
@@ -885,6 +889,7 @@ class BasestationGuiPlugin(Plugin):
         Callback that is run when something in the artifact
         queue is selected
         '''
+        
 
         #remove the "unread" indicator if its there
         with self.update_queue_lock:
@@ -899,6 +904,20 @@ class BasestationGuiPlugin(Plugin):
             #highlight the entire row
             self.queue_table.selectRow(row)
 
+        #save the refined position of the displayed artifact
+        if(self.displayed_artifact != None):
+
+            if (len(self.art_pos_textbox_x.text()) > 0):
+                self.displayed_artifact.pos[0] = float(self.art_pos_textbox_x.text())
+
+            if (len(self.art_pos_textbox_y.text()) > 0):
+                self.displayed_artifact.pos[1] = float(self.art_pos_textbox_y.text())
+
+            if (len(self.art_pos_textbox_z.text()) > 0):
+                self.displayed_artifact.pos[2] = float(self.art_pos_textbox_z.text())    
+
+            print self.displayed_artifact.pos
+
 
 
         #change the combo boxes
@@ -911,7 +930,9 @@ class BasestationGuiPlugin(Plugin):
         ind = self.artifact_priority_box.findText(priority, core.Qt.MatchFixedString)
         if ind >= 0:
             self.dont_change_art_priority = True  #just change the gui, nothing else
-            self.artifact_priority_box.setCurrentIndex(ind)        
+            self.artifact_priority_box.setCurrentIndex(ind)    
+
+
 
 
         #associate with a specific artifact
@@ -980,17 +1001,18 @@ class BasestationGuiPlugin(Plugin):
                     self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
 
                     for col, val in enumerate(row_data):
-                        
-                        if (str(val).find(':')==-1): #if we're not dealing with a display time
-                            item = NumericItem(str(val))
-                            item.setData(core.Qt.UserRole, val)
-                            
-                        
-                        else:
+
+                        if (col == 2):
                             colon = disp_time.find(':')
                             val = float(disp_time[:colon])*60 + float(disp_time[colon+1:])
                             item = NumericItem(str(disp_time))
                             item.setData(core.Qt.UserRole, val)
+                        
+                        else:
+                            item = NumericItem(str(val))
+                            item.setData(core.Qt.UserRole, val)                          
+                        
+                        
 
                         self.queue_table.setItem(row, col, item)
                         # self.queue_table.itemChanged(item)#self.queue_table.item(row, col))
@@ -1026,7 +1048,20 @@ class BasestationGuiPlugin(Plugin):
         '''
         For BSM to manually add an artifact
         '''
+
         self.gui_engine.addArtifactManually()
+
+    def duplicateArtifact(self):
+        '''
+        Function to duplicate the row that has been clicked on
+        '''
+
+        if (self.displayed_artifact == None):
+            self.printMessage('No row has been selected, please press this button after selecting a row in the queue.')
+
+        else: #we actually have something selected
+            self.gui_engine.duplicateArtifact(self.displayed_artifact)
+
 
         
 
@@ -1047,19 +1082,24 @@ class BasestationGuiPlugin(Plugin):
         queue_label.setAlignment(Qt.AlignCenter)
         self.queue_layout.addWidget(queue_label, 0, 0)
 
+        #add the insert new artifact button
+        self.queue_insert_artifact_button = qt.QPushButton("Add artifact")
+        self.queue_insert_artifact_button.clicked.connect(self.manuallyAddArtifact)
+
+        self.queue_layout.addWidget(self.queue_insert_artifact_button, 1, 0)
+
+        #add the insert new artifact button
+        self.queue_duplicate_artifact_button = qt.QPushButton("Duplicate artifact")
+        self.queue_duplicate_artifact_button.clicked.connect(self.duplicateArtifact)
+
+        self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 1)
+
         #add the sort on/off button
         self.queue_table_sort_button = qt.QPushButton("Sort by time")
         self.queue_table_sort_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
         self.queue_table_sort_button.toggle() #start with it sorting the table
 
-        self.queue_layout.addWidget(self.queue_table_sort_button, 1, 0)
-
-
-        #add the insert new artifact button
-        self.queue_insert_artifact_button = qt.QPushButton("Add artifact")
-        self.queue_insert_artifact_button.clicked.connect(self.manuallyAddArtifact)
-
-        self.queue_layout.addWidget(self.queue_insert_artifact_button, 1, 1)
+        self.queue_layout.addWidget(self.queue_table_sort_button, 2, 0)
 
         #make a table
         self.queue_table = qt.QTableWidget()
@@ -1093,7 +1133,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         #add the table to the layout
-        self.queue_layout.addWidget(self.queue_table, 2, 0, 1,2)
+        self.queue_layout.addWidget(self.queue_table, 3, 0, 1,2)
 
         #add to the overall gui
         self.queue_widget.setLayout(self.queue_layout)
@@ -1412,17 +1452,18 @@ class BasestationGuiPlugin(Plugin):
                             row_data = [artifact.category, submission_time, str(int(artifact.pos[0]))+'/'+str(int(artifact.pos[1]))+'/'+str(int(artifact.pos[2]))]
 
                             for col, val in enumerate(row_data):
-                            
-                                if (str(val).find(':')==-1): #if we're not dealing with a display time
-                                    item = NumericItem(str(val))
-                                    item.setData(core.Qt.UserRole, val)
-                                    
-                                
-                                else:
+
+                                if (col==2):
                                     colon = submission_time.find(':')
                                     val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
                                     item = NumericItem(str(submission_time))
                                     item.setData(core.Qt.UserRole, val)
+                            
+                                else: #if we're not dealing with a display time
+                                    item = NumericItem(str(val))
+                                    item.setData(core.Qt.UserRole, val)                                   
+                                
+                                
 
                                 self.arthist_table.setItem(row, col, item)
 
