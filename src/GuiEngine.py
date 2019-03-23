@@ -284,7 +284,7 @@ class GuiEngine:
                 #add updated info to the csv
                 self.savePeriodically(self.gui)
 
-            print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
+            # print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
 
 
     def initLogFolder(self):
@@ -316,6 +316,8 @@ class GuiEngine:
         '''
         Saves the information in the gui in a re-loadable fromat, should the gui crash
         '''
+
+        print time.time()
 
         #artifact save format: [category, pos, orig_pos, source_robot, report_id, time_from_robot, time_to_darpa, unread_priority, darpa_response, image filenames]
         artifact_str = ''

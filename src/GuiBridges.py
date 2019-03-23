@@ -72,13 +72,19 @@ class RosGuiBridge:
         #publisher for turning the marker off
         self.refinement_marker_off_pub = rospy.Publisher('/refinement_marker_off', Point, queue_size=50)
 
-        [self.highlight_robot_marker, self.orig_pos_marker] = self.initMarkers()
+        [self.highlight_robot_marker, self.orig_pos_marker, self.ugv_bluetooth_marker, self.uav_bluetooth_marker] = self.initMarkers()
         
         #publisher for displaying the original position        
         self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', Marker, queue_size=50)
 
          #publisher for displaying the original position        
         self.highlight_robot_pub = rospy.Publisher('/highlight_robot_pub', Marker, queue_size=50)
+
+        #publisher for displaying the original position        
+        self.bluetooth_marker_pub_ugv = rospy.Publisher('/ugv/bluetooth_marker', Marker, queue_size=50)
+
+        #publisher for displaying the original position        
+        self.bluetooth_marker_pub_uav = rospy.Publisher('/uav/bluetooth_marker', Marker, queue_size=50)
 
 
         #subscriber for updating the corresponding textboxes for the refinement marker
@@ -97,16 +103,30 @@ class RosGuiBridge:
         Initialize and return the various markers
         '''  
         marker_list = []
-        for i in range(2):
+        for i in range(4):
             marker = Marker()
             marker.type = Marker.SPHERE
             marker.scale.x = 0.3
             marker.scale.y = 0.3
             marker.scale.z = 0.3
-            marker.color.r = 0.
-            marker.color.g = 1.
-            marker.color.b = 0.
-            marker.color.a = 1.0
+
+            if (i <2): #non-bluetooth markers
+                marker.color.r = 0.
+                marker.color.g = 1.
+                marker.color.b = 0.
+                marker.color.a = 1.0
+
+            else: #bluetooth markers
+                marker.color.r = 1.
+                marker.color.g = 165./255.
+                marker.color.b = 0.
+                marker.color.a = 0.
+
+                marker.pose.position.x = 0.
+                marker.pose.position.y = 0.
+                marker.pose.position.z = 0.
+
+            
             marker.header.frame_id = '/map'
 
             marker_list.append(marker)
@@ -139,6 +159,8 @@ class RosGuiBridge:
                 except ValueError:
                     print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!"
 
+            elif(command == "Show bluetooth"):
+                self.handleBluetooth(robot_name, button)
 
         else: #the button has just been pressed
             if(command in self.estop_commands):
@@ -149,8 +171,49 @@ class RosGuiBridge:
                 self.publishReturnHome(robot_name)
             elif(command == "Highlight robot"):
                 self.highlightRobot(robot_name)
+            elif(command == "Drop comms"):
+                self.dropComms(robot_name)
+            elif(command == "Show bluetooth"):
+                self.handleBluetooth(robot_name, button)
             else:
                 print 'WARNING: Button pressed does not have a function call associated with it!'
+
+
+    def handleBluetooth(self, robot_name, button):
+        '''
+        Make the bluetooth marker visualizable or hidden
+        '''
+
+
+        if (robot_name == 'Ground1'):
+
+            if(not button.isChecked()):
+                #change the alpha of the orig_pos marker to make it invisible
+                self.ugv_bluetooth_marker.color.a = 0.
+            else:
+                self.ugv_bluetooth_marker.color.a = 1.
+
+            self.bluetooth_marker_pub_ugv.publish(self.ugv_bluetooth_marker)
+
+        elif (robot_name == 'Aerial1'):
+            
+            if(not button.isChecked()):
+                #change the alpha of the orig_pos marker to make it invisible
+                self.uav_bluetooth_marker.color.a = 0.
+            else:
+                self.uav_bluetooth_marker.color.a = 1.
+
+            self.bluetooth_marker_pub_uav.publish(self.uav_bluetooth_marker)
+        
+
+    def dropComms(self, robot_name):
+        '''
+        Send out a message to drop a commas node
+        '''
+        radio_msg = RadioMsg()
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DROP_COMMS
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        self.radio_pub.publish(radio_msg)
 
     def highlightRobot(self, robot_name):
         '''

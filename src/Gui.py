@@ -173,7 +173,7 @@ class BasestationGuiPlugin(Plugin):
         self.control_layout.addWidget(control_label)
 
         #define the number of commands in a single column
-        num_in_col = 4
+        num_in_col = 5
 
         #establish the sub-panel for each robot
         for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):

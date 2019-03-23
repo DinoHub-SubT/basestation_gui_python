@@ -32,13 +32,13 @@ def talker():
     rospy.init_node('fake_artifact_node', anonymous=True)
     artifact_types = [4, 3, 5, 1, 2]
 
-    total_num_to_pub = 20#1000
+    total_num_to_pub = 200#1000
     num_pubbed = 0    
 
     #add stuff for testing ji button pipeline
     # ji_pub = rospy.Publisher('/integrated_to_map', Odometry, queue_size=10)
     
-    rate = rospy.Rate(0.2) #rate in hz
+    rate = rospy.Rate(5./3600.) #rate in hz
 
     time.sleep(2.) #necessary because launch order is random
 
