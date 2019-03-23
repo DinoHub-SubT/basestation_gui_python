@@ -9,7 +9,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 '''
 
 import rospy
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32MultiArray
 import yaml
 import sys
 from geometry_msgs.msg import PoseStamped, Point
@@ -101,6 +101,23 @@ class RosGuiBridge:
 
         #subscriber for listening to messages
         rospy.Subscriber('/gui_message_listener', String, self.gui.addMessage)
+
+        #publisher for the image coordinate clicked on (as percentage of the image)
+        self.img_coord_pub = rospy.Publisher('/gui_img_clicked', Float32MultiArray, queue_size=10)
+
+    def publishImageCoord(self, event):
+        '''
+        Publish image coordinates clicked on to ROS
+        ''' 
+        # self.artifact_img_width, self.artifact_img_length
+        x_coord = event.pos().x() / float(self.gui.artifact_img_width)
+        y_coord = event.pos().y() / float(self.gui.artifact_img_length)
+        
+        msg = Float32MultiArray()
+        msg.data = [x_coord, y_coord]
+
+        self.img_coord_pub.publish(msg)
+
 
     def initMarkers(self):
         '''
@@ -403,6 +420,8 @@ class DarpaGuiBridge:
         #define publisher for publishing when we get stuff from darpa
         self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
 
+
+
     def startArtifactProposal(self, data):
         '''
         Make a thread for a call to DARPA
@@ -451,7 +470,7 @@ class DarpaGuiBridge:
 
         msg = String()
         
-        msg.data = "Time Elapsed: "+str(time_remaining)+'\t Score: '+\
+        msg.data = "Time: "+str(time_remaining)+'\t Score: '+\
                    str(self.darpa_status_update['score'])+ '\t Remaining Reports: '+\
                    str(self.darpa_status_update['remaining_reports'])
 

@@ -124,6 +124,9 @@ class BasestationGuiPlugin(Plugin):
 
         #load the darpa transform
         self.loadDarpaTransform()
+
+        #the image size to display image artifacts
+        self.artifact_img_width, self.artifact_img_length = [640, 360]
         
     def loadDarpaTransform(self):
         '''
@@ -391,13 +394,14 @@ class BasestationGuiPlugin(Plugin):
         img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
 
         img = cv2.imread(img_filename)
-        img = cv2.resize(img,(600, 450))
+        img = cv2.resize(img,(self.artifact_img_width, self.artifact_img_length))
 
         img_height, img_width = img.shape[:2]
         img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
         img = gui.QPixmap.fromImage(img)
         self.art_image.setPixmap(img)
-        self.art_image.setAlignment(Qt.AlignCenter)
+        self.art_image.mousePressEvent = self.ros_gui_bridge.publishImageCoord
+        # self.art_image.setAlignment(Qt.AlignCenter)
 
         self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 2) #last 2 parameters are rowspan and columnspan
 
@@ -421,13 +425,13 @@ class BasestationGuiPlugin(Plugin):
         else:
             img = artifact.imgs[index]
         
-        img = cv2.resize(img,(600, 450))
+        img = cv2.resize(img,(self.artifact_img_width, self.artifact_img_length))
 
         img_height, img_width = img.shape[:2]
         img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
         img = gui.QPixmap.fromImage(img)
         self.art_image.setPixmap(img)
-        self.art_image.setAlignment(Qt.AlignCenter)
+        # self.art_image.setAlignment(Qt.AlignCenter)
 
 
         self.artifact_image_index = index
@@ -1049,7 +1053,7 @@ class BasestationGuiPlugin(Plugin):
 
         #preliminaries to build the rest of the panel
         num_robots = len(self.ros_gui_bridge.robot_names) #get the number of robots
-        statuses = ['Battery(mins)', 'Comms', 'Mobility', 'Camera', 'Velodyne', 'CPU', 'Disk Space'] #define the status each robot will have
+        statuses = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space'] #define the status each robot will have
         self.statuses = statuses
 
         status_label = qt.QLabel()
@@ -1091,6 +1095,9 @@ class BasestationGuiPlugin(Plugin):
         with self.update_queue_lock:
             self.queue_table.setItem(row,4, qt.QTableWidgetItem(str('')))
             self.queue_table.item(row, 4)#.setBackground(gui.QColor(0,255,0))#color the unread green
+
+            self.queue_table.item(row, 4).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+            self.queue_table.item(row, 4).setTextAlignment(Qt.AlignHCenter)
 
             clicked_robot_id =  int(self.queue_table.item(row, 0).text())
             priority = self.queue_table.item(row, 1).text()
@@ -1185,9 +1192,13 @@ class BasestationGuiPlugin(Plugin):
                 else:
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(artifact.time_from_robot))
 
+                update_msg = 'Updtd'
+
+                if (self.queue_table.item(i, 4).text().find('!') != -1): #the messagehas not been read yet
+                    update_msg = '!'
 
                 row_data = [artifact.source_robot, artifact.priority, disp_time, \
-                            artifact.category, 'Updtd', artifact.unique_id]
+                            artifact.category, update_msg, artifact.unique_id]
 
 
                 with self. update_queue_lock:
@@ -1393,7 +1404,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         self.info_label = qt.QLabel()
-        self.info_label.setText('Time Elapsed: -- \t Score: -- \t Proposals Left: --')
+        self.info_label.setText('Time: -- \t Score: -- \t Proposals Left: --')
         self.info_label.setAlignment(Qt.AlignCenter)
         self.info_label.setFont(boldFont)
         self.info_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')
