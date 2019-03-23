@@ -94,9 +94,13 @@ class BasestationGuiPlugin(Plugin):
         self.load_from_csv.clicked.connect(self.loadFromCsv)
         self.top_layout.addWidget(self.load_from_csv, 0, 1)
 
-        self.save_pose_button = qt.QPushButton('Save robot pose')
+        self.save_pose_button = qt.QPushButton('Save robot/total pose')
         self.save_pose_button.clicked.connect(self.saveRobotPoseGui)
         self.top_layout.addWidget(self.save_pose_button, 1,0)
+
+        self.load_transform_button = qt.QPushButton('Load DARPA transform')
+        self.load_transform_button.clicked.connect(self.loadDarpaTransform)
+        self.top_layout.addWidget(self.load_transform_button, 1,1)
 
 
         self.global_widget.addWidget(self.top_widget)
@@ -131,27 +135,32 @@ class BasestationGuiPlugin(Plugin):
         rospack = rospkg.RosPack()
         transform_fname = rospack.get_path('entrance_calib')+'/data/calib.txt'
 
-
-        with open(transform_fname) as f:
-            content = f.readlines()
-
-        #strip newline chars
-        content = [x.strip() for x in content] 
-
-        transform_mat = []
-        for i, row in enumerate(content):
-            if(i < 3):
-                transform_mat.append(row.split(' '))
-
-        #set it to the numpy array self.darpa_transform
-        transform_mat = np.float32(transform_mat)
+        if (os.path.isfile(transform_fname)):
 
 
-        #add the translation vector
-        transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
-        transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+            with open(transform_fname) as f:
+                content = f.readlines()
 
-        self.darpa_transform = transform_mat
+            #strip newline chars
+            content = [x.strip() for x in content] 
+
+            transform_mat = []
+            for i, row in enumerate(content):
+                if(i < 3):
+                    transform_mat.append(row.split(' '))
+
+            #set it to the numpy array self.darpa_transform
+            transform_mat = np.float32(transform_mat)
+
+
+            #add the translation vector
+            transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
+            transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+
+            self.darpa_transform = transform_mat
+
+        else:
+            self.darpa_transform = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
 
 
