@@ -95,6 +95,10 @@ class RosGuiBridge:
         self.robot_pos = None
         rospy.Subscriber('/integrated_to_map', Odometry, self.saveRobotPose)
 
+        #subscriber for saving the total station data
+        self.total_pos = None
+        rospy.Subscriber('/position', Odometry, self.saveTotalPose)
+
         #subscriber for listening to messages
         rospy.Subscriber('/gui_message_listener', String, self.gui.addMessage)
 
@@ -141,6 +145,16 @@ class RosGuiBridge:
 
     def getRobotPose(self):
         return self.robot_pos
+
+
+    def saveTotalPose(self, msg):
+        '''
+        Function to save the robot pose for Ji's button
+        '''
+        self.total_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+
+    def getTotalPose(self):
+        return self.total_pos
 
 
         

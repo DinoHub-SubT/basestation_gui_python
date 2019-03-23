@@ -118,9 +118,41 @@ class BasestationGuiPlugin(Plugin):
 
         self.artifact_image_index = 0 #the index of the image currently being displayed
 
-        #associate the categories with the vasu labels
-        # parse the config file
+        #load the darpa transform
+        self.loadDarpaTransform()
         
+    def loadDarpaTransform(self):
+        '''
+        Load the transformation matrix for converting artifact locations into
+        the darpa reference frame
+        '''
+
+        #load the text file
+        rospack = rospkg.RosPack()
+        transform_fname = rospack.get_path('entrance_calib')+'/data/calib.txt'
+
+
+        with open(transform_fname) as f:
+            content = f.readlines()
+
+        #strip newline chars
+        content = [x.strip() for x in content] 
+
+        transform_mat = []
+        for i, row in enumerate(content):
+            if(i < 3):
+                transform_mat.append(row.split(' '))
+
+        #set it to the numpy array self.darpa_transform
+        transform_mat = np.float32(transform_mat)
+
+
+        #add the translation vector
+        transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
+        transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+
+        self.darpa_transform = transform_mat
+
 
 
 
@@ -141,16 +173,74 @@ class BasestationGuiPlugin(Plugin):
         When a button is pressed, its pose gets saved to a textfile
         '''
         rospack = rospkg.RosPack()
-        pose_filename = rospack.get_path('basestation_gui_python')+'/ji_pose.csv'
+        robot_pose_filename = rospack.get_path('entrance_calib')+'/data/state_estimation.txt'
+        total_pose_filename = rospack.get_path('entrance_calib')+'/data/total_station.txt'
 
         robot_pos = self.ros_gui_bridge.getRobotPose()
+        total_pos = self.ros_gui_bridge.getTotalPose()
 
+        num_robot_points, num_total_points = 0, 0
+
+        #handle the robot pose first
         if (robot_pos != None):
-            with open(pose_filename, 'a') as writeFile:
-                writer = csv.writer(writeFile)
-                writer.writerow([robot_pos[0], robot_pos[1], robot_pos[2]]) 
 
-        self.printMessage("Saved robot pose.")
+            #check if the file has not been created
+            if (not os.path.isfile(robot_pose_filename)):
+                with open(robot_pose_filename, 'w') as writer:
+                    writer.write(str(1)+'\n') 
+                    writer.write(str(robot_pos[0])+ ' '+str(robot_pos[1])+ ' '+str(robot_pos[2])+'\n') 
+
+            else:
+                data = []
+                with open(robot_pose_filename, 'r') as f:
+                    data = f.readlines()
+
+                data[0] = str(int(data[0]) + 1)+'\n' #increment the number of points
+                num_robot_points = int(data[0])+1
+                data.append(str(robot_pos[0])+ ' '+str(robot_pos[1])+ ' '+str(robot_pos[2])+'\n') #add the new point
+
+                with open(robot_pose_filename, 'w') as f:
+                    f.writelines( data )
+
+            self.printMessage("Saved robot pose.")
+
+        else:
+            self.printMessage('Looks like nothing was ever published for the robot pos')
+
+
+        #handle the total pose next
+        if (total_pos != None):
+
+            #check if the file has not been created
+            if (not os.path.isfile(total_pose_filename)):
+                with open(total_pose_filename, 'w') as writer:
+                    writer.write(str(1)+'\n') 
+                    writer.write(str(total_pos[0])+ ' '+str(total_pos[1])+ ' '+str(total_pos[2])+'\n') 
+
+            else:
+                data = []
+                with open(total_pose_filename, 'r') as f:
+                    data = f.readlines()
+
+                data[0] = str(int(data[0]) + 1)+'\n' #increment the number of points
+                num_total_points = int(data[0])+1
+                data.append(str(total_pos[0])+ ' '+str(total_pos[1])+ ' '+str(total_pos[2])+'\n') #add the new point
+
+                with open(total_pose_filename, 'w') as f:
+                    f.writelines( data )
+
+            self.printMessage("Saved total pose.")
+
+        else:
+            self.printMessage('Looks like nothing was ever published for the total pos')
+
+
+        #ensure we are writitng the same number of points
+        if (num_robot_points != num_total_points):
+            self.printMessage('Error: The number of robot points does not equal the number of total station points')
+
+
+        
 
 
 
@@ -201,6 +291,19 @@ class BasestationGuiPlugin(Plugin):
                 robot_layout.addWidget(button, row, col)
 
                 row+=1
+
+            #add a combobox to set the speed of the robot
+            # robot_speed_list = [0.3, 0.5, 1.0]
+            # robot_speed_box = qt.QComboBox()
+            
+            # for speed in robot_speed_list:
+            #     robot_speed_box.addItem(speed)
+            
+            # robot_speed_box.currentTextChanged.connect(partial(self.updateArtifactCat, 
+
+            # self.artmanip_layout.addWidget(robot_speed_box, 7, 0, 1, 2)
+
+
 
             self.control_buttons.append(robot_button_list)
 
@@ -547,8 +650,7 @@ class BasestationGuiPlugin(Plugin):
         self.artmanip_widget.setLayout(self.artmanip_layout)
         self.global_widget.addWidget(self.artmanip_widget, pos[0], pos[1], pos[2], pos[3])    
 
-   
-
+    
 
     def proposeArtifact(self):
         thread = threading.Thread(target=self.proposeArtifactThread)
@@ -565,13 +667,19 @@ class BasestationGuiPlugin(Plugin):
             self.printMessage("Nothing proposed. Please select an artifact from the queue")
 
         elif(self.connect_to_command_post):
+
+            #transform the points into the darpa frame
+            point = np.array([ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
+                         float(self.art_pos_textbox_z.text()) ])
+
+            transformed_point = self.toDarpaFrame(point)
             
             with self.artifact_proposal_lock: #to ensure we only draw one response at once
 
                 self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
             
-                data = [ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
-                         float(self.art_pos_textbox_z.text()), self.darpa_cat_box.currentText()]
+                data = [float(transformed_point[0]), float(transformed_point[1]), float(transformed_point[2]), self.darpa_cat_box.currentText()]
+
 
                 self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText())
 
@@ -689,6 +797,21 @@ class BasestationGuiPlugin(Plugin):
         
         else:
             self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
+
+    def toDarpaFrame(self, point):
+        '''
+        Function to convert an artifact detection location into
+        the darpa frame
+        '''
+
+        point = np.float32([point[0], point[1], point[2], 1])
+
+        print self.darpa_transform
+        print point
+        print np.matmul(self.darpa_transform, point)
+
+        return np.matmul(self.darpa_transform, point)
+
 
 
     def decideArtifact(self):

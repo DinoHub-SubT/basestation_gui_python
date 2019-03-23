@@ -299,9 +299,9 @@ class GuiEngine:
         self.log_img_folder = self.log_folder+'imgs/'
 
         #make the folders
-        # if not os.path.exists(log_folder):
-        os.makedirs(self.log_folder)
-        os.makedirs(self.log_img_folder)
+        if not os.path.exists(self.log_folder):
+            os.makedirs(self.log_folder)
+            os.makedirs(self.log_img_folder)
 
 
         self.log_filename = self.log_folder+'gui_state_log.csv'
@@ -316,8 +316,6 @@ class GuiEngine:
         '''
         Saves the information in the gui in a re-loadable fromat, should the gui crash
         '''
-
-        print time.time()
 
         #artifact save format: [category, pos, orig_pos, source_robot, report_id, time_from_robot, time_to_darpa, unread_priority, darpa_response, image filenames]
         artifact_str = ''

@@ -32,13 +32,14 @@ def talker():
     rospy.init_node('fake_artifact_node', anonymous=True)
     artifact_types = [4, 3, 5, 1, 2]
 
-    total_num_to_pub = 200#1000
+    total_num_to_pub = 20#1000
     num_pubbed = 0    
 
     #add stuff for testing ji button pipeline
-    # ji_pub = rospy.Publisher('/integrated_to_map', Odometry, queue_size=10)
+    ji_pub = rospy.Publisher('/integrated_to_map', Odometry, queue_size=10)
+    total_pub = rospy.Publisher('/position', Odometry, queue_size=10)
     
-    rate = rospy.Rate(5./3600.) #rate in hz
+    rate = rospy.Rate(0.2)# (5./3600.) #rate in hz
 
     time.sleep(2.) #necessary because launch order is random
 
@@ -100,11 +101,23 @@ def talker():
 
         message_pub.publish('Message system testing')
 
+        ji_pub.publish(getJiFakePose())
+        total_pub.publish(getTotalFakePose())
+
         rate.sleep()
 
         num_pubbed+=1
 
 def getJiFakePose():
+    ji_msg = Odometry()
+
+    ji_msg.pose.pose.position.x = 1
+    ji_msg.pose.pose.position.y = 2
+    ji_msg.pose.pose.position.z = 3.14
+
+    return ji_msg
+
+def getTotalFakePose():
     ji_msg = Odometry()
 
     ji_msg.pose.pose.position.x = 1
