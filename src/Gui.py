@@ -523,9 +523,25 @@ class BasestationGuiPlugin(Plugin):
         self.artmanip_layout.addWidget(self.artifact_priority_box, 7, 2)
 
 
-        button = qt.QPushButton("To DARPA")
-        button.clicked.connect(partial(self.proposeArtifact))
-        self.artmanip_layout.addWidget(button, 8, 0, 1, 3)
+        self.darpa_button = qt.QPushButton("To DARPA")
+        self.darpa_button.clicked.connect(partial(self.decideArtifact))
+        self.darpa_button.setStyleSheet("background-color:rgb(255,130,0)")
+        self.artmanip_layout.addWidget(self.darpa_button, 8, 0, 1, 3)
+
+        self.darpa_confirm_button = qt.QPushButton("Confirm")
+        self.darpa_confirm_button.clicked.connect(partial(self.proposeArtifact))
+        self.darpa_confirm_button.setStyleSheet("background-color:rgb(100, 100, 100)")
+        self.darpa_confirm_button.setEnabled(False)
+        self.artmanip_layout.addWidget(self.darpa_confirm_button, 9, 0)
+
+        self.darpa_cancel_button = qt.QPushButton("Cancel")
+        self.darpa_cancel_button.clicked.connect(partial(self.cancelProposal))
+        self.darpa_cancel_button.setStyleSheet("background-color:rgb(100, 100, 100)")
+        self.darpa_cancel_button.setEnabled(False)
+        self.artmanip_layout.addWidget(self.darpa_cancel_button, 9, 2)
+
+
+            
 
         #add to the overall gui
         self.artmanip_widget.setLayout(self.artmanip_layout)
@@ -663,26 +679,74 @@ class BasestationGuiPlugin(Plugin):
 
                 if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                         self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+
+            #reset the darpa proposal buttons
+            self.darpa_confirm_button.setEnabled(False)
+            self.darpa_cancel_button.setEnabled(False)
+
+            self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+            self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
         
         else:
             self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
+
+
+    def decideArtifact(self):
+        '''
+        Initializes the sequence for final decision on whether we want to propose an artifact
+        or not
+        '''
+
+        if (self.art_pos_textbox_x.text()=='') or (self.art_pos_textbox_y.text()=='') or (self.art_pos_textbox_z.text()==''):
+            self.printMessage("Nothing proposed. Please select an artifact from the queue")
+
+        elif (self.displayed_artifact==None):
+            self.printMessage("Nothing proposed. Please select an artifact from the queue")
+
+        elif(self.connect_to_command_post):
+
+            #enable the confirm and cancel buttons
+            self.darpa_confirm_button.setEnabled(True)
+            self.darpa_cancel_button.setEnabled(True) 
+
+            #color the buttons appropriately
+            self.darpa_confirm_button.setStyleSheet("background-color:rgb(0,222,0)")
+            self.darpa_cancel_button.setStyleSheet("background-color:rgb(222,0,0)")
+
+        else:
+            self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
+        
+
+
+    def cancelProposal(self):
+        '''
+        We started a proposal process but decided against it
+        '''
+
+        #reset the darpa proposal buttons
+        self.darpa_confirm_button.setEnabled(False)
+        self.darpa_cancel_button.setEnabled(False)
+
+        self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        
                 
     def findDisplayedArtifact(self):
         '''
         Returns the row of the artifact table for the displayed artifact
         '''
+
         if (self.queue_table.isSortingEnabled()):
             self.printMessage("Table did not have sorting disabled!! (Debugging message)")
             self.queue_table.setSortingEnabled(False)
 
         if(self.displayed_artifact!=None): #if we have actually set the artifact
             for i in range(self.queue_table.rowCount()):
-                print self.displayed_artifact.unique_id, self.queue_table.item(i, 5).text()
 
                 if (self.displayed_artifact.unique_id == self.queue_table.item(i, 5).text()):
                     return i
 
-        print "Could nto find disp artifact"
+        self.printMessage("Could not find displayed artifact")
         return -1
 
 
@@ -941,6 +1005,9 @@ class BasestationGuiPlugin(Plugin):
             if ( art.unique_id == clicked_unique_id):
                 
                 artifact = art
+
+                #change th original location of the artifact to be the current position
+                artifact.orig_pos = artifact.pos
 
                 #change the text of the xyz positions
                 robot_pos = artifact.pos
@@ -1453,7 +1520,6 @@ class BasestationGuiPlugin(Plugin):
 
                             submission_correct = artifact.darpa_response[artifact.darpa_response.find('?')+1:].replace(' ','')
                             
-                            print "--"+submission_correct+"--"
                             if (submission_correct=='False'):
                                 submission_color = gui.QColor(220,0,0)
                             else:

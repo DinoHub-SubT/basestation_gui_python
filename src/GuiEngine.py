@@ -17,6 +17,8 @@ import rospkg
 import csv
 import datetime
 from cv_bridge import CvBridge
+import os
+import cv2
 
 # pdb.set_trace()
 
@@ -52,7 +54,7 @@ class GuiEngine:
 
         self.gui = gui
 
-        self.initLogFile()
+        self.initLogFolder()
 
         self.duplicate_count = 0
         
@@ -91,9 +93,10 @@ class GuiEngine:
             #check if the artifact already exists
             already_object = False
 
+            msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
+
             for artifact in self.all_artifacts:
-                if int(msg.artifact_robot_id) == int(artifact.source_robot) and \
-                    int(msg.artifact_report_id) == int(artifact.artifact_report_id):
+                if msg_unique_id == artifact.unique_id:
 
                     #update the current information if it exists!
                     if ( len(imgs) > 0):
@@ -101,8 +104,6 @@ class GuiEngine:
                         for img in imgs:
                             artifact.imgs.append(img)
 
-                    else:
-                        print "image data not updated"
 
                     if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
                         artifact.pos[0] = msg.artifact_x
@@ -286,13 +287,24 @@ class GuiEngine:
             print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
 
 
-    def initLogFile(self):
+    def initLogFolder(self):
         '''
-        Make the log file to save gui information to
+        Make the log folder to save gui information to
         '''
 
         rospack = rospkg.RosPack()
-        self.log_filename = rospack.get_path('basestation_gui_python')+'/custom_logs/log_'+datetime.datetime.now().strftime("%m-%d-%y-%H-%M-%S")+'.csv'
+
+        #define the file structure
+        self.log_folder = rospack.get_path('basestation_gui_python')+'/custom_logs/log_'+datetime.datetime.now().strftime("%m-%d-%y-%H-%M-%S")+'/'
+        self.log_img_folder = self.log_folder+'imgs/'
+
+        #make the folders
+        # if not os.path.exists(log_folder):
+        os.makedirs(self.log_folder)
+        os.makedirs(self.log_img_folder)
+
+
+        self.log_filename = self.log_folder+'gui_state_log.csv'
 
         with open(self.log_filename, 'w') as writeFile:
             writer = csv.writer(writeFile)
@@ -350,7 +362,15 @@ class GuiEngine:
 
         with open(self.log_filename, 'a') as writeFile:
             writer = csv.writer(writeFile)
-            writer.writerow([time.time(), artifact_str, vehicle_state_str, info_str])         
+            writer.writerow([time.time(), artifact_str, vehicle_state_str, info_str]) 
+
+
+        #save the images
+        for artifact in self.all_artifacts:
+            for i, img in enumerate(artifact.imgs):
+                fname = self.log_img_folder+ artifact.category + '_' + artifact.unique_id.replace('/','_')+'.png'
+                img = cv2.resize(img,(300, 300))
+                cv2.imwrite(fname, img)
 
 
 
@@ -360,7 +380,7 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, original_timestamp=-1, category=-1, position="", source_robot_id="", artifact_report_id="", imgs = []):
+    def __init__(self, original_timestamp=1, category=-1, position="", source_robot_id="", artifact_report_id="", imgs = []):
         
         self.category = category
         self.pos = position
