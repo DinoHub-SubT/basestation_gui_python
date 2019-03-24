@@ -78,6 +78,29 @@ The orange sphere will then appear. This can be moved around and designates the 
 
 
 
+# “Quick Start Guide”
+
+##Window 1
+
+
+
+```bash
+cd home/name/workspaces/gui/
+source devel/setup.bash
+rosrun darpa_command_post CommandPostScoring.py
+```
+
+
+##Window 2
+
+```bash
+cd home/name/workspaces/gui/
+source devel/setup.bash
+roslaunch basestation_gui_python gui.launch connect_to_command_post:=false simulating_artifact_detections:=true
+```
+
+
+
 
 # Depricated: How to install and run old simple 4-button estop gui
 ## Install old 4-button gui
