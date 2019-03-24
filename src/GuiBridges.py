@@ -406,14 +406,13 @@ class DarpaGuiBridge:
         self.darpa_status_update['score'] = None
         self.darpa_status_update['remaining_reports'] = None
 
-        #setup the http client (bridge for interacting with DARPA)
-        self.http_client = TeamClient()
-
         #if we're also simulating the darpa command post
-        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
+        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")            
+
 
         #start a schedule which runs "get status" every few seconds
         if(self.connect_to_command_post):
+            self.http_client = TeamClient()
             self.get_status_thread = threading.Timer(1.0, self.getStatus)
             self.get_status_thread.start()
 

@@ -155,9 +155,10 @@ class GuiEngine:
 
         if (artifact_id < 0):
 
-            #generate the artifact object
-            artifact = Artifact(copy.deepcopy(artifact.category), copy.deepcopy(artifact.pos), \
-                                    -1, artifact_id, [])
+            #generate the artifact obje
+
+            artifact = Artifact(copy.deepcopy(artifact.original_timestamp), copy.deepcopy(artifact.category), \
+                                copy.deepcopy(artifact.pos), -1, artifact_id, copy.deepcopy(artifact.imgs))
 
             #add the artifact to the list of queued objects and to the all_artifacts list
             self.queued_artifacts.append(artifact)
@@ -191,7 +192,7 @@ class GuiEngine:
 
         if (artifact_id < 0):
             #generate the artifact object
-            artifact = Artifact(self.gui.ros_gui_bridge.artifact_categories[0], [-0.1, -0.1, -0.1], \
+            artifact = Artifact(1, self.gui.ros_gui_bridge.artifact_categories[0], [-0.1, -0.1, -0.1], \
                                     -1, artifact_id, [])
 
             #add the artifact to the list of queued objects and to the all_artifacts list
@@ -223,7 +224,9 @@ class GuiEngine:
         #ensure we dont delete an artifact when we're viewing it
         if (self.gui.displayed_artifact != None and artifact != None):
             if (self.gui.displayed_artifact.unique_id == artifact.unique_id):
-                self.gui.printMessage('Did not delete artifact, viewing it now')
+                self.gui.printMessage('Artifact being viewed has been deleted')
+                self.gui.alertImgAboutRemoval()
+                self.gui.removeQueueArtifact(artifact)
 
         else:
             if(artifact == None):
@@ -285,7 +288,7 @@ class GuiEngine:
                 #add updated info to the csv
                 self.savePeriodically(self.gui)
 
-            # print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
+            print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
 
 
     def initLogFolder(self):

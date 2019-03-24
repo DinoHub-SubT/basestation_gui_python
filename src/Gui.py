@@ -403,8 +403,14 @@ class BasestationGuiPlugin(Plugin):
         self.art_image.mousePressEvent = self.ros_gui_bridge.publishImageCoord
         # self.art_image.setAlignment(Qt.AlignCenter)
 
-        self.artvis_layout.addWidget(self.art_image, 1, 0, 1, 2) #last 2 parameters are rowspan and columnspan
+        self.artvis_layout.addWidget(self.art_image, 1, 0, 3, 2) #last 2 parameters are rowspan and columnspan
 
+        self.update_art_label = qt.QLabel()
+        self.update_art_label.setText('Updates here')
+        self.update_art_label.setAlignment(Qt.AlignCenter)
+        self.update_art_label.setStyleSheet("background-color: rgba(126, 126, 126,50%)")
+        self.update_art_label.hide()
+        self.artvis_layout.addWidget(self.update_art_label, 3, 0, 1, 2)
         
 
         #add to the overall gui
@@ -773,7 +779,9 @@ class BasestationGuiPlugin(Plugin):
 
 
                             #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
-                            self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
+                            if self.displayed_artifact in self.gui_engine.queued_artifacts:
+                                self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
+
                             self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
 
                         self.queue_table.setSortingEnabled(True)
@@ -794,6 +802,9 @@ class BasestationGuiPlugin(Plugin):
                     self.art_pos_textbox_z.setText('')
 
                     self.displayed_artifact = None
+
+                    #remove any update on the artifact (messages about it being deleted or updated)
+                    self.update_art_label.hide()
 
 
                 self.arthist_table.setSortingEnabled(True) 
@@ -818,10 +829,6 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         point = np.float32([point[0], point[1], point[2], 1])
-
-        print self.darpa_transform
-        print point
-        print np.matmul(self.darpa_transform, point)
 
         return np.matmul(self.darpa_transform, point)
 
@@ -978,8 +985,12 @@ class BasestationGuiPlugin(Plugin):
             if (self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']==None):
 
                 #remove the artifact
-                self.gui_engine.queued_artifacts.remove(artifact)
-                self.gui_engine.all_artifacts.remove(artifact)
+                if artifact in self.gui_engine.queued_artifacts:
+                    self.gui_engine.queued_artifacts.remove(artifact)
+
+                if artifact in self.gui_engine.all_artifacts:
+                    self.gui_engine.all_artifacts.remove(artifact)
+
                 return False
 
             else:
@@ -1089,6 +1100,9 @@ class BasestationGuiPlugin(Plugin):
         Callback that is run when something in the artifact
         queue is selected
         '''
+
+        #remove any update on the artifact (messages about it being deleted or updated)
+        self.update_art_label.hide()
         
 
         #remove the "unread" indicator if its there
@@ -1117,7 +1131,7 @@ class BasestationGuiPlugin(Plugin):
                 self.displayed_artifact.pos[1] = float(self.art_pos_textbox_y.text())
 
             if (len(self.art_pos_textbox_z.text()) > 0):
-                self.displayed_artifact.pos[2] = float(self.art_pos_textbox_z.text())    
+                self.displayed_artifact.pos[2] = float(self.art_pos_textbox_z.text())  
 
 
 
@@ -1238,9 +1252,24 @@ class BasestationGuiPlugin(Plugin):
 
                     if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                         self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+
+        #if the artifact is currently displayed, bring up a textbox alerting them
+        if (self.displayed_artifact != None) and (artifact.unique_id == self.displayed_artifact.unique_id):
+            self.update_art_label.setText('Artifact has been updated. Please select it again in the queue')
+            self.update_art_label.setStyleSheet("background-color: rgba(255, 255, 0, 80%)")
+            self.update_art_label.show()
         
 
+    def alertImgAboutRemoval(self):
+        '''
+        If the artifact is removed while the BSM is viewing it, pop up
+        a message saying so
+        '''
 
+        #if the artifact is currently displayed, bring up a textbox alerting them
+        self.update_art_label.setText('Artifact has been deleted!')
+        self.update_art_label.setStyleSheet("background-color: rgba(220, 0, 0, 70%)")
+        self.update_art_label.show()
 
     def removeQueueItem(self, row):
         '''
@@ -1264,8 +1293,10 @@ class BasestationGuiPlugin(Plugin):
 
             
         #remove the artifact from the engine lists
-        self.gui_engine.queued_artifacts.remove(artifact)
-        self.gui_engine.all_artifacts.remove(artifact)
+        if artifact in self.gui_engine.queued_artifacts:
+            self.gui_engine.queued_artifacts.remove(artifact)
+        if artifact in self.gui_engine.all_artifacts:
+            self.gui_engine.all_artifacts.remove(artifact)
 
 
     def manuallyAddArtifact(self):
@@ -1304,26 +1335,28 @@ class BasestationGuiPlugin(Plugin):
         queue_label = qt.QLabel()
         queue_label.setText('ARTIFACT QUEUE')
         queue_label.setAlignment(Qt.AlignCenter)
-        self.queue_layout.addWidget(queue_label, 0, 0)
+        self.queue_layout.addWidget(queue_label, 0, 0, 1, 2)
 
         #add the insert new artifact button
         self.queue_insert_artifact_button = qt.QPushButton("Add artifact")
         self.queue_insert_artifact_button.clicked.connect(self.manuallyAddArtifact)
-
         self.queue_layout.addWidget(self.queue_insert_artifact_button, 1, 0)
 
-        #add the insert new artifact button
+        #add the duplicate new artifact button
         self.queue_duplicate_artifact_button = qt.QPushButton("Duplicate artifact")
         self.queue_duplicate_artifact_button.clicked.connect(self.duplicateArtifact)
-
         self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 1)
 
         #add the sort on/off button
         self.queue_table_sort_button = qt.QPushButton("Sort by time")
         self.queue_table_sort_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
         self.queue_table_sort_button.toggle() #start with it sorting the table
-
         self.queue_layout.addWidget(self.queue_table_sort_button, 2, 0)
+
+        #add the duplicate new artifact button
+        # self.queue_duplicate_artifact_button = qt.QPushButton("Duplicate artifact")
+        # self.queue_duplicate_artifact_button.clicked.connect(self.duplicateArtifact)
+        # self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 1)
 
         #make a table
         self.queue_table = qt.QTableWidget()
@@ -1337,7 +1370,7 @@ class BasestationGuiPlugin(Plugin):
         self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Unique ID']) #make the column headers
 
         #hide the unique_id
-        # self.queue_table.setColumnHidden(5,True)
+        self.queue_table.setColumnHidden(5,True)
 
         #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()
