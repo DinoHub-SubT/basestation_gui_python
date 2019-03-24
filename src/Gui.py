@@ -275,7 +275,7 @@ class BasestationGuiPlugin(Plugin):
         self.control_layout.addWidget(control_label)
 
         #define the number of commands in a single column
-        num_in_col = 5
+        num_in_col = 4
 
         #establish the sub-panel for each robot
         for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):
@@ -943,6 +943,8 @@ class BasestationGuiPlugin(Plugin):
 
                 self.queue_table.setSortingEnabled(True)
 
+                self.queue_table.viewport().update()
+
         self.dont_change_art_priority = False #reset its value
 
 
@@ -968,6 +970,8 @@ class BasestationGuiPlugin(Plugin):
                     self.displayed_artifact.category = self.darpa_cat_box.currentText()
 
                 self.queue_table.setSortingEnabled(True)
+
+                self.queue_table.viewport().update()
 
         self.dont_change_art_category = False #reset its value
         
