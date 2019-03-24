@@ -57,7 +57,7 @@ def talker():
         msg.artifact_z =  random.random()*5.
         msg.artifact_stamp.secs = time.time() 
 
-        if (num_pubbed < total_num_to_pub * 0.3):
+        if (num_pubbed < total_num_to_pub * 0.1):
             published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
             pub.publish(msg)
 
