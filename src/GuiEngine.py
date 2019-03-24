@@ -52,6 +52,10 @@ class GuiEngine:
            rospy.Subscriber('/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
            rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
            rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
+            
+           rospy.Subscriber('/real_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
+           rospy.Subscriber('/ugv1/real_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
+           rospy.Subscriber('/uav1/real_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
 
         self.gui = gui
 
@@ -220,15 +224,15 @@ class GuiEngine:
                 artifact = art
                 break
 
-        #ensure we dont delete an artifact when we're viewing it
-        if (self.gui.displayed_artifact != None and artifact != None):
-            if (self.gui.displayed_artifact.unique_id == artifact.unique_id):
-                self.gui.printMessage('Did not delete artifact, viewing it now')
-
-        else:
-            if(artifact == None):
-                self.gui.printMessage('Did not delete artifact, could not find it')
-            
+        if artifact is None:
+            self.gui.printMessage("Did not delete artifact %s, couldn't find it"
+                    % artifact.unique_id) 
+        else: # Attempt to delete
+            self.gui.printMessage("Deleting artifact %s" % artifact.unique_id)
+            if (self.gui.displayed_artifact is not None and
+                    art.unique_id == self.gui.displayed_artifact.unique_id):
+                self.gui.printMessage('Did not delete artifact %s, viewing it now',
+                        % artifact.unique_id)
             else:
                 self.gui.removeQueueArtifact(artifact)
 
