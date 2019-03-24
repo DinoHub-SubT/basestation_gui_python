@@ -52,6 +52,10 @@ class GuiEngine:
            rospy.Subscriber('/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
            rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
            rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.addRadioMsgDetection)
+            
+           rospy.Subscriber('/real_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
+           rospy.Subscriber('/ugv1/real_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
+           rospy.Subscriber('/uav1/real_artifact_imgs', FakeWifiDetection, self.addWifiMsgDetection)
 
         self.gui = gui
 
@@ -241,7 +245,6 @@ class GuiEngine:
         else:
             if(artifact == None):
                 self.gui.printMessage('Did not delete artifact, could not find it')
-            
             else:
                 self.gui.removeQueueArtifact(artifact)
 
