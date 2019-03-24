@@ -20,6 +20,9 @@ First, you'll need Graeme's DARPA command post simulator
 git clone git@bitbucket.org:cmusubt/darpa_command_post.git
 ```
 
+You will also need Ji's entrance_calib package (Bob is working on removing this restriction). Email him or Bob for this package
+
+
 Install gui repo
 ```bash
 git clone git@bitbucket.org:cmusubt/basestation_gui_python.git
