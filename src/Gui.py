@@ -92,15 +92,13 @@ class BasestationGuiPlugin(Plugin):
 
         self.load_from_csv = qt.QPushButton('Load from CSV...')
         self.load_from_csv.clicked.connect(self.loadFromCsv)
-        self.top_layout.addWidget(self.load_from_csv, 0, 1)
+        self.top_layout.addWidget(self.load_from_csv, 0, 1, 1, 2)
 
-        self.save_pose_button = qt.QPushButton('Save robot/total pose')
-        self.save_pose_button.clicked.connect(self.saveRobotPoseGui)
-        self.top_layout.addWidget(self.save_pose_button, 1,0)
+        
 
-        self.load_transform_button = qt.QPushButton('Load DARPA transform')
+        self.load_transform_button = qt.QPushButton('Load DARPA \ntransforms')
         self.load_transform_button.clicked.connect(self.loadDarpaTransform)
-        self.top_layout.addWidget(self.load_transform_button, 1,1)
+        self.top_layout.addWidget(self.load_transform_button, 1,2)
 
 
         self.global_widget.addWidget(self.top_widget)
@@ -136,7 +134,7 @@ class BasestationGuiPlugin(Plugin):
 
         #load the text file
         rospack = rospkg.RosPack()
-        transform_fname = rospack.get_path('entrance_calib')+'/data/calib.txt'
+        transform_fname = rospack.get_path('entrance_calib')+'/data/ugv1_calib.txt'
 
         if (os.path.isfile(transform_fname)):
 
@@ -160,10 +158,42 @@ class BasestationGuiPlugin(Plugin):
             transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
             transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
 
-            self.darpa_transform = transform_mat
+            self.darpa_transform_ugv = transform_mat
 
         else:
-            self.darpa_transform = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+            self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+
+
+
+
+        transform_fname = rospack.get_path('entrance_calib')+'/data/uav1_calib.txt'
+
+        if (os.path.isfile(transform_fname)):
+
+
+            with open(transform_fname) as f:
+                content = f.readlines()
+
+            #strip newline chars
+            content = [x.strip() for x in content] 
+
+            transform_mat = []
+            for i, row in enumerate(content):
+                if(i < 3):
+                    transform_mat.append(row.split(' '))
+
+            #set it to the numpy array self.darpa_transform
+            transform_mat = np.float32(transform_mat)
+
+
+            #add the translation vector
+            transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
+            transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+
+            self.darpa_transform_uav = transform_mat
+
+        else:
+            self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
 
 
@@ -180,21 +210,42 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-    def saveRobotPoseGui(self):
+    def saveRobotPoseGui(self, robot_num):
         '''
         When a button is pressed, its pose gets saved to a textfile
         '''
-        rospack = rospkg.RosPack()
-        robot_pose_filename = rospack.get_path('entrance_calib')+'/data/state_estimation.txt'
-        total_pose_filename = rospack.get_path('entrance_calib')+'/data/total_station.txt'
 
-        robot_pos = self.ros_gui_bridge.getRobotPose()
-        total_pos = self.ros_gui_bridge.getTotalPose()
+        rospack = rospkg.RosPack()
+
+        if (self.ros_gui_bridge.robot_names[robot_num].find('ound') != -1):
+
+            print "saving ground"
+            
+            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv'+str(robot_num)+'_state_estimation.txt'
+            total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv'+str(robot_num)+'_total_station.txt'
+
+            robot_pos = self.ros_gui_bridge.getRobotPoseGround()
+            total_pos = self.ros_gui_bridge.getTotalPose()
+
+        elif (self.ros_gui_bridge.robot_names[robot_num].find('erial') != -1):
+
+            print "saving aerial"
+
+            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav'+str(robot_num)+'_state_estimation.txt'
+            total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav'+str(robot_num)+'_total_station.txt'
+
+            robot_pos = self.ros_gui_bridge.getRobotPoseAerial()
+            total_pos = self.ros_gui_bridge.getTotalPose()
+
+        else:
+            self.printMessage('Robot not found, unable to write transform points ')
+
+        
 
         num_robot_points, num_total_points = 0, 0
 
         #handle the robot pose first
-        if (robot_pos != None):
+        if (robot_pos != None and total_pos != None):
 
             #check if the file has not been created
             if (not os.path.isfile(robot_pose_filename)):
@@ -221,7 +272,7 @@ class BasestationGuiPlugin(Plugin):
 
 
         #handle the total pose next
-        if (total_pos != None):
+        if (total_pos != None and robot_pos != None):
 
             #check if the file has not been created
             if (not os.path.isfile(total_pose_filename)):
@@ -691,7 +742,9 @@ class BasestationGuiPlugin(Plugin):
             point = np.array([ float(self.art_pos_textbox_x.text()), float(self.art_pos_textbox_y.text()), \
                          float(self.art_pos_textbox_z.text()) ])
 
-            transformed_point = self.toDarpaFrame(point)
+            #transform based on which robot submitted the detection
+            if (self.displayed_artifact != None):
+                transformed_point = self.toDarpaFrame(point, self.displayed_artifact.source_robot)
             
             with self.artifact_proposal_lock: #to ensure we only draw one response at once
 
@@ -810,7 +863,9 @@ class BasestationGuiPlugin(Plugin):
                 self.arthist_table.setSortingEnabled(True) 
 
                 if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
-                        self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+                    self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+
+                    self.arthist_table.viewport().update()
 
             #reset the darpa proposal buttons
             self.darpa_confirm_button.setEnabled(False)
@@ -822,7 +877,7 @@ class BasestationGuiPlugin(Plugin):
         else:
             self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
 
-    def toDarpaFrame(self, point):
+    def toDarpaFrame(self, point, robot_num):
         '''
         Function to convert an artifact detection location into
         the darpa frame
@@ -830,7 +885,17 @@ class BasestationGuiPlugin(Plugin):
 
         point = np.float32([point[0], point[1], point[2], 1])
 
-        return np.matmul(self.darpa_transform, point)
+        if (robot_num > 0  and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
+            self.printMessage('Transform wrt ground')
+            return np.matmul(self.darpa_transform_ugv, point)
+
+        elif (robot_num > 0  and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
+            self.printMessage('Transform wrt aerial')
+            return np.matmul(self.darpa_transform_uav, point)
+
+        else:
+            self.printMessage('Could not find robot, artifact not transformed')
+            return point
 
 
 
@@ -1053,6 +1118,8 @@ class BasestationGuiPlugin(Plugin):
                 if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                     self.queue_table.sortItems(2, core.Qt.DescendingOrder)
 
+                    self.queue_table.viewport().update()
+
 
    
 
@@ -1256,6 +1323,8 @@ class BasestationGuiPlugin(Plugin):
 
                     if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
                         self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+
+                        self.queue_table.viewport().update()
 
         #if the artifact is currently displayed, bring up a textbox alerting them
         if (self.displayed_artifact != None) and (artifact.unique_id == self.displayed_artifact.unique_id):
@@ -1561,6 +1630,8 @@ class BasestationGuiPlugin(Plugin):
 
             self.message_textbox.sortItems(core.Qt.DescendingOrder)
 
+            self.message_textbox.viewport().update()
+
 
     def printMessage(self, msg):
         '''
@@ -1581,6 +1652,8 @@ class BasestationGuiPlugin(Plugin):
             self.message_textbox.setSortingEnabled(True)
 
             self.message_textbox.sortItems(core.Qt.DescendingOrder)
+
+            self.message_textbox.viewport().update()
 
 
 
@@ -1736,7 +1809,9 @@ class BasestationGuiPlugin(Plugin):
                             self.arthist_table.setSortingEnabled(True) 
 
                             if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
-                                    self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+                                self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+
+                                self.arthist_table.viewport().update()
 
 
 
@@ -1850,6 +1925,18 @@ class BasestationGuiPlugin(Plugin):
         '''
         self.initiateSettings(instance_settings.value('config_filename'))
         
+    def defineRobotTransformButtons(self):
+        '''
+        After we define the rosgui bridge, generate bttons for their transforms
+        '''
+
+        self.first_save_pose_button = qt.QPushButton('Save robot/total \npose: '+self.ros_gui_bridge.robot_names[0])
+        self.first_save_pose_button.clicked.connect(partial(self.saveRobotPoseGui, 0))
+        self.top_layout.addWidget(self.first_save_pose_button, 1,0,)
+
+        self.second_save_pose_button = qt.QPushButton('Save robot/total \npose: '+self.ros_gui_bridge.robot_names[1])
+        self.second_save_pose_button.clicked.connect(partial(self.saveRobotPoseGui, 1))
+        self.top_layout.addWidget(self.second_save_pose_button, 1,1)
 
     def initiateSettings(self, config_filename):
         '''
@@ -1857,6 +1944,8 @@ class BasestationGuiPlugin(Plugin):
         '''
         self.config_filename = config_filename
         self.ros_gui_bridge = RosGuiBridge(self.config_filename, self)
+
+        self.defineRobotTransformButtons()
         
         config = yaml.load(open(self.config_filename, 'r').read())
         darpa_params = config['darpa_params']

@@ -92,8 +92,12 @@ class RosGuiBridge:
         rospy.Subscriber('/basic_controls/feedback', InteractiveMarkerFeedback, self.gui.updateRefinmentPos)
 
         #subscriber for saving the robot pose
-        self.robot_pos = None
-        rospy.Subscriber('/integrated_to_map', Odometry, self.saveRobotPose)
+        self.robot_pos_ground = None
+        rospy.Subscriber('/ugv1/integrated_to_map', Odometry, self.saveRobotPoseGround)
+
+        #subscriber for saving the robot pose
+        self.robot_pos_aerial = None
+        rospy.Subscriber('/uav1/integrated_to_map', Odometry, self.saveRobotPoseAerial)
 
         #subscriber for saving the total station data
         self.total_pos = None
@@ -154,14 +158,24 @@ class RosGuiBridge:
 
         return marker_list
 
-    def saveRobotPose(self, msg):
+    def saveRobotPoseGround(self, msg):
         '''
         Function to save the robot pose for Ji's button
         '''
-        self.robot_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+        self.robot_pos_ground = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
 
-    def getRobotPose(self):
-        return self.robot_pos
+    def getRobotPoseGround(self):
+        return self.robot_pos_ground
+
+
+    def saveRobotPoseAerial(self, msg):
+        '''
+        Function to save the robot pose for Ji's button
+        '''
+        self.robot_pos_aerial = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+
+    def getRobotPoseAerial(self):
+        return self.robot_pos_aerial
 
 
     def saveTotalPose(self, msg):

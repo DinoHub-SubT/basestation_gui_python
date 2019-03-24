@@ -155,20 +155,30 @@ class GuiEngine:
 
         if (artifact_id < 0):
 
-            #generate the artifact obje
+            #determine the robot_id
+            if (artifact.source_robot == 0):
+                art_source_id = -1
+            elif (artifact.source_robot == 1):
+                art_source_id = -2
+            else:
+                art_source_id = None
+                self.gui.printMessage('Could not determine source id for this dulication, so artifact not duplicated')
 
-            artifact = Artifact(copy.deepcopy(artifact.original_timestamp), copy.deepcopy(artifact.category), \
-                                copy.deepcopy(artifact.pos), -1, artifact_id, copy.deepcopy(artifact.imgs))
+            if (art_source_id != None):
+                #generate the artifact object
 
-            #add the artifact to the list of queued objects and to the all_artifacts list
-            self.queued_artifacts.append(artifact)
-            self.all_artifacts.append(artifact)
+                artifact = Artifact(copy.deepcopy(artifact.original_timestamp), copy.deepcopy(artifact.category), \
+                                    copy.deepcopy(artifact.pos), art_source_id, artifact_id, copy.deepcopy(artifact.imgs))
 
-            #call a function to graphically add it to the queue
-            self.gui.sendToQueue(artifact)
+                #add the artifact to the list of queued objects and to the all_artifacts list
+                self.queued_artifacts.append(artifact)
+                self.all_artifacts.append(artifact)
 
-            #add updated info to the csv
-            self.savePeriodically(self.gui)
+                #call a function to graphically add it to the queue
+                self.gui.sendToQueue(artifact)
+
+                #add updated info to the csv
+                self.savePeriodically(self.gui)
 
 
 

@@ -36,7 +36,8 @@ def talker():
     num_pubbed = 0    
 
     #add stuff for testing ji button pipeline
-    ji_pub = rospy.Publisher('/integrated_to_map', Odometry, queue_size=10)
+    ji_pub_ground = rospy.Publisher('/ugv1/integrated_to_map', Odometry, queue_size=10)
+    ji_pub_aerial = rospy.Publisher('/uav1/integrated_to_map', Odometry, queue_size=10)
     total_pub = rospy.Publisher('/position', Odometry, queue_size=10)
     
     rate = rospy.Rate(0.2)# (5./3600.) #rate in hz
@@ -57,7 +58,7 @@ def talker():
         msg.artifact_z =  random.random()*5.
         msg.artifact_stamp.secs = time.time() 
 
-        if (num_pubbed < total_num_to_pub * 0.1):
+        if (num_pubbed < total_num_to_pub * 0.3):
             published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
             pub.publish(msg)
 
@@ -101,8 +102,12 @@ def talker():
 
         message_pub.publish('Message system testing')
 
-        ji_pub.publish(getJiFakePose())
+
+        ji_pub_ground.publish(getJiFakePose())
+        ji_pub_aerial.publish(getJiFakePose())
         total_pub.publish(getTotalFakePose())
+
+        
 
         rate.sleep()
 
@@ -111,9 +116,9 @@ def talker():
 def getJiFakePose():
     ji_msg = Odometry()
 
-    ji_msg.pose.pose.position.x = 1
-    ji_msg.pose.pose.position.y = 2
-    ji_msg.pose.pose.position.z = 3.14
+    ji_msg.pose.pose.position.x = 1+random.random()
+    ji_msg.pose.pose.position.y = 2+random.random()
+    ji_msg.pose.pose.position.z = 3.14+random.random()
 
     return ji_msg
 
