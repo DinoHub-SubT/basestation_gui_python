@@ -120,9 +120,6 @@ class BasestationGuiPlugin(Plugin):
 
         self.artifact_image_index = 0 #the index of the image currently being displayed
 
-        #load the darpa transform
-        self.loadDarpaTransform()
-
         #the image size to display image artifacts
         self.artifact_img_width, self.artifact_img_length = [640, 360]
         
@@ -134,7 +131,7 @@ class BasestationGuiPlugin(Plugin):
 
         #load the text file
         rospack = rospkg.RosPack()
-        transform_fname = rospack.get_path('entrance_calib')+'/data/ugv1_calib.txt'
+        transform_fname = rospack.get_path('entrance_calib')+'/data/ugv0_calib.txt'
 
         if (os.path.isfile(transform_fname)):
 
@@ -159,6 +156,8 @@ class BasestationGuiPlugin(Plugin):
             transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
 
             self.darpa_transform_ugv = transform_mat
+
+            self.printMessage('Loaded transform for ugv from file')
 
         else:
             self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
@@ -192,8 +191,12 @@ class BasestationGuiPlugin(Plugin):
 
             self.darpa_transform_uav = transform_mat
 
+            self.printMessage('Loaded transform for uav from file')
+
         else:
             self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+
+
 
 
 
@@ -221,8 +224,8 @@ class BasestationGuiPlugin(Plugin):
 
             print "saving ground"
             
-            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv'+str(robot_num)+'_state_estimation.txt'
-            total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv'+str(robot_num)+'_total_station.txt'
+            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_state_estimation.txt'
+            total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_total_station.txt'
 
             robot_pos = self.ros_gui_bridge.getRobotPoseGround()
             total_pos = self.ros_gui_bridge.getTotalPose()
@@ -231,8 +234,8 @@ class BasestationGuiPlugin(Plugin):
 
             print "saving aerial"
 
-            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav'+str(robot_num)+'_state_estimation.txt'
-            total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav'+str(robot_num)+'_total_station.txt'
+            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_state_estimation.txt'
+            total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_total_station.txt'
 
             robot_pos = self.ros_gui_bridge.getRobotPoseAerial()
             total_pos = self.ros_gui_bridge.getTotalPose()
@@ -885,11 +888,11 @@ class BasestationGuiPlugin(Plugin):
 
         point = np.float32([point[0], point[1], point[2], 1])
 
-        if (robot_num > 0  and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
+        if (robot_num >= 0  and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
             self.printMessage('Transform wrt ground')
             return np.matmul(self.darpa_transform_ugv, point)
 
-        elif (robot_num > 0  and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
+        elif (robot_num >= 0  and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
             self.printMessage('Transform wrt aerial')
             return np.matmul(self.darpa_transform_uav, point)
 
@@ -1174,6 +1177,9 @@ class BasestationGuiPlugin(Plugin):
 
         #remove any update on the artifact (messages about it being deleted or updated)
         self.update_art_label.hide()
+
+        #disable darpa proposal buttons
+        self.cancelProposal()
         
 
         #remove the "unread" indicator if its there
@@ -1690,6 +1696,9 @@ class BasestationGuiPlugin(Plugin):
 
         #initialize the subscribers for updating different parts of the GUI
         self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
+
+        #load the darpa transform
+        self.loadDarpaTransform()
 
     def updateInfoPanel(self, msg):
         '''

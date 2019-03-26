@@ -76,6 +76,13 @@ Once these are subscribed to, back in the GUI, select an artifact to display in 
 
 The orange sphere will then appear. This can be moved around and designates the refined position. The green sphere remains as an indication of the original artifact location (as deteced by the robot). 
 
+=======
+# Troubleshooting
+For some reason, sometimes it wants to launch twice (you'll see 2 messages about an HTTP server being launched). To fix this error for now, run 
+```bash
+rqt --clear-config 
+```
+and re-launch the gui
 
 
 # “Quick Start Guide”
@@ -98,8 +105,6 @@ cd home/name/workspaces/gui/
 source devel/setup.bash
 roslaunch basestation_gui_python gui.launch connect_to_command_post:=false simulating_artifact_detections:=true
 ```
-
-
 
 
 # Depricated: How to install and run old simple 4-button estop gui
