@@ -120,9 +120,6 @@ class BasestationGuiPlugin(Plugin):
 
         self.artifact_image_index = 0 #the index of the image currently being displayed
 
-        #load the darpa transform
-        self.loadDarpaTransform()
-
         #the image size to display image artifacts
         self.artifact_img_width, self.artifact_img_length = [640, 360]
         
@@ -160,6 +157,8 @@ class BasestationGuiPlugin(Plugin):
 
             self.darpa_transform_ugv = transform_mat
 
+            self.printMessage('Loaded transform for ugv from file')
+
         else:
             self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
@@ -192,8 +191,12 @@ class BasestationGuiPlugin(Plugin):
 
             self.darpa_transform_uav = transform_mat
 
+            self.printMessage('Loaded transform for uav from file')
+
         else:
             self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+
+
 
 
 
@@ -885,11 +888,11 @@ class BasestationGuiPlugin(Plugin):
 
         point = np.float32([point[0], point[1], point[2], 1])
 
-        if (robot_num > 0  and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
+        if (robot_num >= 0  and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
             self.printMessage('Transform wrt ground')
             return np.matmul(self.darpa_transform_ugv, point)
 
-        elif (robot_num > 0  and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
+        elif (robot_num >= 0  and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
             self.printMessage('Transform wrt aerial')
             return np.matmul(self.darpa_transform_uav, point)
 
@@ -1174,6 +1177,9 @@ class BasestationGuiPlugin(Plugin):
 
         #remove any update on the artifact (messages about it being deleted or updated)
         self.update_art_label.hide()
+
+        #disable darpa proposal buttons
+        self.cancelProposal()
         
 
         #remove the "unread" indicator if its there
@@ -1690,6 +1696,9 @@ class BasestationGuiPlugin(Plugin):
 
         #initialize the subscribers for updating different parts of the GUI
         self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
+
+        #load the darpa transform
+        self.loadDarpaTransform()
 
     def updateInfoPanel(self, msg):
         '''
