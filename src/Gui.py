@@ -134,7 +134,7 @@ class BasestationGuiPlugin(Plugin):
 
         #load the text file
         rospack = rospkg.RosPack()
-        transform_fname = rospack.get_path('entrance_calib')+'/data/ugv1_calib.txt'
+        transform_fname = rospack.get_path('entrance_calib')+'/data/ugv0_calib.txt'
 
         if (os.path.isfile(transform_fname)):
 
@@ -221,8 +221,8 @@ class BasestationGuiPlugin(Plugin):
 
             print "saving ground"
             
-            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv'+str(robot_num)+'_state_estimation.txt'
-            total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv'+str(robot_num)+'_total_station.txt'
+            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_state_estimation.txt'
+            total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_total_station.txt'
 
             robot_pos = self.ros_gui_bridge.getRobotPoseGround()
             total_pos = self.ros_gui_bridge.getTotalPose()
@@ -231,8 +231,8 @@ class BasestationGuiPlugin(Plugin):
 
             print "saving aerial"
 
-            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav'+str(robot_num)+'_state_estimation.txt'
-            total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav'+str(robot_num)+'_total_station.txt'
+            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_state_estimation.txt'
+            total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_total_station.txt'
 
             robot_pos = self.ros_gui_bridge.getRobotPoseAerial()
             total_pos = self.ros_gui_bridge.getTotalPose()

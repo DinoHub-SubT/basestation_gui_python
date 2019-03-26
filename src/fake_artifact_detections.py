@@ -8,8 +8,8 @@ Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
-from basestation_gui_python.msg import RadioMsg, FakeWifiDetection
-from std_msgs.msg import String
+from basestation_gui_python.msg import RadioMsg, FakeWifiDetection, StatusPanelUpdate
+from std_msgs.msg import String, ColorRGBA
 import pdb
 import random
 import time
@@ -39,6 +39,10 @@ def talker():
     ji_pub_ground = rospy.Publisher('/ugv1/integrated_to_map', Odometry, queue_size=10)
     ji_pub_aerial = rospy.Publisher('/uav1/integrated_to_map', Odometry, queue_size=10)
     total_pub = rospy.Publisher('/position', Odometry, queue_size=10)
+
+    #add stuff to test status panel updates
+    status_pub = rospy.Publisher('/status_panel_update', StatusPanelUpdate, queue_size=10)    
+
     
     rate = rospy.Rate(0.2)# (5./3600.) #rate in hz
 
@@ -106,7 +110,7 @@ def talker():
         ji_pub_ground.publish(getJiFakePose())
         ji_pub_aerial.publish(getJiFakePose())
         total_pub.publish(getTotalFakePose())
-
+        status_pub.publish(getStatusMsg())
         
 
         rate.sleep()
@@ -116,20 +120,43 @@ def talker():
 def getJiFakePose():
     ji_msg = Odometry()
 
-    ji_msg.pose.pose.position.x = 1+random.random()
-    ji_msg.pose.pose.position.y = 2+random.random()
-    ji_msg.pose.pose.position.z = 3.14+random.random()
+    ji_msg.pose.pose.position.x = 1 + random.random()
+    ji_msg.pose.pose.position.y = 2 + random.random()
+    ji_msg.pose.pose.position.z = 3.14 + random.random()
 
     return ji_msg
 
 def getTotalFakePose():
     ji_msg = Odometry()
 
-    ji_msg.pose.pose.position.x = 1
-    ji_msg.pose.pose.position.y = 2
-    ji_msg.pose.pose.position.z = 3.14
+    ji_msg.pose.pose.position.x = 1 + random.random()
+    ji_msg.pose.pose.position.y = 2 + random.random()
+    ji_msg.pose.pose.position.z = 3.14 + random.random()
 
     return ji_msg
+
+def getStatusMsg():
+    statuses = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space']
+    values = [1,4,9,10]
+    robot_ids = [0,1]
+
+
+    status_msg = StatusPanelUpdate()
+
+    status_msg.robot_id = random.sample(robot_ids, 1)[0] 
+    status_msg.key = random.sample(statuses, 1)[0]
+    status_msg.value = str(random.sample(values, 1)[0])
+
+    status_msg.color = ColorRGBA()
+    status_msg.color.r = random.random()*126. + 126.
+    status_msg.color.g = random.random()*126. + 126.
+    status_msg.color.b = random.random()*126. + 126.
+    status_msg.color.a = 1
+
+    return status_msg
+
+
+
 
 def getFakeWifiMsg(artifact_report_id, artifact_type , artifact_robot_id , artifact_pos, timestamp):
     rospack = rospkg.RosPack()

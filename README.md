@@ -77,7 +77,12 @@ Once these are subscribed to, back in the GUI, select an artifact to display in 
 The orange sphere will then appear. This can be moved around and designates the refined position. The green sphere remains as an indication of the original artifact location (as deteced by the robot). 
 
 
-
+# Troubleshooting
+For some reason, sometimes it wants to launch twice (you'll see 2 messages about an HTTP server being launched). To fix this error for now, run 
+```bash
+rqt --clear-config 
+```
+and re-launch the gui
 
 # Depricated: How to install and run old simple 4-button estop gui
 ## Install old 4-button gui
