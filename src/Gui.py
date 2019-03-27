@@ -73,7 +73,7 @@ class BasestationGuiPlugin(Plugin):
         #if we're also simulating the darpa command post
         self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
 
-        self.status_panel_update_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.status_panel_update_callback)
+        
         
         self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
         self.transition_pub = rospy.Publisher('/transition', String, queue_size=1)
@@ -1180,6 +1180,10 @@ class BasestationGuiPlugin(Plugin):
 
         #disable darpa proposal buttons
         self.cancelProposal()
+
+        #disable show refinement marker 
+        if (self.art_refinement_button.isChecked()):
+            self.art_refinement_button.click()
         
 
         #remove the "unread" indicator if its there
@@ -1696,6 +1700,8 @@ class BasestationGuiPlugin(Plugin):
 
         #initialize the subscribers for updating different parts of the GUI
         self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
+
+        self.status_panel_update_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.status_panel_update_callback)
 
         #load the darpa transform
         self.loadDarpaTransform()

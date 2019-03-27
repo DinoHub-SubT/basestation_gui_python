@@ -236,7 +236,7 @@ class FakePublisher:
 if __name__ == '__main__':
     try:
         fake_publisher = FakePublisher()
-        fake_publisher.rate = rospy.Rate(0.2)# (5./3600.) #rate in hz
+        fake_publisher.rate = rospy.Rate(5.)# (5./3600.) #rate in hz
 
         while not rospy.is_shutdown() and fake_publisher.num_pubbed < fake_publisher.total_num_to_pub:
             fake_publisher.pub_msgs()
