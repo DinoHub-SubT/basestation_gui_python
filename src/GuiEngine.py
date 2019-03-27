@@ -88,11 +88,18 @@ class GuiEngine:
 
             #convert the message to an opencv image
             imgs = []
+            img_stamps = []
 
             if (len(msg.imgs) > 0):
                 
                 for img in msg.imgs:
-                    imgs.append(self.br.imgmsg_to_cv2(img))
+                    cv_image = self.br.imgmsg_to_cv2(img)
+                    cv2.putText(cv_image, "Timestamp: %f" %
+                        img.header.stamp.to_sec(),
+                            (5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
+                            (255, 255, 255), 1)
+                    imgs.append(cv_image)
+                    img_stamps.append(img.header.stamp)
 
 
             #check if the artifact already exists
@@ -106,9 +113,14 @@ class GuiEngine:
                     #update the current information if it exists!
                     if ( len(imgs) > 0):
 
-                        for img in imgs:
+                        for i, img in enumerate(imgs):
                             artifact.imgs.append(img)
-
+                            artifact.img_stamps.append(img_stamps[i])
+                            sorted_tuple = sorted(zip(artifact.img_stamps,
+                                artifact.imgs), key=lambda t: t[0],
+                                reverse=True)
+                            artifact.img_stamps = [t[0] for t in sorted_tuple]
+                            artifact.imgs = [t[1] for t in sorted_tuple]
 
                     if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
                         artifact.pos[0] = msg.artifact_x
@@ -129,7 +141,8 @@ class GuiEngine:
             #else, make a new artifact
             if (not already_object):
                 artifact = Artifact(msg.artifact_stamp.secs, self.gui.label_to_cat_dict[msg.artifact_type],  [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
-                                    msg.artifact_robot_id, msg.artifact_report_id, imgs)
+                                    msg.artifact_robot_id,
+                                    msg.artifact_report_id, imgs, img_stamps)
 
 
                 #add the artifact to the list of queued objects and to the all_artifacts list
@@ -172,7 +185,9 @@ class GuiEngine:
                 #generate the artifact object
 
                 artifact = Artifact(copy.deepcopy(artifact.original_timestamp), copy.deepcopy(artifact.category), \
-                                    copy.deepcopy(artifact.pos), art_source_id, artifact_id, copy.deepcopy(artifact.imgs))
+                                    copy.deepcopy(artifact.pos), art_source_id,
+                                    artifact_id, copy.deepcopy(artifact.imgs),
+                                    copy.deepcopy(artifact.img_stamps))
 
                 #add the artifact to the list of queued objects and to the all_artifacts list
                 self.queued_artifacts.append(artifact)
@@ -397,7 +412,9 @@ class Artifact:
     '''
     Class to handle artifact as an object in the gui
     '''
-    def __init__(self, original_timestamp=1, category=-1, position="", source_robot_id="", artifact_report_id="", imgs = []):
+    def __init__(self, original_timestamp=1, category=-1, position="",
+            source_robot_id="", artifact_report_id="", imgs=None, 
+            img_stamps=None):
         
         self.category = category
         self.pos = position
@@ -409,7 +426,8 @@ class Artifact:
         self.unread = True
         self.priority = 'Med'
         self.darpa_response = ''
-        self.imgs = imgs
+        self.imgs = imgs if imgs is not None else []
+        self.img_stamps = img_stamps if img_stamps is not None else []
         self.original_timestamp = original_timestamp
         self.unique_id = str(source_robot_id)+'/'+str(artifact_report_id)+'/'+str(original_timestamp)
 
