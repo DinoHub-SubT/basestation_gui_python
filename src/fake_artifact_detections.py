@@ -33,7 +33,7 @@ class FakePublisher:
 
         self.artifact_types = [4, 3, 5, 1, 2]
 
-        self.total_num_to_pub = 20#1000
+        self.total_num_to_pub = 50#1000
         self.num_pubbed = 0    
 
         #add stuff for testing ji button pipeline
@@ -55,8 +55,9 @@ class FakePublisher:
 
         #publish artifact_reports first
 
-        if (self.num_pubbed < self.total_num_to_pub * 0.3):
-            self.pubArtifactReport(update = False)            
+        if (self.num_pubbed < self.total_num_to_pub * 0.1):
+            self.pubArtifactReport(update = False)   
+            print "new artifact", time.time()        
 
         else: #update some artifacts
             self.pubArtifactReport(update = True)
@@ -236,10 +237,12 @@ class FakePublisher:
 if __name__ == '__main__':
     try:
         fake_publisher = FakePublisher()
-        fake_publisher.rate = rospy.Rate(5.)# (5./3600.) #rate in hz
+        fake_publisher.rate = rospy.Rate(1.)# (5./3600.) #rate in hz
 
         while not rospy.is_shutdown() and fake_publisher.num_pubbed < fake_publisher.total_num_to_pub:
             fake_publisher.pub_msgs()
+
+            fake_publisher.rate = rospy.Rate(random.random()*5+1.)
 
             fake_publisher.rate.sleep()
 
