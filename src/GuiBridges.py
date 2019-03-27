@@ -86,6 +86,14 @@ class RosGuiBridge:
         #publisher for displaying the original position        
         self.bluetooth_marker_pub_uav = rospy.Publisher('/uav/bluetooth_marker', Marker, queue_size=50)
 
+        #publisher for the image coordinate clicked on (as percentage of the image)
+        self.img_coord_pub = rospy.Publisher('/gui_img_clicked', Float32MultiArray, queue_size=10)
+
+    def initSubscribers(self, gui):
+        '''
+        Called after all of the gui has been built. Avoid errors where the gui subscribes to something
+        and tried to populate na element (e.g. table) that does not exist
+        '''
 
         #subscriber for updating the corresponding textboxes for the refinement marker
         self.gui = gui
@@ -106,8 +114,7 @@ class RosGuiBridge:
         #subscriber for listening to messages
         rospy.Subscriber('/gui_message_listener', String, self.gui.addMessage)
 
-        #publisher for the image coordinate clicked on (as percentage of the image)
-        self.img_coord_pub = rospy.Publisher('/gui_img_clicked', Float32MultiArray, queue_size=10)
+
 
     def publishImageCoord(self, event):
         '''

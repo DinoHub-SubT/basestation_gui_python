@@ -888,11 +888,15 @@ class BasestationGuiPlugin(Plugin):
 
         point = np.float32([point[0], point[1], point[2], 1])
 
-        if (robot_num >= 0  and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
+        if (robot_num >= 0 and robot_num < self.ros_gui_bridge.robot_names \
+                         and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
+            
             self.printMessage('Transform wrt ground')
             return np.matmul(self.darpa_transform_ugv, point)
 
-        elif (robot_num >= 0  and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
+        elif (robot_num >= 0 and robot_num < self.ros_gui_bridge.robot_names \
+                         and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
+            
             self.printMessage('Transform wrt aerial')
             return np.matmul(self.darpa_transform_uav, point)
 
@@ -1652,7 +1656,7 @@ class BasestationGuiPlugin(Plugin):
         with self.update_message_box_lock:
             self.message_textbox.setSortingEnabled(False)
 
-            if (self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
+            if (self.darpa_gui_bridge != None and self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
                 self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
             else:
                 self.message_textbox.addItem('[--] '+msg)
@@ -1966,11 +1970,13 @@ class BasestationGuiPlugin(Plugin):
         darpa_params = config['darpa_params']
         self.associateCatsWithLabels(darpa_params['artifact_labels'])
 
-        
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename, self)
-        self.gui_engine = GuiEngine(self)
+
+        self.buildGui()        
         
-        self.buildGui()
+        self.gui_engine = GuiEngine(self)
+
+        self.ros_gui_bridge.initSubscribers(self)
 
 
 

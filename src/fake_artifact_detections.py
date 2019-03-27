@@ -32,6 +32,7 @@ class FakePublisher:
         self.message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
 
         self.artifact_types = [4, 3, 5, 1, 2]
+        self.robot_nums = [0, 1]
 
         self.total_num_to_pub = 50#1000
         self.num_pubbed = 0    
@@ -44,9 +45,6 @@ class FakePublisher:
         #add stuff to test status panel updates
         self.status_pub = rospy.Publisher('/status_panel_update', StatusPanelUpdate, queue_size=10)    
 
-
-        time.sleep(2.) #necessary because launch order is random
-
         self.published_list = []
 
 
@@ -55,11 +53,13 @@ class FakePublisher:
 
         #publish artifact_reports first
 
-        if (self.num_pubbed < self.total_num_to_pub * 0.1):
+        if (self.num_pubbed < self.total_num_to_pub * 0.4):
+            print "new artifact", time.time()
             self.pubArtifactReport(update = False)   
-            print "new artifact", time.time()        
+                    
 
         else: #update some artifacts
+            print "updated artifact", time.time()
             self.pubArtifactReport(update = True)
             
                 
@@ -90,11 +90,13 @@ class FakePublisher:
 
             if(not update): #generate a new detection
                 msg.artifact_report_id =  random.randint(0,9999)                
-                msg.artifact_robot_id = random.randint(0,1)
+                msg.artifact_robot_id = random.sample(self.robot_nums,1)[0]
                 msg.artifact_x =  random.random()*5.
                 msg.artifact_y =  random.random()*5.
                 msg.artifact_z =  random.random()*5.
                 msg.artifact_stamp.secs = time.time() 
+
+                print msg.artifact_robot_id, self.robot_nums, "radio"
 
             else: #update an existing detection
                 rand_ind = random.randint(0,len(self.published_list)-1)
@@ -102,16 +104,15 @@ class FakePublisher:
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
 
-                if (random.random()>0.5): #update by radio message
-                    msg.artifact_report_id =  report_id
-                    msg.artifact_robot_id = robot_id
-                    msg.artifact_x =  random.random()*5.
-                    msg.artifact_y =  random.random()*5.
-                    msg.artifact_z =  random.random()*5.
-                    msg.artifact_stamp.secs = timestamp
+                msg.artifact_report_id =  report_id
+                msg.artifact_robot_id = robot_id
+                msg.artifact_x =  random.random()*5.
+                msg.artifact_y =  random.random()*5.
+                msg.artifact_z =  random.random()*5.
+                msg.artifact_stamp.secs = timestamp
 
 
-                    print "radiomsg update to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
+                print "radiomsg update to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
 
             self.published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
             self.artifact_pub.publish(msg)
@@ -127,7 +128,7 @@ class FakePublisher:
             if(not update): #generate a new detection
 
                 report_id =  random.randint(0,9999)
-                robot_id = random.randint(0,1)
+                robot_id = random.sample(self.robot_nums,1)[0]
                 timestamp = time.time() 
 
             else: #update an existing detection
@@ -143,6 +144,8 @@ class FakePublisher:
             print "wifimsg to be cat",typ, "len of imgs:", len(msg.imgs)
 
             self.img_pub.publish(msg)
+
+        print msg.artifact_robot_id
 
         return True
 
@@ -170,12 +173,11 @@ class FakePublisher:
     def getStatusMsg(self):
         statuses = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space']
         values = [1,4,9,10]
-        robot_ids = [0,1]
 
 
         status_msg = StatusPanelUpdate()
 
-        status_msg.robot_id = random.sample(robot_ids, 1)[0] 
+        status_msg.robot_id = random.sample(self.robot_nums, 1)[0] 
         status_msg.key = random.sample(statuses, 1)[0]
         status_msg.value = str(random.sample(values, 1)[0])
 

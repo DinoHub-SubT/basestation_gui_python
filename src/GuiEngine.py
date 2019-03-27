@@ -137,9 +137,11 @@ class GuiEngine:
 
                     already_object = True
 
+            if not (msg.artifact_robot_id >= 0 and msg.artifact_robot_id < len(self.gui.ros_gui_bridge.robot_names)):
+                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out')
+                print msg.artifact_robot_id
 
-            #else, make a new artifact
-            if (not already_object):
+            elif (not already_object):
                 artifact = Artifact(msg.artifact_stamp.secs, self.gui.label_to_cat_dict[msg.artifact_type],  [msg.artifact_x, msg.artifact_y, msg.artifact_z], \
                                     msg.artifact_robot_id,
                                     msg.artifact_report_id, imgs, img_stamps)
@@ -298,7 +300,11 @@ class GuiEngine:
                     
                     already_object = True
 
-            if (not already_object):
+            if not (msg.artifact_robot_id >= 0 and msg.artifact_robot_id < len(self.gui.ros_gui_bridge.robot_names)):
+                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out')
+                print msg.artifact_robot_id
+
+            elif (not already_object):
 
 
                 #convert the detection into a gui artifact type, which includes more data
@@ -316,7 +322,7 @@ class GuiEngine:
                 #add updated info to the csv
                 self.savePeriodically(self.gui)
 
-            print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
+                print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
 
 
     def initLogFolder(self):
