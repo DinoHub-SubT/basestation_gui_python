@@ -121,7 +121,6 @@ class GuiEngine:
                                 reverse=True)
                             artifact.img_stamps = [t[0] for t in sorted_tuple]
                             artifact.imgs = [t[1] for t in sorted_tuple]
-                            print "Sorted stamps", artifact.img_stamps
 
                     if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
                         artifact.pos[0] = msg.artifact_x
