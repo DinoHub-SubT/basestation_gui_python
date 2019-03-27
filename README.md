@@ -37,6 +37,11 @@ source devel/setup.bash
 rosrun darpa_command_post CommandPostScoring.py
 ```
 
+If you wish to simulate artifact detections, run the fake publisher first in a sourced terminal:
+```bash
+rosrun basestation_gui_python fake_artifact_detections.py 
+```
+
 In another sourced terminal, run:
 ```bash
 roslaunch basestation_gui_python gui.launch connect_to_command_post:=false simulating_artifact_detections:=true
