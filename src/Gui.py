@@ -138,6 +138,7 @@ class BasestationGuiPlugin(Plugin):
 
         if ('entrance_calib' not in rospack.list()):
             self.printMessage('GUI DID NOT LOAD CORRECTLY. PLACE entrance_calib PACKAGE IN THIS WORKSPACE!', self.red_message)
+            rospy.logerr('GUI DID NOT LOAD CORRECTLY. PLACE entrance_calib PACKAGE IN THIS WORKSPACE! ' )
 
         else:
             #load the text file
@@ -234,6 +235,7 @@ class BasestationGuiPlugin(Plugin):
 
         if ('entrance_calib' not in rospack.list()):
             self.printMessage('GUI DID NOT LOAD CORRECTLY. PLACE entrance_calib PACKAGE IN THIS WORKSPACE!', self.red_message)
+            rospy.logerr('GUI DID NOT LOAD CORRECTLY. PLACE entrance_calib PACKAGE IN THIS WORKSPACE! ' )
 
         else:
 
