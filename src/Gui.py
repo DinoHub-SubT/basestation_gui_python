@@ -122,6 +122,11 @@ class BasestationGuiPlugin(Plugin):
 
         #the image size to display image artifacts
         self.artifact_img_width, self.artifact_img_length = [640, 360]
+
+        #define the background colors for the messages
+        self.green_message = [144,238,144]
+        self.red_message = [250,128,114]
+        self.normal_message = [220,220,220]
         
     def loadDarpaTransform(self):
         '''
@@ -157,7 +162,7 @@ class BasestationGuiPlugin(Plugin):
 
             self.darpa_transform_ugv = transform_mat
 
-            self.printMessage('Loaded transform for ugv from file')
+            self.printMessage('Loaded transform for ugv from file',  self.green_message)
 
         else:
             self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
@@ -191,7 +196,7 @@ class BasestationGuiPlugin(Plugin):
 
             self.darpa_transform_uav = transform_mat
 
-            self.printMessage('Loaded transform for uav from file')
+            self.printMessage('Loaded transform for uav from file',  self.green_message)
 
         else:
             self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
@@ -241,7 +246,7 @@ class BasestationGuiPlugin(Plugin):
             total_pos = self.ros_gui_bridge.getTotalPose()
 
         else:
-            self.printMessage('Robot not found, unable to write transform points ')
+            self.printMessage('Robot not found, unable to write transform points ', self.red_message)
 
         
 
@@ -268,10 +273,10 @@ class BasestationGuiPlugin(Plugin):
                 with open(robot_pose_filename, 'w') as f:
                     f.writelines( data )
 
-            self.printMessage("Saved robot pose.")
+            self.printMessage("Saved robot pose.", self.green_message)
 
         else:
-            self.printMessage('Looks like nothing was ever published for the robot pos')
+            self.printMessage('Looks like nothing was ever published for the robot pos', self.red_message)
 
 
         #handle the total pose next
@@ -295,15 +300,15 @@ class BasestationGuiPlugin(Plugin):
                 with open(total_pose_filename, 'w') as f:
                     f.writelines( data )
 
-            self.printMessage("Saved total pose.")
+            self.printMessage("Saved total pose.", self.green_message)
 
         else:
-            self.printMessage('Looks like nothing was ever published for the total pos')
+            self.printMessage('Looks like nothing was ever published for the total pos', self.red_message)
 
 
         #ensure we are writitng the same number of points
         if (num_robot_points != num_total_points):
-            self.printMessage('Error: The number of robot points does not equal the number of total station points')
+            self.printMessage('Error: The number of robot points does not equal the number of total station points', self.red_message)
 
 
         
@@ -510,7 +515,7 @@ class BasestationGuiPlugin(Plugin):
         if (self.displayed_artifact != None):
             self.ros_gui_bridge.publishRefinementMarkerPos(self.displayed_artifact, self.art_refinement_button)
         else:
-            self.printMessage("Request not processed. No artifact currently being displayed")
+            self.printMessage("Request not processed. No artifact currently being displayed", self.normal_message)
         
     def updateRefinmentPos(self, msg):
         '''
@@ -538,7 +543,7 @@ class BasestationGuiPlugin(Plugin):
         if(self.displayed_artifact != None):
 
             if (len(self.displayed_artifact.imgs) == 0):
-                self.printMessage("There are no images to show")
+                self.printMessage("There are no images to show", self.normal_message)
 
             else:
                 #check if we cannot go back any farther
@@ -550,7 +555,7 @@ class BasestationGuiPlugin(Plugin):
                     self.displayArtifactImg(self.displayed_artifact, self.artifact_image_index - 1)
         
         else:
-            self.printMessage("No artifact currently being displayed. Select one from the queue.")
+            self.printMessage("No artifact currently being displayed. Select one from the queue.", self.normal_message)
 
     def imgForward(self):
         '''
@@ -559,7 +564,7 @@ class BasestationGuiPlugin(Plugin):
         if(self.displayed_artifact != None):
 
             if (len(self.displayed_artifact.imgs) == 0):
-                self.printMessage("There are no images to show")
+                self.printMessage("There are no images to show", self.normal_message)
 
             else:
                 #check if we cannot go forward any farther
@@ -571,7 +576,7 @@ class BasestationGuiPlugin(Plugin):
                     self.displayArtifactImg(self.displayed_artifact, self.artifact_image_index + 1)
         
         else:
-            self.printMessage("No artifact currently being displayed. Select one from the queue.")
+            self.printMessage("No artifact currently being displayed. Select one from the queue.", self.normal_message)
 
     def initArtifactManipulator(self, pos):
         '''
@@ -734,10 +739,10 @@ class BasestationGuiPlugin(Plugin):
         Function for proposing an artifact to darpa and then changing gui components correspondingly
         '''
         if (self.art_pos_textbox_x.text()=='') or (self.art_pos_textbox_y.text()=='') or (self.art_pos_textbox_z.text()==''):
-            self.printMessage("Nothing proposed. Please select an artifact from the queue")
+            self.printMessage("Nothing proposed. Please select an artifact from the queue", self.red_message)
 
         elif (self.displayed_artifact==None):
-            self.printMessage("Nothing proposed. Please select an artifact from the queue")
+            self.printMessage("Nothing proposed. Please select an artifact from the queue", self.red_message)
 
         elif(self.connect_to_command_post):
 
@@ -756,7 +761,7 @@ class BasestationGuiPlugin(Plugin):
                 data = [float(transformed_point[0]), float(transformed_point[1]), float(transformed_point[2]), self.darpa_cat_box.currentText()]
 
 
-                self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText())
+                self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText(), self.green_message)
 
                 
                 proposal_return = self.darpa_gui_bridge.startArtifactProposal(data)
@@ -780,7 +785,7 @@ class BasestationGuiPlugin(Plugin):
                                              '\nSubmission Correct? '+submission_correct)
 
                     self.printMessage('DARPA response: '+str(report_status)+' HTTP Response: '+str(http_response)+str(http_reason)+\
-                                             ' Submission Correct? '+submission_correct)
+                                             ' Submission Correct? '+submission_correct, self.green_message)
 
                     response_item.setBackground(submission_color)
 
@@ -878,7 +883,7 @@ class BasestationGuiPlugin(Plugin):
             self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
         
         else:
-            self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
+            self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.', self.red_message)
 
     def toDarpaFrame(self, point, robot_num):
         '''
@@ -891,17 +896,17 @@ class BasestationGuiPlugin(Plugin):
         if (robot_num >= 0 and robot_num < self.ros_gui_bridge.robot_names \
                          and self.ros_gui_bridge.robot_names[robot_num].find('round') != -1) or (robot_num == -1):
             
-            self.printMessage('Transform wrt ground')
+            self.printMessage('Transform wrt ground', self.normal_message)
             return np.matmul(self.darpa_transform_ugv, point)
 
         elif (robot_num >= 0 and robot_num < self.ros_gui_bridge.robot_names \
                          and self.ros_gui_bridge.robot_names[robot_num].find('eria') != -1) or (robot_num == -2):
             
-            self.printMessage('Transform wrt aerial')
+            self.printMessage('Transform wrt aerial', self.normal_message)
             return np.matmul(self.darpa_transform_uav, point)
 
         else:
-            self.printMessage('Could not find robot, artifact not transformed')
+            self.printMessage('Could not find robot transform, artifact not transformed', self.red_message)
             return point
 
 
@@ -913,10 +918,10 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         if (self.art_pos_textbox_x.text()=='') or (self.art_pos_textbox_y.text()=='') or (self.art_pos_textbox_z.text()==''):
-            self.printMessage("Nothing proposed. Please select an artifact from the queue")
+            self.printMessage("Nothing proposed. Please select an artifact from the queue", self.normal_message)
 
         elif (self.displayed_artifact==None):
-            self.printMessage("Nothing proposed. Please select an artifact from the queue")
+            self.printMessage("Nothing proposed. Please select an artifact from the queue", self.normal_message)
 
         elif(self.connect_to_command_post):
 
@@ -929,7 +934,7 @@ class BasestationGuiPlugin(Plugin):
             self.darpa_cancel_button.setStyleSheet("background-color:rgb(222,0,0)")
 
         else:
-            self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.')
+            self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.', self.red_message)
         
 
 
@@ -952,7 +957,7 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         if (self.queue_table.isSortingEnabled()):
-            self.printMessage("Table did not have sorting disabled!! (Debugging message)")
+            self.printMessage("Table did not have sorting disabled!! (Debugging message)", self.normal_message)
             self.queue_table.setSortingEnabled(False)
 
         if(self.displayed_artifact!=None): #if we have actually set the artifact
@@ -961,7 +966,7 @@ class BasestationGuiPlugin(Plugin):
                 if (self.displayed_artifact.unique_id == self.queue_table.item(i, 5).text()):
                     return i
 
-        self.printMessage("Could not find displayed artifact")
+        self.printMessage("Could not find displayed artifact", self.red_message)
         return -1
 
 
@@ -1379,7 +1384,7 @@ class BasestationGuiPlugin(Plugin):
 
                 if self.queue_table.item(row, 5).text() == artifact.unique_id: #remove the artifact from the queue
                     found = True
-                    self.printMessage('Deleted artifact '+artifact.unique_id+ ' '+self.queue_table.item(row, 5).text())
+                    self.printMessage('Deleted artifact '+artifact.unique_id+ ' '+self.queue_table.item(row, 5).text(), self.green_message)
                     self.queue_table.removeRow(self.queue_table.item(row,0).row())
                     break
 
@@ -1408,7 +1413,7 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         if (self.displayed_artifact == None):
-            self.printMessage('No row has been selected, please press this button after selecting a row in the queue.')
+            self.printMessage('No row has been selected, please press this button after selecting a row in the queue.', self.normal_message)
 
         else: #we actually have something selected
             self.gui_engine.duplicateArtifact(self.displayed_artifact)
@@ -1431,28 +1436,43 @@ class BasestationGuiPlugin(Plugin):
         queue_label = qt.QLabel()
         queue_label.setText('ARTIFACT QUEUE')
         queue_label.setAlignment(Qt.AlignCenter)
-        self.queue_layout.addWidget(queue_label, 0, 0, 1, 2)
-
-        #add the insert new artifact button
-        self.queue_insert_artifact_button = qt.QPushButton("Add artifact")
-        self.queue_insert_artifact_button.clicked.connect(self.manuallyAddArtifact)
-        self.queue_layout.addWidget(self.queue_insert_artifact_button, 1, 0)
-
-        #add the duplicate new artifact button
-        self.queue_duplicate_artifact_button = qt.QPushButton("Duplicate artifact")
-        self.queue_duplicate_artifact_button.clicked.connect(self.duplicateArtifact)
-        self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 1)
+        self.queue_layout.addWidget(queue_label, 0, 0, 1, 3)
 
         #add the sort on/off button
         self.queue_table_sort_button = qt.QPushButton("Sort by time")
         self.queue_table_sort_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
         self.queue_table_sort_button.toggle() #start with it sorting the table
-        self.queue_layout.addWidget(self.queue_table_sort_button, 2, 0)
+        self.queue_layout.addWidget(self.queue_table_sort_button, 1, 0)
+
+        #add the insert new artifact button
+        self.queue_insert_artifact_button = qt.QPushButton("Add artifact")
+        self.queue_insert_artifact_button.clicked.connect(self.manuallyAddArtifact)
+        self.queue_layout.addWidget(self.queue_insert_artifact_button, 1, 1)
 
         #add the duplicate new artifact button
-        # self.queue_duplicate_artifact_button = qt.QPushButton("Duplicate artifact")
-        # self.queue_duplicate_artifact_button.clicked.connect(self.duplicateArtifact)
-        # self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 1)
+        self.queue_duplicate_artifact_button = qt.QPushButton("Duplicate artifact")
+        self.queue_duplicate_artifact_button.clicked.connect(self.duplicateArtifact)
+        self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 2)
+
+        #add support for deleting artifacts
+        self.queue_delete_artifact_button = qt.QPushButton("Delete artifact")
+        self.queue_delete_artifact_button.clicked.connect(self.deleteArtifact)
+        self.queue_layout.addWidget(self.queue_delete_artifact_button, 2, 0)
+
+        self.queue_delete_confirm_button = qt.QPushButton("Confirm")
+        self.queue_delete_confirm_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
+        self.queue_delete_confirm_button.clicked.connect(self.confirmDeleteArtifact)
+        self.queue_delete_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.queue_delete_confirm_button.setEnabled(False)
+        self.queue_layout.addWidget(self.queue_delete_confirm_button, 2, 1)
+
+        self.queue_delete_cancel_button = qt.QPushButton("Cancel")
+        self.queue_delete_cancel_button.setCheckable(True) # a button pressed will stay pressed, until unclicked
+        self.queue_delete_cancel_button.clicked.connect(self.cancelDeleteArtifact)
+        self.queue_delete_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.queue_delete_cancel_button.setEnabled(False)
+        self.queue_layout.addWidget(self.queue_delete_cancel_button, 2, 2)
+
 
         #make a table
         self.queue_table = qt.QTableWidget()
@@ -1467,16 +1487,9 @@ class BasestationGuiPlugin(Plugin):
 
         #hide the unique_id
         self.queue_table.setColumnHidden(5,True)
-        # self.queue_table.setColumnHidden(4,True)
-        # self.queue_table.setColumnHidden(1,True)
-        # self.queue_table.setColumnHidden(2,True)
-        # self.queue_table.setColumnHidden(0,True)
 
         #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()
-        # header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
-        # header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-        # header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
         # header.setSectionResizeMode(3, qt.QHeaderView.Stretch)
         # header.setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
 
@@ -1486,15 +1499,59 @@ class BasestationGuiPlugin(Plugin):
 
 
         #add click listener
-        self.queue_table.cellDoubleClicked.connect(self.queueClick)
+        self.queue_table.cellClicked.connect(self.queueClick)
 
 
         #add the table to the layout
-        self.queue_layout.addWidget(self.queue_table, 3, 0, 1,2)
+        self.queue_layout.addWidget(self.queue_table, 3, 0, 1, 3)
 
         #add to the overall gui
         self.queue_widget.setLayout(self.queue_layout)
         self.global_widget.addWidget(self.queue_widget, pos[0], pos[1], pos[2], pos[3]) #last 2 parameters are rowspan and columnspan
+
+    def deleteArtifact(self):
+        '''
+        Start the process of deleting an artifact from the queue
+        '''
+
+        #confirm we've actually selected an artifact
+        if (self.displayed_artifact == None):
+            self.printMessage('No artifact selected, did not delete anything', self.normal_message)
+
+        #make the confirm/delete buttons pressable and the correct color
+        else:
+            self.queue_delete_cancel_button.setStyleSheet("background-color:rgb(220, 0, 0)")
+            self.queue_delete_cancel_button.setEnabled(True)
+
+            self.queue_delete_confirm_button.setStyleSheet("background-color:rgb(0, 220, 0)")
+            self.queue_delete_confirm_button.setEnabled(True) 
+
+
+
+
+    def confirmDeleteArtifact(self):
+        '''
+        Delete an artifact from the queue
+        '''
+
+        self.removeQueueArtifact(self.displayed_artifact)
+
+        self.queue_delete_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.queue_delete_cancel_button.setEnabled(False)
+
+        self.queue_delete_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.queue_delete_confirm_button.setEnabled(False)
+
+    def cancelDeleteArtifact(self):
+        '''
+        Cancel a request to delete an artifact
+        '''
+
+        self.queue_delete_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.queue_delete_cancel_button.setEnabled(False)
+
+        self.queue_delete_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.queue_delete_confirm_button.setEnabled(False)
 
     def initBigRed(self, pos):
         '''
@@ -1634,8 +1691,6 @@ class BasestationGuiPlugin(Plugin):
         self.message_box_layout.addWidget(self.message_textbox, 1, 0)
 
 
-
-
         #add to the overall gui
         self.message_box_widget.setLayout(self.message_box_layout)
         self.global_widget.addWidget(self.message_box_widget, pos[0], pos[1], pos[2], pos[3]) 
@@ -1660,7 +1715,7 @@ class BasestationGuiPlugin(Plugin):
             self.message_textbox.viewport().update()
 
 
-    def printMessage(self, msg):
+    def printMessage(self, msg, rgb):
         '''
         Add message to the messag box that is simply a string from
         this application (not ROS)
@@ -1669,10 +1724,15 @@ class BasestationGuiPlugin(Plugin):
         with self.update_message_box_lock:
             self.message_textbox.setSortingEnabled(False)
 
+
             if (self.darpa_gui_bridge != None and self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
-                self.message_textbox.addItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
+                item = qt.QListWidgetItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
             else:
-                self.message_textbox.addItem('[--] '+msg)
+                item = qt.QListWidgetItem('[--] '+msg)
+
+            item.setBackground(gui.QColor(rgb[0], rgb[1], rgb[2]))
+
+            self.message_textbox.addItem(item)
 
 
 
@@ -1754,7 +1814,7 @@ class BasestationGuiPlugin(Plugin):
                 break
 
         if (csv_data == None):
-            self.printMessage("There was nothing in the csv file!!")
+            self.printMessage("There was nothing in the csv file!!", self.red_message)
 
         else:
             #parse the artifacts
@@ -1876,7 +1936,7 @@ class BasestationGuiPlugin(Plugin):
                             button.click()
 
                     if(found_button != True):
-                        self.printMessage("Could not find the appropriate command button to be pressed")
+                        self.printMessage("Could not find the appropriate command button to be pressed. Gui may not be filled in properly", self.red_message)
 
 
             #parse the info
@@ -1886,7 +1946,7 @@ class BasestationGuiPlugin(Plugin):
             #save periodically
             self.gui_engine.savePeriodically(self)
 
-            self.printMessage("Data loaded from csv")
+            self.printMessage("Data loaded from csv", self.green_message)
 
 
     

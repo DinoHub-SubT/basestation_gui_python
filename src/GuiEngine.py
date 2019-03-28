@@ -139,7 +139,7 @@ class GuiEngine:
                     already_object = True
 
             if not (msg.artifact_robot_id >= 0 and msg.artifact_robot_id < len(self.gui.ros_gui_bridge.robot_names)):
-                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out')
+                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out', self.gui.red_message)
                 print msg.artifact_robot_id
 
             elif (not already_object):
@@ -182,7 +182,7 @@ class GuiEngine:
                 art_source_id = -2
             else:
                 art_source_id = None
-                self.gui.printMessage('Could not determine source id for this dulication, so artifact not duplicated')
+                self.gui.printMessage('Could not determine source id for this dulication, so artifact not duplicated', self.gui.red_message)
 
             if (art_source_id != None):
                 #generate the artifact object
@@ -255,13 +255,13 @@ class GuiEngine:
 
         #ensure we dont delete an artifact when we're viewing it
         if (self.gui.displayed_artifact != None and artifact != None and self.gui.displayed_artifact.unique_id == artifact.unique_id):
-            self.gui.printMessage('Artifact being viewed has been deleted')
+            self.gui.printMessage('Artifact being viewed has been deleted', self.gui.green_message)
             self.gui.alertImgAboutRemoval()
             self.gui.removeQueueArtifact(artifact)
 
         else:
             if(artifact == None):
-                self.gui.printMessage('Did not delete artifact, could not find it')
+                self.gui.printMessage('Did not delete artifact, could not find it', self.gui.red_message)
             else:
                 print "here"
                 self.gui.removeQueueArtifact(artifact)
@@ -303,7 +303,7 @@ class GuiEngine:
                     already_object = True
 
             if not (msg.artifact_robot_id >= 0 and msg.artifact_robot_id < len(self.gui.ros_gui_bridge.robot_names)):
-                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out')
+                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out', self.red_message)
                 print msg.artifact_robot_id
 
             elif (not already_object):

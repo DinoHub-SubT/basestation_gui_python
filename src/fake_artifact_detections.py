@@ -32,7 +32,7 @@ class FakePublisher:
         self.message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
 
         self.artifact_types = [4, 3, 5, 1, 2]
-        self.robot_nums = [0]#, 1]
+        self.robot_nums = [42]#, 1]
 
         self.total_num_to_pub = 50#1000
         self.num_pubbed = 0    
