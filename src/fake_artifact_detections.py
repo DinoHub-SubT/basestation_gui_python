@@ -32,7 +32,7 @@ class FakePublisher:
         self.message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
 
         self.artifact_types = [4, 3, 5, 1, 2]
-        self.robot_nums = [0, 1]
+        self.robot_nums = [0]#, 1]
 
         self.total_num_to_pub = 50#1000
         self.num_pubbed = 0    
@@ -47,22 +47,24 @@ class FakePublisher:
 
         self.published_list = []
 
+        self.deleted_ids = []
+
 
 
     def pub_msgs(self):    
 
         #publish artifact_reports first
 
-        if (self.num_pubbed < self.total_num_to_pub * 0.4):
-            print "new artifact", time.time()
+        if (self.num_pubbed < self.total_num_to_pub * 0.6):
+            # print "new artifact", time.time()
             self.pubArtifactReport(update = False)   
                     
 
         else: #update some artifacts
-            print "updated artifact", time.time()
+            # print "updated artifact", time.time()
             self.pubArtifactReport(update = True)
             
-                
+        # print self.deleted_ids
 
         #publish all of the other message types
         self.ji_pub_ground.publish(self.getJiFakePose())
@@ -79,30 +81,35 @@ class FakePublisher:
     def pubArtifactReport(self, update):
 
         #randomly select a radio or wifi message type
-        if (random.random() < 0.7):
+        if (random.random() < 0.5):
             msg = RadioMsg()
             msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
 
-            if (random.random() < 0.1):
-                msg.artifact_type = RadioMsg.ARTIFACT_REMOVE
-            else:
-                msg.artifact_type =  random.sample(self.artifact_types,1)[0]
-
             if(not update): #generate a new detection
-                msg.artifact_report_id =  random.randint(0,9999)                
+
+                msg.artifact_type =  random.sample(self.artifact_types,1)[0]
+                msg.artifact_report_id =  self.num_pubbed #random.randint(0,9999)                
                 msg.artifact_robot_id = random.sample(self.robot_nums,1)[0]
                 msg.artifact_x =  random.random()*5.
                 msg.artifact_y =  random.random()*5.
                 msg.artifact_z =  random.random()*5.
                 msg.artifact_stamp.secs = time.time() 
 
-                print msg.artifact_robot_id, self.robot_nums, "radio"
+                
 
             else: #update an existing detection
+
                 rand_ind = random.randint(0,len(self.published_list)-1)
                 robot_id = self.published_list[rand_ind][0]
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
+
+                if (report_id not in self.deleted_ids) and (random.random() < 0.25):
+                    msg.artifact_type = RadioMsg.ARTIFACT_REMOVE
+                    print "radio delete:", msg.artifact_type, robot_id, report_id
+
+                else:
+                    msg.artifact_type =  random.sample(self.artifact_types,1)[0]
 
                 msg.artifact_report_id =  report_id
                 msg.artifact_robot_id = robot_id
@@ -112,24 +119,36 @@ class FakePublisher:
                 msg.artifact_stamp.secs = timestamp
 
 
-                print "radiomsg update to be ",msg.artifact_type, msg.artifact_x, msg.artifact_y, msg.artifact_z
+                
 
-            self.published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
-            self.artifact_pub.publish(msg)
+            if (msg.artifact_report_id not in self.deleted_ids):
+
+                if (not update):
+                    print "new radio: ",msg.artifact_type, msg.artifact_robot_id, msg.artifact_report_id
+                else:
+                    print "radio update: ",msg.artifact_type, msg.artifact_robot_id, msg.artifact_report_id
+
+
+                self.published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
+                self.artifact_pub.publish(msg)
+
+            if (msg.artifact_type == RadioMsg.ARTIFACT_REMOVE):
+                self.deleted_ids.append(msg.artifact_report_id)
 
 
         else: #publish a wifi message
 
-            if (random.random() < 0.1):
-                typ = FakeWifiDetection.ARTIFACT_REMOVE
-            else:
-                typ =  random.sample(self.artifact_types,1)[0]
-
             if(not update): #generate a new detection
 
-                report_id =  random.randint(0,9999)
+                typ =  random.sample(self.artifact_types,1)[0]
+                report_id =  self.num_pubbed #random.randint(0,9999)
                 robot_id = random.sample(self.robot_nums,1)[0]
                 timestamp = time.time() 
+
+                msg = self.getFakeWifiMsg(artifact_report_id = report_id , artifact_type = typ, \
+                                     artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2], timestamp = timestamp)
+
+                
 
             else: #update an existing detection
 
@@ -138,14 +157,33 @@ class FakePublisher:
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
 
-            msg = self.getFakeWifiMsg(artifact_report_id = report_id , artifact_type = typ, \
+                if (report_id not in self.deleted_ids) and (random.random() < 0.25):
+                    typ = FakeWifiDetection.ARTIFACT_REMOVE                                        
+                    print "wifi  delete:",typ, robot_id, report_id
+
+                else:
+                    typ =  random.sample(self.artifact_types,1)[0]
+
+                msg = self.getFakeWifiMsg(artifact_report_id = report_id , artifact_type = typ, \
                                      artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2], timestamp = timestamp)
 
-            print "wifimsg to be cat",typ, "len of imgs:", len(msg.imgs)
+                
+            
 
-            self.img_pub.publish(msg)
+            
+            if (msg.artifact_report_id not in self.deleted_ids):
+                if (not update):
+                    print "new wifim: ",msg.artifact_type, msg.artifact_robot_id, msg.artifact_report_id
+                else:
+                    print "wifim update: ",msg.artifact_type, msg.artifact_robot_id, msg.artifact_report_id
 
-        print msg.artifact_robot_id
+                self.published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
+                self.img_pub.publish(msg)
+
+            if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE):
+                self.deleted_ids.append(msg.artifact_report_id)
+
+        # print msg.artifact_robot_id
 
         return True
 

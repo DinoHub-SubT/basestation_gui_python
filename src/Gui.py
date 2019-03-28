@@ -708,13 +708,13 @@ class BasestationGuiPlugin(Plugin):
         self.darpa_confirm_button.clicked.connect(partial(self.proposeArtifact))
         self.darpa_confirm_button.setStyleSheet("background-color:rgb(100, 100, 100)")
         self.darpa_confirm_button.setEnabled(False)
-        self.artmanip_layout.addWidget(self.darpa_confirm_button, 9, 0)
+        self.artmanip_layout.addWidget(self.darpa_confirm_button, 9, 2)
 
         self.darpa_cancel_button = qt.QPushButton("Cancel")
         self.darpa_cancel_button.clicked.connect(partial(self.cancelProposal))
         self.darpa_cancel_button.setStyleSheet("background-color:rgb(100, 100, 100)")
         self.darpa_cancel_button.setEnabled(False)
-        self.artmanip_layout.addWidget(self.darpa_cancel_button, 9, 2)
+        self.artmanip_layout.addWidget(self.darpa_cancel_button, 9, 0)
 
 
             
@@ -1371,12 +1371,21 @@ class BasestationGuiPlugin(Plugin):
 
         with self.update_queue_lock:
 
+            # self.queue_table.setSortingEnabled(False)
+
             #find the artifact row
+            found = False
             for row in range(self.queue_table.rowCount()):
 
                 if self.queue_table.item(row, 5).text() == artifact.unique_id: #remove the artifact from the queue
+                    found = True
+                    self.printMessage('Deleted artifact '+artifact.unique_id+ ' '+self.queue_table.item(row, 5).text())
                     self.queue_table.removeRow(self.queue_table.item(row,0).row())
                     break
+
+                
+
+            # self.queue_table.setSortingEnabled(True)
 
             
         #remove the artifact from the engine lists
@@ -1458,6 +1467,10 @@ class BasestationGuiPlugin(Plugin):
 
         #hide the unique_id
         self.queue_table.setColumnHidden(5,True)
+        # self.queue_table.setColumnHidden(4,True)
+        # self.queue_table.setColumnHidden(1,True)
+        # self.queue_table.setColumnHidden(2,True)
+        # self.queue_table.setColumnHidden(0,True)
 
         #resize the column heading depending on the content
         # header = self.queue_table.horizontalHeader()

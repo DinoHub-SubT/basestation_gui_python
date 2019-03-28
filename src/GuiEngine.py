@@ -81,6 +81,7 @@ class GuiEngine:
         '''
 
         if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+            print "Deleting artifact:", msg.artifact_report_id
 
             self.removeArtifactFromGui(msg)
 
@@ -253,16 +254,16 @@ class GuiEngine:
                 break
 
         #ensure we dont delete an artifact when we're viewing it
-        if (self.gui.displayed_artifact != None and artifact != None):
-            if (self.gui.displayed_artifact.unique_id == artifact.unique_id):
-                self.gui.printMessage('Artifact being viewed has been deleted')
-                self.gui.alertImgAboutRemoval()
-                self.gui.removeQueueArtifact(artifact)
+        if (self.gui.displayed_artifact != None and artifact != None and self.gui.displayed_artifact.unique_id == artifact.unique_id):
+            self.gui.printMessage('Artifact being viewed has been deleted')
+            self.gui.alertImgAboutRemoval()
+            self.gui.removeQueueArtifact(artifact)
 
         else:
             if(artifact == None):
                 self.gui.printMessage('Did not delete artifact, could not find it')
             else:
+                print "here"
                 self.gui.removeQueueArtifact(artifact)
 
 
@@ -272,6 +273,7 @@ class GuiEngine:
         '''
 
         if (msg.artifact_type == RadioMsg.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+            print "Deleting artifact:", msg.artifact_report_id
 
             self.removeArtifactFromGui(msg)
 
@@ -322,7 +324,7 @@ class GuiEngine:
                 #add updated info to the csv
                 self.savePeriodically(self.gui)
 
-                print "Successfully generated artifact", len(self.all_artifacts), artifact.pos,  artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp
+                print "Successfully generated artifact", artifact.artifact_report_id, artifact.source_robot, artifact.original_timestamp, len(self.all_artifacts)
 
 
     def initLogFolder(self):

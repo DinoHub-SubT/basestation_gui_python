@@ -75,11 +75,9 @@ which is an interactive marker for updating the artifact location. And
 /refinement_marker_orig_pos
 ```
 
-which is a marker to designate the original location of the artifact. 
+which is a MarkerArray of two markers. A green sphere to designate the original location of the artifact and a red arrow pointing to the artifact location. 
 
-Once these are subscribed to, back in the GUI, select an artifact to display in the artifact panel (by double-clicking on the artifact in the queue). Then, in the middle of the GUI there is a Show Refinement Marker button, click it. A large green sphere should appear and get smaller over the course of about 5 seconds. This is used to easily see where the artifact is.
-
-The orange sphere will then appear. This can be moved around and designates the refined position. The green sphere remains as an indication of the original artifact location (as deteced by the robot). 
+Once these are subscribed to, back in the GUI, select an artifact to display in the artifact panel (by double-clicking on the artifact in the queue). Then, in the middle of the GUI there is a Show Refinement Marker button, click it. A large red arrow should appear in RViz, which points down to indicate the location of the refinement. Below it will be the orange interactive marker and hidden beneath the orange sphere is a static green sphere which is the original position marker.
 
 =======
 # Troubleshooting

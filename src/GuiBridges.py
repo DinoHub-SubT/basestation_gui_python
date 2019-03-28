@@ -20,7 +20,9 @@ import numpy as np
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
 import time
-from visualization_msgs.msg import InteractiveMarkerFeedback, Marker
+from visualization_msgs.msg import InteractiveMarkerFeedback, MarkerArray, Marker
+import math
+import tf
 
 class RosGuiBridge:
     def __init__(self, config_filename, gui):
@@ -72,10 +74,10 @@ class RosGuiBridge:
         #publisher for turning the marker off
         self.refinement_marker_off_pub = rospy.Publisher('/refinement_marker_off', Point, queue_size=50)
 
-        [self.highlight_robot_marker, self.orig_pos_marker, self.ugv_bluetooth_marker, self.uav_bluetooth_marker] = self.initMarkers()
+        [self.highlight_robot_marker,  self.ugv_bluetooth_marker, self.uav_bluetooth_marker] = self.initMarkers()
         
         #publisher for displaying the original position        
-        self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', Marker, queue_size=50)
+        self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', MarkerArray, queue_size=50)
 
          #publisher for displaying the original position        
         self.highlight_robot_pub = rospy.Publisher('/highlight_robot_pub', Marker, queue_size=50)
@@ -135,14 +137,14 @@ class RosGuiBridge:
         Initialize and return the various markers
         '''  
         marker_list = []
-        for i in range(4):
+        for i in range(3):
             marker = Marker()
             marker.type = Marker.SPHERE
             marker.scale.x = 0.3
             marker.scale.y = 0.3
             marker.scale.z = 0.3
 
-            if (i <2): #non-bluetooth markers
+            if (i <1): #non-bluetooth markers
                 marker.color.r = 0.
                 marker.color.g = 1.
                 marker.color.b = 0.
@@ -288,7 +290,7 @@ class RosGuiBridge:
                 self.highlight_robot_marker.scale.z = scale
                 self.highlight_robot_pub.publish(self.highlight_robot_marker)
 
-                rospy.sleep(0.75)
+                # rospy.sleep(0.75)
 
             #make the marker disappear
             self.highlight_robot_marker.color.a = 0.
@@ -335,8 +337,12 @@ class RosGuiBridge:
         '''
         if(not button.isChecked()):
             #change the alpha of the orig_pos marker to make it invisible
-            self.orig_pos_marker.color.a = 0.
-            self.marker_orig_pos_pub.publish(self.orig_pos_marker)
+            # self.orig_pos_marker.color.a = 0.
+
+            for marker in self.marker_arr.markers:
+                marker.color.a = 0.
+
+            self.marker_orig_pos_pub.publish(self.marker_arr)
 
             #publish a bogus message to put something on this topic to turn off the refinment marker
             pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
@@ -348,29 +354,77 @@ class RosGuiBridge:
             pose = Point(artifact.pos[0], artifact.pos[1], artifact.pos[2])
             self.refinement_marker_pos_pub.publish(pose)
 
-            scale_list = [5,4,3,2,0.3]
-            self.orig_pos_marker.pose.position.x = artifact.pos[0]
-            self.orig_pos_marker.pose.position.y = artifact.pos[1]
-            self.orig_pos_marker.pose.position.z = artifact.pos[2]
-            self.orig_pos_marker.color.a = 1. #turn in back to visible if it was invisible
+            #publish 2 markers: one for the actual original pos, one above it to highlight the refinement region
+            self.marker_arr = MarkerArray()
 
-            for scale in scale_list:
-                
-                self.orig_pos_marker.scale.x = scale
-                self.orig_pos_marker.scale.y = scale
-                self.orig_pos_marker.scale.z = scale
+            m_orig = Marker()
+            m_orig.type = m_orig.SPHERE
+            m_orig.action = m_orig.ADD
+            m_orig.header.frame_id = '/map'
+            m_orig.id = 0
 
-                # self.orig_pos_marker_label.pose.position.x = artifact.pos[0]
-                # self.orig_pos_marker_label.pose.position.y = artifact.pos[1]
-                # self.orig_pos_marker_label.pose.position.z = artifact.pos[2]+0.5
+            m_orig.pose.position.x = artifact.pos[0]
+            m_orig.pose.position.y = artifact.pos[1]
+            m_orig.pose.position.z = artifact.pos[2]
 
-                #publish the text
-                # self.marker_orig_pos_pub.publish(self.orig_pos_marker_label)
+            m_orig.scale.x = 0.3
+            m_orig.scale.y = 0.3
+            m_orig.scale.z = 0.3
 
-                #publish a marker for the original position
-                self.marker_orig_pos_pub.publish(self.orig_pos_marker)
+            m_orig.color.r = 0.
+            m_orig.color.g = 1.
+            m_orig.color.b = 0.
+            m_orig.color.a = 1.
 
-                rospy.sleep(0.75)
+            
+
+            self.marker_arr.markers.append(m_orig)
+
+            m_notify = Marker()
+            m_notify.type = m_notify.ARROW
+            m_notify.action = m_notify.ADD
+            m_notify.header.frame_id = '/map'
+            m_notify.id = 1            
+
+            m_notify.pose.position.x = artifact.pos[0]
+            m_notify.pose.position.y = artifact.pos[1]
+            m_notify.pose.position.z = artifact.pos[2] + 15
+
+            quaternion = tf.transformations.quaternion_from_euler(0., math.pi/2., 0.) #roll, pitch, yaw
+            #type(pose) = geometry_msgs.msg.Pose
+            m_notify.pose.orientation.x = quaternion[0]
+            m_notify.pose.orientation.y = quaternion[1]
+            m_notify.pose.orientation.z = quaternion[2]
+            m_notify.pose.orientation.w = quaternion[3]
+
+            m_notify.scale.x = 6.
+            m_notify.scale.y = 2.
+            m_notify.scale.z = 2.
+
+            m_notify.color.r = 1.
+            m_notify.color.g = 0.
+            m_notify.color.b = 0.
+            m_notify.color.a = 1.            
+
+            self.marker_arr.markers.append(m_notify)
+
+            self.marker_orig_pos_pub.publish(self.marker_arr)
+
+
+
+
+
+            # self.orig_pos_marker.color.a = 1. #turn in back to visible if it was invisible
+
+            # self.orig_pos_marker.pose.position.x = artifact.pos[0]
+            # self.orig_pos_marker.pose.position.y = artifact.pos[1]
+            # self.orig_pos_marker.pose.position.z = artifact.pos[2]            
+
+            # self.orig_pos_marker.scale.x = 0.3
+            # self.orig_pos_marker.scale.y = 0.3
+            # self.orig_pos_marker.scale.z = 0.3
+
+            
        
         
 
