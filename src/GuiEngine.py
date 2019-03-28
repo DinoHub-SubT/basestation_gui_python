@@ -244,10 +244,9 @@ class GuiEngine:
 
         #find the artifact being referneced
         artifact = None
+        msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
 
         for art in self.all_artifacts:
-
-            msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
             
             if msg_unique_id == art.unique_id:
                 artifact = art
@@ -261,7 +260,7 @@ class GuiEngine:
 
         else:
             if(artifact == None):
-                self.gui.printMessage('Did not delete artifact, could not find it', self.gui.red_message)
+                self.gui.printMessage('Did not delete artifact, could not find it '+msg_unique_id, self.gui.red_message)
             else:
                 print "here"
                 self.gui.removeQueueArtifact(artifact)
@@ -303,7 +302,7 @@ class GuiEngine:
                     already_object = True
 
             if not (msg.artifact_robot_id >= 0 and msg.artifact_robot_id < len(self.gui.ros_gui_bridge.robot_names)):
-                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out', self.red_message)
+                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out', self.gui.red_message)
                 print msg.artifact_robot_id
 
             elif (not already_object):

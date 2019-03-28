@@ -165,6 +165,7 @@ class BasestationGuiPlugin(Plugin):
             self.printMessage('Loaded transform for ugv from file',  self.green_message)
 
         else:
+            self.printMessage('DARPA transform not loaded. Assuming identity transform',  self.red_message)
             self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
 
@@ -199,6 +200,7 @@ class BasestationGuiPlugin(Plugin):
             self.printMessage('Loaded transform for uav from file',  self.green_message)
 
         else:
+            self.printMessage('DARPA transform not loaded. Assuming identity transform',  self.red_message)
             self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
 
@@ -966,7 +968,7 @@ class BasestationGuiPlugin(Plugin):
                 if (self.displayed_artifact.unique_id == self.queue_table.item(i, 5).text()):
                     return i
 
-        self.printMessage("Could not find displayed artifact", self.red_message)
+        self.printMessage("Could not find displayed artifact. Please select an artifact" , self.red_message)
         return -1
 
 
@@ -1715,7 +1717,7 @@ class BasestationGuiPlugin(Plugin):
             self.message_textbox.viewport().update()
 
 
-    def printMessage(self, msg, rgb):
+    def printMessage(self, msg, rgb=None):
         '''
         Add message to the messag box that is simply a string from
         this application (not ROS)
@@ -1730,7 +1732,8 @@ class BasestationGuiPlugin(Plugin):
             else:
                 item = qt.QListWidgetItem('[--] '+msg)
 
-            item.setBackground(gui.QColor(rgb[0], rgb[1], rgb[2]))
+            if (rgb != None):
+                item.setBackground(gui.QColor(rgb[0], rgb[1], rgb[2]))
 
             self.message_textbox.addItem(item)
 
@@ -1985,7 +1988,10 @@ class BasestationGuiPlugin(Plugin):
         '''
         starting_path = os.path.join(rospkg.RosPack().get_path('basestation_gui_python'), 'custom_logs')
         filename = qt.QFileDialog.getOpenFileName(self.widget, 'Load From CSV', starting_path, "CSV (*.csv)")[0]
-        self.fillInGuiFromCsv(filename)
+        if (filename == ''):
+            self.printMessage('Unable to load csv, did not find one by that name.', self.red_message)
+        else:
+            self.fillInGuiFromCsv(filename)
             
 
     def state_callback(self, msg):
