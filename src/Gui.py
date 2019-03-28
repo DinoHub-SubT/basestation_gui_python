@@ -134,74 +134,79 @@ class BasestationGuiPlugin(Plugin):
         the darpa reference frame
         '''
 
-        #load the text file
         rospack = rospkg.RosPack()
-        transform_fname = rospack.get_path('entrance_calib')+'/data/ugv0_calib.txt'
 
-        if (os.path.isfile(transform_fname)):
-
-
-            with open(transform_fname) as f:
-                content = f.readlines()
-
-            #strip newline chars
-            content = [x.strip() for x in content] 
-
-            transform_mat = []
-            for i, row in enumerate(content):
-                if(i < 3):
-                    transform_mat.append(row.split(' '))
-
-            #set it to the numpy array self.darpa_transform
-            transform_mat = np.float32(transform_mat)
-
-
-            #add the translation vector
-            transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
-            transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
-
-            self.darpa_transform_ugv = transform_mat
-
-            self.printMessage('Loaded transform for ugv from file',  self.green_message)
+        if ('entrance_calib' not in rospack.list()):
+            self.printMessage('GUI DID NOT LOAD CORRECTLY. PLACE entrance_calib PACKAGE IN THIS WORKSPACE!', self.red_message)
 
         else:
-            self.printMessage('DARPA transform not loaded. Assuming identity transform',  self.red_message)
-            self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+            #load the text file
+            transform_fname = rospack.get_path('entrance_calib')+'/data/ugv0_calib.txt'
+
+            if (os.path.isfile(transform_fname)):
+
+
+                with open(transform_fname) as f:
+                    content = f.readlines()
+
+                #strip newline chars
+                content = [x.strip() for x in content] 
+
+                transform_mat = []
+                for i, row in enumerate(content):
+                    if(i < 3):
+                        transform_mat.append(row.split(' '))
+
+                #set it to the numpy array self.darpa_transform
+                transform_mat = np.float32(transform_mat)
+
+
+                #add the translation vector
+                transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
+                transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+
+                self.darpa_transform_ugv = transform_mat
+
+                self.printMessage('Loaded transform for ugv from file',  self.green_message)
+
+            else:
+                self.printMessage('DARPA transform not loaded. Assuming identity transform',  self.red_message)
+                self.darpa_transform_ugv = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
 
 
 
-        transform_fname = rospack.get_path('entrance_calib')+'/data/uav1_calib.txt'
+            transform_fname = rospack.get_path('entrance_calib')+'/data/uav1_calib.txt'
 
-        if (os.path.isfile(transform_fname)):
-
-
-            with open(transform_fname) as f:
-                content = f.readlines()
-
-            #strip newline chars
-            content = [x.strip() for x in content] 
-
-            transform_mat = []
-            for i, row in enumerate(content):
-                if(i < 3):
-                    transform_mat.append(row.split(' '))
-
-            #set it to the numpy array self.darpa_transform
-            transform_mat = np.float32(transform_mat)
+            if (os.path.isfile(transform_fname)):
 
 
-            #add the translation vector
-            transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
-            transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+                with open(transform_fname) as f:
+                    content = f.readlines()
 
-            self.darpa_transform_uav = transform_mat
+                #strip newline chars
+                content = [x.strip() for x in content] 
 
-            self.printMessage('Loaded transform for uav from file',  self.green_message)
+                transform_mat = []
+                for i, row in enumerate(content):
+                    if(i < 3):
+                        transform_mat.append(row.split(' '))
 
-        else:
-            self.printMessage('DARPA transform not loaded. Assuming identity transform',  self.red_message)
-            self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
+                #set it to the numpy array self.darpa_transform
+                transform_mat = np.float32(transform_mat)
+
+
+                #add the translation vector
+                transform_mat = np.hstack((transform_mat, np.float32([content[4], content[5], content[6]]).reshape(3,1)))
+                transform_mat = np.vstack((transform_mat, np.float32([0, 0, 0, 1]).reshape(1,4)))
+
+                self.darpa_transform_uav = transform_mat
+
+                self.printMessage('Loaded transform for uav from file',  self.green_message)
+
+            else:
+                self.printMessage('DARPA transform not loaded. Assuming identity transform',  self.red_message)
+                self.darpa_transform_uav = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]])
 
 
 
@@ -227,97 +232,95 @@ class BasestationGuiPlugin(Plugin):
 
         rospack = rospkg.RosPack()
 
-        if (self.ros_gui_bridge.robot_names[robot_num].find('ound') != -1):
+        if ('entrance_calib' not in rospack.list()):
+            self.printMessage('GUI DID NOT LOAD CORRECTLY. PLACE entrance_calib PACKAGE IN THIS WORKSPACE!', self.red_message)
 
-            print "saving ground"
+        else:
+
+            if (self.ros_gui_bridge.robot_names[robot_num].find('ound') != -1):
+
+                print "saving ground"
+                
+                robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_state_estimation.txt'
+                total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_total_station.txt'
+
+                robot_pos = self.ros_gui_bridge.getRobotPoseGround()
+                total_pos = self.ros_gui_bridge.getTotalPose()
+
+            elif (self.ros_gui_bridge.robot_names[robot_num].find('erial') != -1):
+
+                print "saving aerial"
+
+                robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_state_estimation.txt'
+                total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_total_station.txt'
+
+                robot_pos = self.ros_gui_bridge.getRobotPoseAerial()
+                total_pos = self.ros_gui_bridge.getTotalPose()
+
+            else:
+                self.printMessage('Robot not found, unable to write transform points ', self.red_message)
+
             
-            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_state_estimation.txt'
-            total_pose_filename = rospack.get_path('entrance_calib')+'/data/ugv0_total_station.txt'
 
-            robot_pos = self.ros_gui_bridge.getRobotPoseGround()
-            total_pos = self.ros_gui_bridge.getTotalPose()
+            num_robot_points, num_total_points = 0, 0
 
-        elif (self.ros_gui_bridge.robot_names[robot_num].find('erial') != -1):
+            #handle the robot pose first
+            if (robot_pos != None and total_pos != None):
 
-            print "saving aerial"
+                #check if the file has not been created
+                if (not os.path.isfile(robot_pose_filename)):
+                    with open(robot_pose_filename, 'w') as writer:
+                        writer.write(str(1)+'\n') 
+                        writer.write(str(robot_pos[0])+ ' '+str(robot_pos[1])+ ' '+str(robot_pos[2])+'\n') 
 
-            robot_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_state_estimation.txt'
-            total_pose_filename = rospack.get_path('entrance_calib')+'/data/uav1_total_station.txt'
+                else:
+                    data = []
+                    with open(robot_pose_filename, 'r') as f:
+                        data = f.readlines()
 
-            robot_pos = self.ros_gui_bridge.getRobotPoseAerial()
-            total_pos = self.ros_gui_bridge.getTotalPose()
+                    data[0] = str(int(data[0]) + 1)+'\n' #increment the number of points
+                    num_robot_points = int(data[0])+1
+                    data.append(str(robot_pos[0])+ ' '+str(robot_pos[1])+ ' '+str(robot_pos[2])+'\n') #add the new point
 
-        else:
-            self.printMessage('Robot not found, unable to write transform points ', self.red_message)
+                    with open(robot_pose_filename, 'w') as f:
+                        f.writelines( data )
 
-        
-
-        num_robot_points, num_total_points = 0, 0
-
-        #handle the robot pose first
-        if (robot_pos != None and total_pos != None):
-
-            #check if the file has not been created
-            if (not os.path.isfile(robot_pose_filename)):
-                with open(robot_pose_filename, 'w') as writer:
-                    writer.write(str(1)+'\n') 
-                    writer.write(str(robot_pos[0])+ ' '+str(robot_pos[1])+ ' '+str(robot_pos[2])+'\n') 
+                self.printMessage("Saved robot pose.", self.green_message)
 
             else:
-                data = []
-                with open(robot_pose_filename, 'r') as f:
-                    data = f.readlines()
-
-                data[0] = str(int(data[0]) + 1)+'\n' #increment the number of points
-                num_robot_points = int(data[0])+1
-                data.append(str(robot_pos[0])+ ' '+str(robot_pos[1])+ ' '+str(robot_pos[2])+'\n') #add the new point
-
-                with open(robot_pose_filename, 'w') as f:
-                    f.writelines( data )
-
-            self.printMessage("Saved robot pose.", self.green_message)
-
-        else:
-            self.printMessage('Looks like nothing was ever published for the robot pos', self.red_message)
+                self.printMessage('Looks like nothing was ever published for the robot pos', self.red_message)
 
 
-        #handle the total pose next
-        if (total_pos != None and robot_pos != None):
+            #handle the total pose next
+            if (total_pos != None and robot_pos != None):
 
-            #check if the file has not been created
-            if (not os.path.isfile(total_pose_filename)):
-                with open(total_pose_filename, 'w') as writer:
-                    writer.write(str(1)+'\n') 
-                    writer.write(str(total_pos[0])+ ' '+str(total_pos[1])+ ' '+str(total_pos[2])+'\n') 
+                #check if the file has not been created
+                if (not os.path.isfile(total_pose_filename)):
+                    with open(total_pose_filename, 'w') as writer:
+                        writer.write(str(1)+'\n') 
+                        writer.write(str(total_pos[0])+ ' '+str(total_pos[1])+ ' '+str(total_pos[2])+'\n') 
+
+                else:
+                    data = []
+                    with open(total_pose_filename, 'r') as f:
+                        data = f.readlines()
+
+                    data[0] = str(int(data[0]) + 1)+'\n' #increment the number of points
+                    num_total_points = int(data[0])+1
+                    data.append(str(total_pos[0])+ ' '+str(total_pos[1])+ ' '+str(total_pos[2])+'\n') #add the new point
+
+                    with open(total_pose_filename, 'w') as f:
+                        f.writelines( data )
+
+                self.printMessage("Saved total pose.", self.green_message)
 
             else:
-                data = []
-                with open(total_pose_filename, 'r') as f:
-                    data = f.readlines()
-
-                data[0] = str(int(data[0]) + 1)+'\n' #increment the number of points
-                num_total_points = int(data[0])+1
-                data.append(str(total_pos[0])+ ' '+str(total_pos[1])+ ' '+str(total_pos[2])+'\n') #add the new point
-
-                with open(total_pose_filename, 'w') as f:
-                    f.writelines( data )
-
-            self.printMessage("Saved total pose.", self.green_message)
-
-        else:
-            self.printMessage('Looks like nothing was ever published for the total pos', self.red_message)
+                self.printMessage('Looks like nothing was ever published for the total pos', self.red_message)
 
 
-        #ensure we are writitng the same number of points
-        if (num_robot_points != num_total_points):
-            self.printMessage('Error: The number of robot points does not equal the number of total station points', self.red_message)
-
-
-        
-
-
-
-
+            #ensure we are writitng the same number of points
+            if (num_robot_points != num_total_points):
+                self.printMessage('Error: The number of robot points does not equal the number of total station points', self.red_message)   
 
 
     def initControlPanel(self, pos):

@@ -20,7 +20,7 @@ First, you'll need Graeme's DARPA command post simulator
 git clone git@bitbucket.org:cmusubt/darpa_command_post.git
 ```
 
-You will also need Ji's entrance_calib package (Bob is working on removing this restriction). Email him or Bob for this package
+You will also need Ji's entrance_calib package. Email him or Bob for this package. If you don't properly install it int he workspace you should get an error message in the gui about it and there may be lingering bugs in the performance of the gui.
 
 
 Install gui repo
