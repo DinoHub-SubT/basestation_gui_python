@@ -146,7 +146,7 @@ class FakePublisher:
                 timestamp = time.time() 
 
                 msg = self.getFakeWifiMsg(artifact_report_id = report_id , artifact_type = typ, \
-                                     artifact_robot_id = robot_id, artifact_pos = [random.random()*5., 0, 1.2], timestamp = timestamp)
+                                     artifact_robot_id = robot_id, artifact_pos = [random.random()*5., random.random()*5., random.random()*5.], timestamp = timestamp)
 
                 
 

@@ -139,7 +139,7 @@ class GuiEngine:
                     already_object = True
 
             if not (msg.artifact_robot_id >= 0 and msg.artifact_robot_id < len(self.gui.ros_gui_bridge.robot_names)):
-                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out', self.gui.red_message)
+                self.gui.printMessage('Incoming artifact message had ID greater than # of robots, therefore it was thrown out', self.gui.red_message) #checked
                 print msg.artifact_robot_id
 
             elif (not already_object):
@@ -182,7 +182,7 @@ class GuiEngine:
                 art_source_id = -2
             else:
                 art_source_id = None
-                self.gui.printMessage('Could not determine source id for this dulication, so artifact not duplicated', self.gui.red_message)
+                self.gui.printMessage('Could not determine source id for this dulication, so artifact not duplicated', self.gui.red_message) #checked
 
             if (art_source_id != None):
                 #generate the artifact object
@@ -262,7 +262,6 @@ class GuiEngine:
             if(artifact == None):
                 self.gui.printMessage('Did not delete artifact, could not find it '+msg_unique_id, self.gui.red_message)
             else:
-                print "here"
                 self.gui.removeQueueArtifact(artifact)
 
 
@@ -365,7 +364,7 @@ class GuiEngine:
             else:
                 darpa_text = artifact.darpa_response.replace('\n','')
 
-            artifact_str   +=    artifact.category+'|'+ str(artifact.pos[0])+','+str(artifact.pos[0])+','+str(artifact.pos[0])+'|'+ \
+            artifact_str   +=    artifact.category+'|'+ str(artifact.pos[0])+','+str(artifact.pos[1])+','+str(artifact.pos[2])+'|'+ \
                                  str(artifact.orig_pos[0])+','+str(artifact.orig_pos[1])+','+str(artifact.orig_pos[2])+\
                                  '|'+ str(artifact.source_robot)+'|'+\
                                  str(artifact.artifact_report_id)+'|'+ str(artifact.time_from_robot)+'|'+ str(artifact.time_to_darpa)+'|'+\
