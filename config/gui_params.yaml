@@ -6,7 +6,7 @@ experiment_params:
 #parameters for communicating with the DARPA command post
 darpa_params:
   auth_bearer_token: ['flux230{showroom']
-  scoring_uris: ['http://api/status', 'http://api/artifact_reports']
+  scoring_uris: ['http://api/status/', 'http://api/artifact_reports/']
   artifact_categories: ["Survivor", "Fire Extinguisher", "Cell Phone", "Backpack", "Drill"]
   artifact_labels: [4, 3, 5, 1, 2]
 
