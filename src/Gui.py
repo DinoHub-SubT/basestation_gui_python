@@ -339,7 +339,7 @@ class BasestationGuiPlugin(Plugin):
         self.control_layout.addWidget(control_label)
 
         #define the number of commands in a single column
-        num_in_col = 4
+        num_in_col = 5
 
         #establish the sub-panel for each robot
         for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):
@@ -355,18 +355,31 @@ class BasestationGuiPlugin(Plugin):
                     row = 0
                     col+=1
 
-                button = qt.QPushButton(command)
-                button.setCheckable(True) # a button pressed will stay pressed, until unclicked
-                button.setStyleSheet("QPushButton:checked { background-color: red }") #a button stays red when its in a clicked state
-                robot_button_list.append(button)
-                
-                
-                #upon press, do something in ROS
-                button.clicked.connect(partial(self.processRobotCommandPress, command, robot_name, button))
+                if not ((robot_name.find('erial') != -1) and (self.ros_gui_bridge.remap_to_aerial_commands[command] == '--')) and\
+                   not ((robot_name.find('ound') != -1) and (command=='Land in comms')) :
 
-                robot_layout.addWidget(button, row, col)
+                    if (robot_name.find('erial') != -1): #change the text if its for the aerial vehicle
+                        button = qt.QPushButton(self.ros_gui_bridge.remap_to_aerial_commands[command])
+                    else:
+                        button = qt.QPushButton(command)
 
-                row+=1
+                    if (command not in ['Return home', 'Drop comms']):
+                        button.setCheckable(True) # a button pressed will stay pressed, until unclicked
+                        button.setStyleSheet("QPushButton:checked { background-color: red }") #a button stays red when its in a clicked state
+
+                    else:
+                        button.setStyleSheet("QPushButton:pressed { background-color: red }") #a button stays red when its in a clicked state
+
+                    
+                    robot_button_list.append(button)
+                    
+                    
+                    #upon press, do something in ROS
+                    button.clicked.connect(partial(self.processRobotCommandPress, command, robot_name, button))
+
+                    robot_layout.addWidget(button, row, col)
+
+                    row+=1
 
             #add a combobox to set the speed of the robot
             # robot_speed_list = [0.3, 0.5, 1.0]
@@ -401,7 +414,8 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         #if its an estop button, de-activate all other estop buttons
-        if (button.text() in self.ros_gui_bridge.estop_commands):
+        if (button.text() in self.ros_gui_bridge.estop_commands) or\
+             (self.ros_gui_bridge.remap_from_aerial_commands[button.text()] in self.ros_gui_bridge.estop_commands):
 
             #find the set of control buttons for this robot
             robot_ind = -1
@@ -415,7 +429,9 @@ class BasestationGuiPlugin(Plugin):
 
 
                 for cmd_button in control_buttons:
-                    if (cmd_button != button) and  (cmd_button.text() in self.ros_gui_bridge.estop_commands):
+                    if (cmd_button != button) and  \
+                            ((cmd_button.text() in self.ros_gui_bridge.estop_commands) or \
+                             (self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()] in self.ros_gui_bridge.estop_commands)):
                         
                         cmd_button.setChecked(False)
 

@@ -38,6 +38,8 @@ class RosGuiBridge:
         for name in exp_params['robot_names']:
             self.robot_names.append(name)
 
+        
+
         #robot names should be unique
         if(len(np.unique(self.robot_names))!=len(self.robot_names)):
             raise ValueError('Not all of the robot names are unique!')
@@ -46,6 +48,15 @@ class RosGuiBridge:
             self.robot_commands.append(command)
 
         self.estop_commands = self.robot_commands[:4]
+
+        #remapping aerial commands
+        self.remap_to_aerial_commands = {}
+        self.remap_from_aerial_commands = {}
+
+
+        for i, name in enumerate(exp_params['aerial_commands']):
+            self.remap_from_aerial_commands[name] =  self.robot_commands[i]
+            self.remap_to_aerial_commands[self.robot_commands[i]] =  name
 
         #define radio message publisher
         self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
@@ -203,7 +214,17 @@ class RosGuiBridge:
         A command button has been pressed. Publish a command from the gui to the robot
         '''
 
-        if(not button.isChecked()): #it has just be un-clicked
+        if (command in [ "Return home", "Highlight robot", "Drop comms"]): #buttons are not checkable
+            if(command == "Return home"):
+                self.publishReturnHome(robot_name)
+            elif(command == "Highlight robot"):
+                self.highlightRobot(robot_name)
+            elif(command == "Drop comms"):
+                self.dropComms(robot_name)
+            else:
+                print self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
+
+        elif(not button.isChecked()): #it has just be un-clicked
 
             if(command == "Define waypoint"):
                 #find the robot name index and unsubscribe it
@@ -211,26 +232,46 @@ class RosGuiBridge:
                     ind = self.robot_names.index(robot_name)
                     self.waypoint_listeners[ind].unregister()
                 except ValueError:
-                    print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!"
+                    print self.gui.printMessage("Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!", self.gui.red_message)
 
             elif(command == "Show bluetooth"):
                 self.handleBluetooth(robot_name, button)
+
+            elif(command == "Land in comms"):
+                self.pubLandInComms(robot_name, button)
 
         else: #the button has just been pressed
             if(command in self.estop_commands):
                 self.publishEstop(command, robot_name)
             elif(command == "Define waypoint"):
                 self.defineWaypoint(robot_name)
-            elif(command == "Return home"):
-                self.publishReturnHome(robot_name)
-            elif(command == "Highlight robot"):
-                self.highlightRobot(robot_name)
-            elif(command == "Drop comms"):
-                self.dropComms(robot_name)
             elif(command == "Show bluetooth"):
                 self.handleBluetooth(robot_name, button)
+            elif(command == "Land in comms"):
+                self.pubLandInComms(robot_name, button)
             else:
-                print 'WARNING: Button pressed does not have a function call associated with it!'
+                print self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
+
+    def pubLandInComms(self, robot_name, button):
+        '''
+        Depending on if the button is pressed or not, send a 
+        message to land in comms range or back at home
+        '''
+
+        radio_msg = RadioMsg()
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_LANDING_BEHAVIOR
+
+        if (button.isChecked()):             
+            radio_msg.data = RadioMsg.LAND_IN_COMMS
+
+        else:            
+            radio_msg.data = RadioMsg.LAND_AT_HOME
+
+        print radio_msg.data=='comms'
+
+        self.radio_pub.publish(radio_msg)
+
 
 
     def handleBluetooth(self, robot_name, button):

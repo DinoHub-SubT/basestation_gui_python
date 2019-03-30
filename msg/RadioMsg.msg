@@ -5,6 +5,7 @@ uint8 MESSAGE_TYPE_ARTIFACT_REPORT=3
 uint8 MESSAGE_TYPE_RETURN_HOME=4
 uint8 MESSAGE_TYPE_ODOM_REPORT=5
 uint8 MESSAGE_TYPE_DROP_COMMS=6
+uint8 MESSAGE_TYPE_LANDING_BEHAVIOR=7
 uint8 message_type
 
 # data
@@ -42,3 +43,7 @@ string ESTOP_RESUME=0
 string ESTOP_PAUSE=1
 string ESTOP_SOFT=2
 string ESTOP_HARD=3
+
+#constants relevant to land in comms
+string LAND_IN_COMMS = comms
+string LAND_AT_HOME = home
