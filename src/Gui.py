@@ -339,7 +339,7 @@ class BasestationGuiPlugin(Plugin):
         self.control_layout.addWidget(control_label)
 
         #define the number of commands in a single column
-        num_in_col = 5
+        num_in_col = 4
 
         #establish the sub-panel for each robot
         for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):
@@ -381,16 +381,55 @@ class BasestationGuiPlugin(Plugin):
 
                     row+=1
 
-            #add a combobox to set the speed of the robot
-            # robot_speed_list = [0.3, 0.5, 1.0]
-            # robot_speed_box = qt.QComboBox()
-            
-            # for speed in robot_speed_list:
-            #     robot_speed_box.addItem(speed)
-            
-            # robot_speed_box.currentTextChanged.connect(partial(self.updateArtifactCat, 
 
-            # self.artmanip_layout.addWidget(robot_speed_box, 7, 0, 1, 2)
+            #add a combobox to set the max run time for the aerial vehicle
+            if (robot_name.find('erial') != -1):
+                max_time_list = np.arange(0., 10.5, 0.5).tolist()
+                max_time_box = qt.QComboBox()
+
+                for speed in max_time_list:
+                    max_time_box.addItem(str(speed))
+                
+                max_time_box.currentTextChanged.connect(partial(self.ros_gui_bridge.adjustMaxTime, robot_name, max_time_box)) 
+
+                robot_layout.addWidget(max_time_box, row, col)
+
+
+            #add a slider to set the max run time for the aerial vehicle
+            # if (robot_name.find('erial') != -1):
+
+            #     # slider_layout = qt.QGridLayout()
+            #     slider_min, slider_max, slider_step = 0.5, 10, 0.5
+
+            #     slider_label = qt.QLabel("Max flight time")
+            #     slider_label.setAlignment(Qt.AlignCenter)
+            #     robot_layout.addWidget(slider_label, num_in_col, 0, 1, 2)
+
+            #     slider = qt.QSlider(Qt.Horizontal)
+            #     slider.setMinimum(slider_min)
+            #     slider.setMaximum(slider_max/slider_step)
+            #     slider.setValue(slider_min)
+            #     slider.setTickPosition(qt.QSlider.TicksBelow)
+            #     slider.setTickInterval(slider_step)
+            #     robot_layout.addWidget(slider, num_in_col+1, 0, 1, 2) #put it on the bottom
+
+            #     #slider text
+            #     slider_text = str(slider_min)+'    '
+            #     i = slider_min + slider_step
+            #     while i <= slider_max:
+            #         if (int(i) == i):
+            #             slider_text += str(int(i))+'     '
+            #         else:
+            #             slider_text += '     '
+            #         i+=slider_step
+
+            #     print slider_text
+
+            #     tick_label = qt.QLabel(slider_text)
+            #     tick_label.setAlignment(Qt.AlignCenter)
+            #     robot_layout.addWidget(tick_label, num_in_col+2, 0, 1, 2)
+                
+                # slider.valueChanged.connect(self.valuechange)
 
 
 

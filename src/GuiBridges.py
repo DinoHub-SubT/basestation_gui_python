@@ -243,12 +243,17 @@ class RosGuiBridge:
         else: #the button has just been pressed
             if(command in self.estop_commands):
                 self.publishEstop(command, robot_name)
+
             elif(command == "Define waypoint"):
                 self.defineWaypoint(robot_name)
+
+
             elif(command == "Show bluetooth"):
                 self.handleBluetooth(robot_name, button)
+
             elif(command == "Land in comms"):
                 self.pubLandInComms(robot_name, button)
+
             else:
                 print self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
 
@@ -443,11 +448,23 @@ class RosGuiBridge:
             # self.orig_pos_marker.scale.y = 0.3
             # self.orig_pos_marker.scale.z = 0.3
 
-            
+    def adjustMaxTime(self, robot_name, max_time_box):
+        '''
+        Send a maxtime for the aerial vehicle to fly
+        '''
+        radio_msg = RadioMsg()
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_MAX_FLIGHT_TIME
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        radio_msg.data = str(float(max_time_box.currentText())*60)
+
+        self.radio_pub.publish(radio_msg)
+
+
        
         
 
     def publishWaypointGoal(self, msg, robot_name):
+
 
         radio_msg = RadioMsg()
         radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
@@ -458,7 +475,14 @@ class RosGuiBridge:
 
         self.radio_pub.publish(radio_msg)
 
-        # print radio_msg.data
+        #de-select the appropriate buttons
+        for robot_list in self.gui.control_buttons:
+            for cmd_button in robot_list:
+                if (cmd_button.text()=='Define waypoint'):
+
+                    cmd_button.setChecked(False)
+                    ind = self.robot_names.index(robot_name)
+                    self.waypoint_listeners[ind].unregister()
 
 
 
