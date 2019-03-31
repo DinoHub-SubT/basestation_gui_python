@@ -19,6 +19,6 @@
 	<!--launch the gui-->
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen" />
 
-    
+    <node name="fkie_relay_gui"		pkg="topic_tools"	type="relay"	args="/from_gui /ros_to_teensy" />    
 
 </launch>

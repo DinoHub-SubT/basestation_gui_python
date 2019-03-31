@@ -46,5 +46,5 @@ string ESTOP_SOFT=2
 string ESTOP_HARD=3
 
 #constants relevant to land in comms
-string LAND_IN_COMMS = comms
-string LAND_AT_HOME = home
+string LAND_IN_COMMS = 4
+string LAND_AT_HOME = 5
