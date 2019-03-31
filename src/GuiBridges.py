@@ -15,7 +15,7 @@ import sys
 from geometry_msgs.msg import PoseStamped, Point
 from nav_msgs.msg import Odometry
 import pdb
-from basestation_gui_python.msg import RadioMsg
+from basestation_gui_python.msg import RadioMsg, NineHundredRadioMsg
 import numpy as np
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
@@ -61,6 +61,7 @@ class RosGuiBridge:
 
         #define radio message publisher
         self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
+        self.radio_900_pub = rospy.Publisher('/ros_to_teensy', NineHundredRadioMsg, queue_size=50) #queue_size arbitraily chosen
 
         #subscriber for listening to waypoint goals
         self.waypoint_topic = "move_base_simple/goal" #topic for listening to BSM-defined waypoints
@@ -110,7 +111,10 @@ class RosGuiBridge:
         '''
         Publish a hard estop every __ seconds for the drone
         '''
-
+        radio_900_msg = NineHundredRadioMsg()
+        radio_900_msg.message_type = 1
+        radio_900_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        self.radio_900_pub.publish(radio_900_msg)
         radio_msg = RadioMsg()
         radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
@@ -352,22 +356,32 @@ class RosGuiBridge:
         '''
 
         radio_msg = RadioMsg()
+        send_900 = bool(False)
+        radio_900_msg = NineHundredRadioMsg()
         radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
         radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        radio_900_msg.recipient_robot_id = self.robot_names.index(robot_name)
         if(command==self.estop_commands[1]):
             radio_msg.data = RadioMsg.ESTOP_RESUME
+            radio_900_msg.message_type = 0
+            send_900 = True
         elif(command==self.estop_commands[0]):
             radio_msg.data = RadioMsg.ESTOP_PAUSE
         elif(command==self.estop_commands[2]):
             radio_msg.data = RadioMsg.ESTOP_SOFT
         elif(command==self.estop_commands[3]):
             radio_msg.data = RadioMsg.ESTOP_HARD
+            radio_900_msg.message_type = 1
+            send_900 = True
             #make the estop persistent for the drone
             if (robot_name.find('erial') != -1):
                 self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1]))
                 self.drone_hard_estop_thread.start()
         else:
             print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
+
+        if send_900:
+            self.radio_900_pub.publish(radio_900_msg)
 
         self.radio_pub.publish(radio_msg)
 
