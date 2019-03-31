@@ -23,6 +23,7 @@ import time
 from visualization_msgs.msg import InteractiveMarkerFeedback, MarkerArray, Marker
 import math
 import tf
+from functools import partial
 
 class RosGuiBridge:
     def __init__(self, config_filename, gui):
@@ -101,6 +102,26 @@ class RosGuiBridge:
 
         #publisher for the image coordinate clicked on (as percentage of the image)
         self.img_coord_pub = rospy.Publisher('/gui_img_clicked', Float32MultiArray, queue_size=10)
+
+        #thread for publishing drone hard estop
+        self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
+
+    def persistentDroneHardEstop(self, robot_name):
+        '''
+        Publish a hard estop every __ seconds for the drone
+        '''
+
+        radio_msg = RadioMsg()
+        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
+        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+        radio_msg.data = RadioMsg.ESTOP_HARD
+        self.radio_pub.publish(radio_msg)
+
+        for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
+            if (cmd_button.text()=='Hard e-stop') and (cmd_button.isChecked()):
+                self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
+                self.drone_hard_estop_thread.start()
+
 
     def initSubscribers(self, gui):
         '''
@@ -341,6 +362,10 @@ class RosGuiBridge:
             radio_msg.data = RadioMsg.ESTOP_SOFT
         elif(command==self.estop_commands[3]):
             radio_msg.data = RadioMsg.ESTOP_HARD
+            #make the estop persistent for the drone
+            if (robot_name.find('erial') != -1):
+                self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1]))
+                self.drone_hard_estop_thread.start()
         else:
             print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
 

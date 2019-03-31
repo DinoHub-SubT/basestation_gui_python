@@ -339,7 +339,7 @@ class BasestationGuiPlugin(Plugin):
         self.control_layout.addWidget(control_label)
 
         #define the number of commands in a single column
-        num_in_col = 4
+        num_in_col = 5
 
         #establish the sub-panel for each robot
         for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):
@@ -355,8 +355,9 @@ class BasestationGuiPlugin(Plugin):
                     row = 0
                     col+=1
 
-                if not ((robot_name.find('erial') != -1) and (self.ros_gui_bridge.remap_to_aerial_commands[command] == '--')) and\
-                   not ((robot_name.find('ound') != -1) and (command=='Land in comms')) :
+                
+                
+                if not ((robot_name.find('ound') != -1) and (command=='Land in comms')) :
 
                     if (robot_name.find('erial') != -1): #change the text if its for the aerial vehicle
                         button = qt.QPushButton(self.ros_gui_bridge.remap_to_aerial_commands[command])
