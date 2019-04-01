@@ -375,14 +375,18 @@ class BasestationGuiPlugin(Plugin):
                         button.setStyleSheet("background-color:rgb(126, 126, 126)")
                         button.setEnabled(False)
 
+                    elif (command in ['Return home', 'Drop comms']):
+                        button.setStyleSheet("QPushButton:pressed { background-color: red }") #a button stays red when its in a clicked state
 
-                    elif (command not in ['Return home', 'Drop comms']):
+                    elif (command == 'Hard e-stop') or \
+                         ((robot_name.find('erial') != -1) and (command=='Soft e-stop')):
+
+                         button.setCheckable(True)
+                        
+                    else:
                         button.setCheckable(True) # a button pressed will stay pressed, until unclicked
                         button.setStyleSheet("QPushButton:checked { background-color: red }") #a button stays red when its in a clicked state
-
-
-                    else:
-                        button.setStyleSheet("QPushButton:pressed { background-color: red }") #a button stays red when its in a clicked state
+                        
 
                     
                     robot_button_list.append(button)
@@ -466,7 +470,62 @@ class BasestationGuiPlugin(Plugin):
         conflicting command buttons (e.g. pause and soft estop)
         '''
 
+        #if its an estop button, de-activate all other estop buttons
+        if (button.text() in self.ros_gui_bridge.estop_commands) or\
+             (self.ros_gui_bridge.remap_from_aerial_commands[button.text()] in self.ros_gui_bridge.estop_commands):
+
+            #find the set of control buttons for this robot
+            robot_ind = -1
+            for i, name in enumerate(self.ros_gui_bridge.robot_names):
+                if (robot_name == name):
+                    robot_ind = i
+
+
+            if (robot_ind!=-1):
+                control_buttons = self.control_buttons[robot_ind]
+
+
+                for cmd_button in control_buttons:
+                    if (cmd_button != button) and  \
+                            ((cmd_button.text() in self.ros_gui_bridge.estop_commands) or \
+                             (self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()] in self.ros_gui_bridge.estop_commands)):
+                        
+                        cmd_button.setChecked(False)
+
         if (command == 'Confirm'):
+
+            cmd_buttons = self.control_buttons[self.ros_gui_bridge.robot_names.index(robot_name)]
+
+            for cmd_button in cmd_buttons:
+                #de-activate the confirm/cancel buttons for that robot
+                if (cmd_button.text() in ['Confirm', 'Cancel']): 
+                    cmd_button.setEnabled(False)
+                    cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+
+                
+                # if (cmd_button != button) and  \
+                #         ((cmd_button.text() in self.ros_gui_bridge.estop_commands) or \
+                #          (self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()] in self.ros_gui_bridge.estop_commands)):
+                    
+                #     cmd_button.setChecked(False)
+
+                # else:
+
+                #find the estop button that was previously pressed
+                if (cmd_button.isChecked()):
+                    if (robot_name.find('erial') != -1):
+                        cmd = self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()]
+                    else:
+                        cmd = cmd_button.text()
+
+                    if  (cmd in self.ros_gui_bridge.estop_commands):
+                        print "here"
+                        cmd_button.setStyleSheet("QPushButton:checked { background-color: red }")
+                        self.ros_gui_bridge.publishRobotCommand(cmd, robot_name, cmd_button)
+
+                    else:#de-select the other estop buttons
+                        cmd_button.setChecked(False)
+
             return
 
         elif (command == 'Cancel'):
@@ -494,8 +553,9 @@ class BasestationGuiPlugin(Plugin):
 
 
         #if its a button we need confirmation about, let's get confirmation
-        elif (command =='Hard e-stop') or \
-                (robot_name.find('erial') != -1 and self.ros_gui_bridge.remap_to_aerial_commands[command] == 'Land'):
+        elif button.isChecked() and \
+             ((command =='Hard e-stop') or \
+                (robot_name.find('erial') != -1 and self.ros_gui_bridge.remap_to_aerial_commands[command] == 'Land')):
 
             #activate the confirm/cancel buttons for that robot
             cmd_buttons = self.control_buttons[self.ros_gui_bridge.robot_names.index(robot_name)]
@@ -513,27 +573,7 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-        #if its an estop button, de-activate all other estop buttons
-        elif (button.text() in self.ros_gui_bridge.estop_commands) or\
-             (self.ros_gui_bridge.remap_from_aerial_commands[button.text()] in self.ros_gui_bridge.estop_commands):
-
-            #find the set of control buttons for this robot
-            robot_ind = -1
-            for i, name in enumerate(self.ros_gui_bridge.robot_names):
-                if (robot_name == name):
-                    robot_ind = i
-
-
-            if (robot_ind!=-1):
-                control_buttons = self.control_buttons[robot_ind]
-
-
-                for cmd_button in control_buttons:
-                    if (cmd_button != button) and  \
-                            ((cmd_button.text() in self.ros_gui_bridge.estop_commands) or \
-                             (self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()] in self.ros_gui_bridge.estop_commands)):
-                        
-                        cmd_button.setChecked(False)
+        
 
 
         #de-activate the appropriate buttons
@@ -544,15 +584,6 @@ class BasestationGuiPlugin(Plugin):
             if (cmd_button.text() in ['Confirm', 'Cancel']): 
                 cmd_button.setEnabled(False)
                 cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
-
-            #de-select the estop button that was pressed
-            if (robot_name.find('erial') != -1):
-                cmd = self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()]
-            else:
-                cmd = cmd_button.text()
-
-            if (cmd in self.ros_gui_bridge.estop_commands):
-                cmd_button.setChecked(False)
 
         self.ros_gui_bridge.publishRobotCommand(command, robot_name, button)
 

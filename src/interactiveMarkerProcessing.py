@@ -24,14 +24,16 @@ from tf.broadcaster import TransformBroadcaster
 from random import random
 from math import sin
 
+import sys
+
 
 class CustomInteractiveMarker:
     '''
     Class handles the interactive markers for artifact refinement
     '''
-    def __init__(self, position):
+    def __init__(self, position, node_name):
         
-        rospy.init_node("basic_controls")
+        rospy.init_node(node_name)
 
         self.server = None
         self.menu_handler = MenuHandler()
@@ -39,16 +41,28 @@ class CustomInteractiveMarker:
         self.counter = 0
         self.ref_frame = '/map'
 
-        #setup a subscriber listenting to position changes  
-        rospy.Subscriber('/refinement_marker_pos', Point, self.moveInteractiveMarkerAndShow)  
+        if (node_name=='basic_controls'):
 
-        #subscriber for hiding the refinement marker
-        rospy.Subscriber('/refinement_marker_off', Point, self.hideMarkerCallback)      
+            #setup a subscriber listenting to position changes  
+            rospy.Subscriber('/refinement_marker_pos', Point, self.moveInteractiveMarkerAndShow)  
 
-        self.generateInteractiveMarker(position)
+            #subscriber for hiding the refinement marker
+            rospy.Subscriber('/refinement_marker_off', Point, self.hideMarkerCallback)
+
+        if (node_name=='define_waypoint'):
+
+            #setup a subscriber listenting to position changes  
+            rospy.Subscriber('/define_waypoint_marker_pos', Point, self.moveInteractiveMarkerAndShow)  
+
+            #subscriber for hiding the refinement marker
+            rospy.Subscriber('/define_waypoint_marker_off', Point, self.hideMarkerCallback)
+
+
+
+        self.generateInteractiveMarker(position, node_name)
         self.hideInteractiveMarker()
 
-    def generateInteractiveMarker(self, position):
+    def generateInteractiveMarker(self, position, node_name):
         '''
         Custom function to initialzie a custom marker.
         Should only be called once at the beginning of gui intiialization
@@ -57,7 +71,7 @@ class CustomInteractiveMarker:
         # create a timer to update the published transforms
         rospy.Timer(rospy.Duration(0.01), self.frameCallback)
 
-        self.server = InteractiveMarkerServer("basic_controls")
+        self.server = InteractiveMarkerServer(node_name)
 
         self.menu_handler.insert( "First Entry", callback = self.processFeedback )
         self.menu_handler.insert( "Second Entry", callback = self.processFeedback )
@@ -65,7 +79,7 @@ class CustomInteractiveMarker:
         self.menu_handler.insert( "First Entry", parent=self.sub_menu_handle, callback = self.processFeedback )
         self.menu_handler.insert( "Second Entry", parent=self.sub_menu_handle, callback = self.processFeedback )
       
-        self.int_marker = self.make6DofMarker( False, InteractiveMarkerControl.MOVE_3D, position, False)
+        self.int_marker = self.make6DofMarker( False, InteractiveMarkerControl.MOVE_3D, position, node_name, False)
 
         self.server.applyChanges()
 
@@ -102,29 +116,41 @@ class CustomInteractiveMarker:
         self.server.applyChanges()
 
 
-    def makeBox(self, msg):
+    def makeBox(self, msg, node_name):
         marker = Marker()
 
-        marker.type = Marker.SPHERE
-        marker.scale.x = msg.scale * 0.4
-        marker.scale.y = msg.scale * 0.4
-        marker.scale.z = msg.scale * 0.4
-        marker.color.r = 1.
-        marker.color.g = 165./255.
-        marker.color.b = 0.
-        marker.color.a = 1.0
+        if (node_name =='basic_controls'):
+            marker.type = Marker.SPHERE
+            marker.scale.x = msg.scale * 0.4
+            marker.scale.y = msg.scale * 0.4
+            marker.scale.z = msg.scale * 0.4
+            marker.color.r = 1.
+            marker.color.g = 165./255.
+            marker.color.b = 0.
+            marker.color.a = 1.0
+
+        elif (node_name =='define_waypoint'):
+            print "here"
+            marker.type = Marker.CYLINDER
+            marker.scale.x = msg.scale * 0.4
+            marker.scale.y = msg.scale * 0.4
+            marker.scale.z = msg.scale * 3
+            marker.color.r = 1.
+            marker.color.g = 0.
+            marker.color.b = 0.
+            marker.color.a = 1.0
 
 
         return marker
 
-    def makeBoxControl(self, msg):
+    def makeBoxControl(self, msg, node_name):
         control =  InteractiveMarkerControl()
         control.always_visible = True
-        control.markers.append( self.makeBox(msg) )
+        control.markers.append( self.makeBox(msg, node_name) )
         msg.controls.append( control )
         return control
 
-    def make6DofMarker(self, fixed, interaction_mode, position, show_6dof = False):
+    def make6DofMarker(self, fixed, interaction_mode, position, node_name, show_6dof = False):
         int_marker = InteractiveMarker()
         int_marker.header.frame_id = self.ref_frame  
         int_marker.pose.position = position
@@ -134,7 +160,7 @@ class CustomInteractiveMarker:
         int_marker.description = "Simple 6-DOF Control"
 
         # insert a box
-        marker_control = self.makeBoxControl(int_marker)
+        marker_control = self.makeBoxControl(int_marker, node_name)
         int_marker.controls[0].interaction_mode = interaction_mode
 
         if fixed:
@@ -188,8 +214,10 @@ class CustomInteractiveMarker:
 
 if __name__=="__main__":
 
+    
+
     pose = Point(0,0,0)
-    CustomInteractiveMarker(pose)
+    CustomInteractiveMarker(pose, str(sys.argv[1]))
 
 #     generateInteractiveMarker()
 #     # hideInteractiveMarker()
