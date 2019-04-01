@@ -2090,14 +2090,23 @@ class BasestationGuiPlugin(Plugin):
 
 
 
-                    else: #this artifact is still in the queue
+                    else: #this artifact is still in the queue 
 
-                        #add the artifact to the list of queued objects and to the all_artifacts list
-                        self.gui_engine.queued_artifacts.append(artifact)
-                        self.gui_engine.all_artifacts.append(artifact)
+                        #if there does not exist the same (now updated) artifact already in the queue
+                        found_match = False
 
-                        #call a function to graphically add it to the queue
-                        self.sendToQueue(artifact)
+                        for arti in self.gui_engine.queued_artifacts:
+                            if (artifact.unique_id == arti.unique_id):
+                                found_match = True
+
+                        if (not found_match):
+
+                            #add the artifact to the list of queued objects and to the all_artifacts list
+                            self.gui_engine.queued_artifacts.append(artifact)
+                            self.gui_engine.all_artifacts.append(artifact)
+
+                            #call a function to graphically add it to the queue
+                            self.sendToQueue(artifact)
 
 
 
