@@ -130,7 +130,6 @@ class CustomInteractiveMarker:
             marker.color.a = 1.0
 
         elif (node_name =='define_waypoint'):
-            print "here"
             marker.type = Marker.CYLINDER
             marker.scale.x = msg.scale * 0.4
             marker.scale.y = msg.scale * 0.4

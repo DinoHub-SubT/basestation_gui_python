@@ -123,14 +123,16 @@ class RosGuiBridge:
         Publish a hard estop every __ seconds for the drone
         '''
 
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.data = RadioMsg.ESTOP_HARD
-        self.radio_pub.publish(radio_msg)
-
+        #make sure the button has not been unchecked since the last thread call
         for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
-            if (cmd_button.text()=='Hard e-stop') and (cmd_button.isChecked()):
+            if (cmd_button.text()=='Hard e-stop') and (cmd_button.isChecked()): 
+
+                radio_msg = RadioMsg()
+                radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
+                radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+                radio_msg.data = RadioMsg.ESTOP_HARD
+                self.radio_pub.publish(radio_msg)
+
                 self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
                 self.drone_hard_estop_thread.start()
 
@@ -307,7 +309,6 @@ class RosGuiBridge:
         else:            
             radio_msg.data = RadioMsg.LAND_AT_HOME
 
-        print radio_msg.data=='comms'
 
         self.radio_pub.publish(radio_msg)
 
@@ -517,7 +518,7 @@ class RosGuiBridge:
             self.radio_pub.publish(radio_msg)
 
         else:
-            print "Waypoint never set"
+            self.gui.printMessage("Waypoint never set. Message never published. Please move the interactive marker in RViz.", self.gui.normal_message)
 
         # #de-select the appropriate buttons
         # for robot_list in self.gui.control_buttons:
@@ -546,13 +547,41 @@ class RosGuiBridge:
             # self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
 
             #publish the interactive marker
-            if (robot_name.find('erial') != -1) and (self.robot_pos_aerial != None):
-                pose = Point(self.robot_pos_aerial[0], self.robot_pos_aerial[1], self.robot_pos_aerial[2]) #put robot pose in here
-                self.define_waypoint_marker_pos_pub.publish(pose)
 
-            elif (robot_name.find('ound') != -1) and (self.robot_pos_ground != None):
-                pose = Point(self.robot_pos_ground[0], self.robot_pos_ground[1], self.robot_pos_ground[2]) #put robot pose in here
-                self.define_waypoint_marker_pos_pub.publish(pose)
+            if (robot_name.find('erial') != -1):
+                
+                if (self.robot_pos_aerial == None):
+                    self.gui.printMessage('Nothing appears to have been published to the robot pose topic /uav1/integrated_to_map', self.gui.normal_message)
+
+                    #deselect the waypoint button
+                    for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
+                        if (cmd_button.text()=='Define waypoint') and (cmd_button.isChecked()): 
+                            cmd_button.setChecked(False)
+                
+                else:
+                    #reset the initial waypoint
+                    self.waypoint = None
+
+                    pose = Point(self.robot_pos_aerial[0], self.robot_pos_aerial[1], self.robot_pos_aerial[2]) #put robot pose in here
+                    self.define_waypoint_marker_pos_pub.publish(pose)
+
+            elif (robot_name.find('ound') != -1):
+
+                if (self.robot_pos_ground == None):
+                    self.gui.printMessage('Nothing appears to have been published to the robot pose topic /ugv1/integrated_to_map', self.gui.normal_message)
+
+                    #deselect the waypoint button
+                    for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
+                        if (cmd_button.text()=='Define waypoint') and (cmd_button.isChecked()): 
+                            cmd_button.setChecked(False)
+
+                
+                else:
+                    #reset the initial waypoint
+                    self.waypoint = None
+
+                    pose = Point(self.robot_pos_ground[0], self.robot_pos_ground[1], self.robot_pos_ground[2]) #put robot pose in here
+                    self.define_waypoint_marker_pos_pub.publish(pose)
 
         except ValueError:
             print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been enabled!!"

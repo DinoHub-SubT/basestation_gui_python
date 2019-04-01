@@ -519,7 +519,6 @@ class BasestationGuiPlugin(Plugin):
                         cmd = cmd_button.text()
 
                     if  (cmd in self.ros_gui_bridge.estop_commands):
-                        print "here"
                         cmd_button.setStyleSheet("QPushButton:checked { background-color: red }")
                         self.ros_gui_bridge.publishRobotCommand(cmd, robot_name, cmd_button)
 
@@ -2110,7 +2109,7 @@ class BasestationGuiPlugin(Plugin):
             for i, command in enumerate(vehicle_data_split):
 
                 if (i> 0 and len(command)>1): #we actually have something here
-                    print command
+                    # print command
 
                     #go find the button this corresponds to and "press" it
                     found_button = False
