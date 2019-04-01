@@ -79,6 +79,15 @@ which is a MarkerArray of two markers. A green sphere to designate the original 
 
 Once these are subscribed to, back in the GUI, select an artifact to display in the artifact panel (by double-clicking on the artifact in the queue). Then, in the middle of the GUI there is a Show Refinement Marker button, click it. A large red arrow should appear in RViz, which points down to indicate the location of the refinement. Below it will be the orange interactive marker and hidden beneath the orange sphere is a static green sphere which is the original position marker.
 
+
+# Defining waypoints
+
+To define a waypoint, you need to add the interatice marker topic
+```bash
+/define_waypoint/update
+```
+to RViz. This marker will become visible upon selecting 1+ of the "Define waypoint" buttons in the gui. Its starting location is set as the robot pose. This marker then can be moved around to its final location by clicking and dragging in RViz. Once its final location is set, de-select the button in RViz, this de-selection will publish a RadioMsg waypoint to the robot. 
+
 =======
 # Troubleshooting
 For some reason, sometimes it wants to launch twice (you'll see 2 messages about an HTTP server being launched). To fix this error for now, run 
