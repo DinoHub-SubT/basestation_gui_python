@@ -181,8 +181,10 @@ class GuiEngine:
             elif (artifact.source_robot == 1):
                 art_source_id = -2
             else:
-                art_source_id = None
-                self.gui.printMessage('Could not determine source id for this dulication, so artifact not duplicated', self.gui.red_message) #checked
+                art_source_id = -1
+            # elif(art_source_id >= len(self.gui.ros_gui_bridge.robot_name)):
+            #     art_source_id = None
+            #     self.gui.printMessage('Could not determine robot source id for this duplication, so artifact not duplicated', self.gui.red_message) #checked
 
             if (art_source_id != None):
                 #generate the artifact object
@@ -254,7 +256,9 @@ class GuiEngine:
 
         #ensure we dont delete an artifact when we're viewing it
         if (self.gui.displayed_artifact != None and artifact != None and self.gui.displayed_artifact.unique_id == artifact.unique_id):
-            self.gui.printMessage('Artifact being viewed has been deleted', self.gui.green_message)
+            self.gui.printMessage('Artifact being viewed has been deleted'
+
+                , self.gui.green_message)
             self.gui.alertImgAboutRemoval()
             self.gui.removeQueueArtifact(artifact)
 
