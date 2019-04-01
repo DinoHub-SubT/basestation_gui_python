@@ -64,12 +64,12 @@ class RosGuiBridge:
         self.radio_900_pub = rospy.Publisher('/ros_to_teensy', NineHundredRadioMsg, queue_size=50) #queue_size arbitraily chosen
 
         #subscriber for listening to waypoint goals
-        self.waypoint_topic = "move_base_simple/goal" #topic for listening to BSM-defined waypoints
+        self.waypoint_topic = "/define_waypoint/feedback" #topic for listening to BSM-defined waypoints
 
-        self.waypoint_listeners = []
-        for i in range(len(self.robot_names)):
-            self.waypoint_listeners.append(rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, ""))
-            self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
+        # self.waypoint_listeners = []
+        # for i in range(len(self.robot_names)):
+        #     self.waypoint_listeners.append(rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, ""))
+        #     self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
 
         
         #read info on darpa-related commands (communication protocol, etc.)
@@ -106,6 +106,18 @@ class RosGuiBridge:
 
         #thread for publishing drone hard estop
         self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
+
+        #add the markers for defining a waypoint
+
+        #publisher for moving the refinment marker
+        self.define_waypoint_marker_pos_pub = rospy.Publisher('/define_waypoint_marker_pos', Point, queue_size=50)
+
+        #publisher for turning the marker off
+        self.define_waypoint_marker_off_pub = rospy.Publisher('/define_waypoint_marker_off', Point, queue_size=50)
+
+        #listen to the waypoint moving around
+        rospy.Subscriber(self.waypoint_topic, InteractiveMarkerFeedback, self.recordWaypoint)
+        self.waypoint = None
 
     def persistentDroneHardEstop(self, robot_name):
         '''
@@ -254,8 +266,9 @@ class RosGuiBridge:
             if(command == "Define waypoint"):
                 #find the robot name index and unsubscribe it
                 try:
-                    ind = self.robot_names.index(robot_name)
-                    self.waypoint_listeners[ind].unregister()
+                    # ind = self.robot_names.index(robot_name)
+                    # self.waypoint_listeners[ind].unregister()
+                    self.publishWaypointGoal(robot_name)
                 except ValueError:
                     print self.gui.printMessage("Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!", self.gui.red_message)
 
@@ -500,28 +513,40 @@ class RosGuiBridge:
 
 
        
-        
+    def recordWaypoint(self, msg):
+        '''
+        Record the movemment of the interactive marker
+        '''
 
-    def publishWaypointGoal(self, msg, robot_name):
+        self.waypoint = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+
+    def publishWaypointGoal(self, robot_name):
+
+        if (self.waypoint != None):
+            radio_msg = RadioMsg()
+            radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
+            radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
+            radio_msg.data = str(self.waypoint[0]) +","+str(self.waypoint[1]) +","+str(self.waypoint[2])
+
+            self.radio_pub.publish(radio_msg)
+
+        else:
+            print "Waypoint never set"
+
+        # #de-select the appropriate buttons
+        # for robot_list in self.gui.control_buttons:
+        #     for cmd_button in robot_list:
+        #         if (cmd_button.text()=='Define waypoint'):
+
+        #             cmd_button.setChecked(False)
+        #             ind = self.robot_names.index(robot_name)
+        #             self.waypoint_listeners[ind].unregister()
 
 
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.data = str(msg.pose.position.x) +","+str(msg.pose.position.y) +","+str(msg.pose.position.z)+","+\
-                         str(msg.pose.orientation.x) +","+str(msg.pose.orientation.y) +","+str(msg.pose.orientation.z)+","+\
-                         str(msg.pose.orientation.w)
+        #publish a bogus message to put something on this topic to turn off the refinment marker
+        pose = Point(-1, -1, -1)
+        self.define_waypoint_marker_off_pub.publish(pose)
 
-        self.radio_pub.publish(radio_msg)
-
-        #de-select the appropriate buttons
-        for robot_list in self.gui.control_buttons:
-            for cmd_button in robot_list:
-                if (cmd_button.text()=='Define waypoint'):
-
-                    cmd_button.setChecked(False)
-                    ind = self.robot_names.index(robot_name)
-                    self.waypoint_listeners[ind].unregister()
 
 
 
@@ -532,7 +557,17 @@ class RosGuiBridge:
 
         #subscriber for listening to waypoint goals
         try:
-            self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
+            # self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
+
+            #publish the interactive marker
+            if (robot_name.find('erial') != -1) and (self.robot_pos_aerial != None):
+                pose = Point(self.robot_pos_aerial[0], self.robot_pos_aerial[1], self.robot_pos_aerial[2]) #put robot pose in here
+                self.define_waypoint_marker_pos_pub.publish(pose)
+
+            elif (robot_name.find('ound') != -1) and (self.robot_pos_ground != None):
+                pose = Point(self.robot_pos_ground[0], self.robot_pos_ground[1], self.robot_pos_ground[2]) #put robot pose in here
+                self.define_waypoint_marker_pos_pub.publish(pose)
+
         except ValueError:
             print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been enabled!!"
 
