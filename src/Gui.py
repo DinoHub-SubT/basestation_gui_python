@@ -1757,7 +1757,10 @@ class BasestationGuiPlugin(Plugin):
 
         for i, robot_name in enumerate(self.ros_gui_bridge.robot_names):
             self.control_buttons[i][2].setChecked(True) #press the button in the gui
-            self.processRobotCommandPress(self.control_buttons[i][2].text(), robot_name, self.control_buttons[i][2])#soft estop command
+            if (robot_name.find('erial') != -1):
+                self.processRobotCommandPress(self.ros_gui_bridge.remap_from_aerial_commands[self.control_buttons[i][2].text()], robot_name, self.control_buttons[i][2])#soft estop command
+            else:
+                self.processRobotCommandPress(self.control_buttons[i][2].text(), robot_name, self.control_buttons[i][2])#soft estop command
 
 
 
