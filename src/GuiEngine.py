@@ -410,9 +410,10 @@ class GuiEngine:
         #save the images
         for artifact in self.all_artifacts:
             for i, img in enumerate(artifact.imgs):
-                fname = self.log_img_folder+ artifact.category + '_' + artifact.unique_id.replace('/','_')+'.png'
-                img = cv2.resize(img,(300, 300))
-                cv2.imwrite(fname, img)
+                if (i%5 == 0):
+                    fname = self.log_img_folder+ artifact.category + '_' + artifact.unique_id.replace('/','_')+'_'+str(i)+'.png'
+                    img = cv2.resize(img,(300, 300))
+                    cv2.imwrite(fname, img)
 
 
 

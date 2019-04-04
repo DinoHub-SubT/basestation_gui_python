@@ -339,7 +339,7 @@ class BasestationGuiPlugin(Plugin):
         self.control_layout.addWidget(control_label)
 
         #define the number of commands in a single column
-        num_in_col = 5
+        num_in_col = 6
 
         #establish the sub-panel for each robot
         for robot_num, robot_name in enumerate(self.ros_gui_bridge.robot_names):
@@ -357,8 +357,7 @@ class BasestationGuiPlugin(Plugin):
 
                 
                 #check that we're not adding specific buttons to specific vehicles
-                if (not ((robot_name.find('ound') != -1) and (command=='Land in comms'))) and \
-                   (not ((robot_name.find('erial') != -1) and (command=='Drop comms'))) and \
+                if  (not ((robot_name.find('erial') != -1) and (command=='Drop comms'))) and \
                    (not ((robot_name.find('erial') != -1) and (command=='Show bluetooth')))  : 
 
                     if (robot_name.find('erial') != -1): #change the text if its for the aerial vehicle
@@ -471,8 +470,8 @@ class BasestationGuiPlugin(Plugin):
         '''
 
         #if its an estop button, de-activate all other estop buttons
-        if (button.text() in self.ros_gui_bridge.estop_commands) or\
-             (self.ros_gui_bridge.remap_from_aerial_commands[button.text()] in self.ros_gui_bridge.estop_commands):
+        if ((robot_name.find('ound') != -1) and (button.text() in self.ros_gui_bridge.estop_commands)) or\
+             ((robot_name.find('erial') != -1) and (self.ros_gui_bridge.remap_from_aerial_commands[button.text()] in self.ros_gui_bridge.estop_commands)):
 
             #find the set of control buttons for this robot
             robot_ind = -1
@@ -487,8 +486,8 @@ class BasestationGuiPlugin(Plugin):
 
                 for cmd_button in control_buttons:
                     if (cmd_button != button) and  \
-                            ((cmd_button.text() in self.ros_gui_bridge.estop_commands) or \
-                             (self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()] in self.ros_gui_bridge.estop_commands)):
+                            (((robot_name.find('ound') != -1) and cmd_button.text() in self.ros_gui_bridge.estop_commands) or \
+                             ((robot_name.find('erial') != -1) and self.ros_gui_bridge.remap_from_aerial_commands[cmd_button.text()] in self.ros_gui_bridge.estop_commands)):
                         
                         cmd_button.setChecked(False)
 

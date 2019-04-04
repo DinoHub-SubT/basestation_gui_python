@@ -280,7 +280,7 @@ class RosGuiBridge:
             elif(command == "Show bluetooth"):
                 self.handleBluetooth(robot_name, button)
 
-            elif(command == "Land in comms"):
+            elif(command == "Return to comms"):
                 self.pubLandInComms(robot_name, button)
 
         else: #the button has just been pressed
@@ -294,7 +294,7 @@ class RosGuiBridge:
             elif(command == "Show bluetooth"):
                 self.handleBluetooth(robot_name, button)
 
-            elif(command == "Land in comms"):
+            elif(command == "Return to comms"):
                 self.pubLandInComms(robot_name, button)
 
             else:
