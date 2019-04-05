@@ -264,7 +264,7 @@ class RosGuiBridge:
             elif(command == "Drop comms"):
                 self.dropComms(robot_name)
             else:
-                print self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
+                self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
 
         elif(not button.isChecked()): #it has just be un-clicked
 
@@ -275,7 +275,7 @@ class RosGuiBridge:
                     # self.waypoint_listeners[ind].unregister()
                     self.publishWaypointGoal(robot_name)
                 except ValueError:
-                    print self.gui.printMessage("Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!", self.gui.red_message)
+                    self.gui.printMessage("Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!", self.gui.red_message)
 
             elif(command == "Show bluetooth"):
                 self.handleBluetooth(robot_name, button)
@@ -298,7 +298,7 @@ class RosGuiBridge:
                 self.pubLandInComms(robot_name, button)
 
             else:
-                print self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
+                self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
 
     def pubLandInComms(self, robot_name, button):
         '''
@@ -640,8 +640,10 @@ class DarpaGuiBridge:
             self.get_status_thread = threading.Timer(1.0, self.getStatus)
             self.get_status_thread.start()
 
+        self.gui = gui
+
         #define publisher for publishing when we get stuff from darpa
-        self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
+        # self.status_pub = rospy.Publisher('/darpa_status_updates', String, queue_size=10)
 
 
 
@@ -690,14 +692,14 @@ class DarpaGuiBridge:
 
         #publish this data as something
         time_remaining = self.displaySeconds(float(self.darpa_status_update['run_clock']))
-
-        msg = String()
         
-        msg.data = "Time: "+str(time_remaining)+'\t Score: '+\
+        msg = "Time: "+str(time_remaining)+'\t Score: '+\
                    str(self.darpa_status_update['score'])+ '\t Remaining Reports: '+\
                    str(self.darpa_status_update['remaining_reports'])
 
-        self.status_pub.publish(msg)
+        # self.status_pub.publish(msg)
+
+        self.gui.updateInfoPanel(msg)
 
         #restart the thread to call this function again
         self.get_status_thread = threading.Timer(1.0, self.getStatus)

@@ -52,6 +52,8 @@ import cv2
 
 from basestation_gui_python.msg import StatusPanelUpdate
 
+from PyQt5.QtCore import pyqtSignal
+
 # from geometry_msgs.msg import Point
 # from interactiveMarkerProcessing import CustomInteractiveMarker
 
@@ -66,6 +68,17 @@ class NumericItem(qt.QTableWidgetItem):
 
 
 class BasestationGuiPlugin(Plugin):
+    status_panel_trigger = pyqtSignal(object)
+    queue_trigger = pyqtSignal(object)
+    update_artifact_trigger = pyqtSignal(object)
+    arthist_trigger = pyqtSignal(object)
+    print_message_trigger = pyqtSignal(object, object)
+    alert_about_art_removal_trigger = pyqtSignal()
+    remove_artifact_trigger = pyqtSignal(object)
+    update_refinement_pos_trigger = pyqtSignal(object)
+    add_message_trigger = pyqtSignal(object)
+    update_info_panel_trigger = pyqtSignal(object)
+
     def __init__(self, context):
         super(BasestationGuiPlugin, self).__init__(context)
         self.setObjectName('BasestationGuiPlugin')
@@ -127,6 +140,19 @@ class BasestationGuiPlugin(Plugin):
         self.green_message = [144,238,144]
         self.red_message = [250,128,114]
         self.normal_message = [220,220,220]
+
+        
+
+        self.status_panel_trigger.connect(self.status_panel_update_monitor)
+        self.queue_trigger.connect(self.sendToQueueMonitor)
+        self.update_artifact_trigger.connect(self.updateArtifactInQueueMonitor)
+        self.arthist_trigger.connect(self.drawAfterProposalMonitor)
+        self.print_message_trigger.connect(self.printMessageMonitor)
+        self.alert_about_art_removal_trigger.connect(self.alertImgAboutRemovalMonitor)
+        self.remove_artifact_trigger.connect(self.removeQueueArtifactMonitor)
+        self.update_refinement_pos_trigger.connect(self.updateRefinmentPosMonitor)
+        self.add_message_trigger.connect(self.addMessageMonitor)
+        self.update_info_panel_trigger.connect(self.updateInfoPanelMonitor)
         
     def loadDarpaTransform(self):
         '''
@@ -652,6 +678,11 @@ class BasestationGuiPlugin(Plugin):
         Display an artifact's index-th image
         '''
 
+        # print "disp art image:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "disp art image:",threading.current_thread().__class__.__name__
+
+
+
         if (index+1) > len(artifact.imgs):
             rospack = rospkg.RosPack()
             img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
@@ -689,11 +720,17 @@ class BasestationGuiPlugin(Plugin):
             self.printMessage("Request not processed. No artifact currently being displayed", self.normal_message)
         
     def updateRefinmentPos(self, msg):
+        self.update_refinement_pos_trigger.emit(msg)    
+
+    def updateRefinmentPosMonitor(self, msg):
         '''
         When the interactive marker moves, this 
         is called to update the appropriate textboxes and 
         update the artifact position
         '''
+
+        # print "update refinement pos:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "update refinement pos:",threading.current_thread().__class__.__name__
 
         #change the textboxes
         self.art_pos_textbox_x.setText(str(msg.pose.position.x)[:7])
@@ -924,141 +961,148 @@ class BasestationGuiPlugin(Plugin):
             #transform based on which robot submitted the detection
             if (self.displayed_artifact != None):
                 transformed_point = self.toDarpaFrame(point, self.displayed_artifact.source_robot)
-            
-            with self.artifact_proposal_lock: #to ensure we only draw one response at once
-
-                self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
-            
                 data = [float(transformed_point[0]), float(transformed_point[1]), float(transformed_point[2]), self.darpa_cat_box.currentText()]
-
-
-                self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText(), self.green_message) #checked
-
-                
                 proposal_return = self.darpa_gui_bridge.startArtifactProposal(data)
 
                 if(len(proposal_return) > 0):
-                    [submission_time_raw, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
-                                                                                                    proposal_return
-
-                    #add this to the submission history panel 
-                    submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time_raw))
-
-                    if(score_change==0):
-                        submission_correct='False'
-                        submission_color = gui.QColor(220,0,0)
-                    else:
-                        submission_correct='True'
-                        submission_color = gui.QColor(0,220,0)
-
-                    response_item = qt.QTableWidgetItem('Info')
-                    response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
-                                             '\nSubmission Correct? '+submission_correct)
-
-                    self.printMessage('DARPA response: '+str(report_status)+' HTTP Response: '+str(http_response)+str(http_reason)+\
-                                             ' Submission Correct? '+submission_correct, self.green_message) #checked
-
-                    response_item.setBackground(submission_color)
-
-                    #update the artifact's darpa_response property
-                    self.displayed_artifact.darpa_response = 'DARPA response: '+str(report_status)+'\nHTTP Response: '+\
-                                                             str(http_response)+str(http_reason)+\
-                                                             '\nSubmission Correct? '+submission_correct
-
-                    #update the artifacts' to_darpa time
-                    self.displayed_artifact.time_to_darpa = int(float(submission_time_raw))
-
-
-                    #add the stuff to the submission history table
-
-                    self.arthist_table.insertRow(self.arthist_table.rowCount())
-                    row = self.arthist_table.rowCount() - 1
-
-                    row_data = [artifact_type, submission_time, str(int(self.displayed_artifact.pos[0]))+'/'+\
-                                                                str(int(self.displayed_artifact.pos[1]))+'/'+\
-                                                                str(int(self.displayed_artifact.pos[2]))]
-
-                    for col, val in enumerate(row_data):
-                        
-                        if (col==1):
-                            colon = submission_time.find(':')
-                            val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
-                            item = NumericItem(str(submission_time))
-                            item.setData(core.Qt.UserRole, val)
-
-
-                        else: #if we're not dealing with a display time
-                            item = NumericItem(str(val))
-                            item.setData(core.Qt.UserRole, val)
-
-                        item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled ) #make it non-editable
-                        item.setTextAlignment(Qt.AlignHCenter) 
-
-                        self.arthist_table.setItem(row, col, item)
-
-                    
-
-                    #add the response item, we don't want this to be a NumericItem
-                    response_item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
-                    self.arthist_table.setItem(row, 3, response_item)
-
-
-                    #go find the artifact in the queue and remove it
-                    with self.update_queue_lock:
-                        self.queue_table.setSortingEnabled(False)
-                        row_ind = self.findDisplayedArtifact()
-
-                        if(row_ind!=-1):
-                            self.queue_table.removeRow(self.queue_table.item(row_ind,0).row())
-
-
-                            #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
-                            if self.displayed_artifact in self.gui_engine.queued_artifacts:
-                                self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
-
-                            self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
-
-                        self.queue_table.setSortingEnabled(True)
-
-
-                    #remove the artifact from the main visualization panel
-
-                    #display a blank box for the image
-                    self.displayArtifactImg(self.displayed_artifact, len(self.displayed_artifact.imgs))
-
-                    self.orig_pos_label_x.setText('')
-                    self.art_pos_textbox_x.setText('')
-
-                    self.orig_pos_label_y.setText('')
-                    self.art_pos_textbox_y.setText('')
-
-                    self.orig_pos_label_z.setText('')
-                    self.art_pos_textbox_z.setText('')
-
-                    self.displayed_artifact = None
-
-                    #remove any update on the artifact (messages about it being deleted or updated)
-                    self.update_art_label.hide()
-
-
-                self.arthist_table.setSortingEnabled(True) 
-
-                if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
-                    self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
-
-                    self.arthist_table.viewport().update()
-
-            #reset the darpa proposal buttons
-            self.darpa_confirm_button.setEnabled(False)
-            self.darpa_cancel_button.setEnabled(False)
-
-            self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
-            self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
-
-            self.gui_engine.savePeriodically(self)
+                    self.drawAfterProposal(proposal_return)
+            
+            
         
         else:
             self.printMessage('Not connected to DARPA basestation, thus artifact not submitted.', self.red_message)
+
+    def drawAfterProposal(self, proposal_return):
+        self.arthist_trigger.emit(proposal_return)
+
+    def drawAfterProposalMonitor(self, proposal_return):
+        # print "drawing in arthist:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "drawing in arthist:",threading.current_thread().__class__.__name__
+
+        with self.artifact_proposal_lock: #to ensure we only draw one response at once
+
+            self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
+
+            self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText(), self.green_message) #checked
+            
+            [submission_time_raw, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
+                                                                                            proposal_return
+
+            #add this to the submission history panel 
+            submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time_raw))
+
+            if(score_change==0):
+                submission_correct='False'
+                submission_color = gui.QColor(220,0,0)
+            else:
+                submission_correct='True'
+                submission_color = gui.QColor(0,220,0)
+
+            response_item = qt.QTableWidgetItem('Info')
+            response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
+                                     '\nSubmission Correct? '+submission_correct)
+
+            self.printMessage('DARPA response: '+str(report_status)+' HTTP Response: '+str(http_response)+str(http_reason)+\
+                                     ' Submission Correct? '+submission_correct, self.green_message) #checked
+
+            response_item.setBackground(submission_color)
+
+            #update the artifact's darpa_response property
+            self.displayed_artifact.darpa_response = 'DARPA response: '+str(report_status)+'\nHTTP Response: '+\
+                                                     str(http_response)+str(http_reason)+\
+                                                     '\nSubmission Correct? '+submission_correct
+
+            #update the artifacts' to_darpa time
+            self.displayed_artifact.time_to_darpa = int(float(submission_time_raw))
+
+
+            #add the stuff to the submission history table
+
+            self.arthist_table.insertRow(self.arthist_table.rowCount())
+            row = self.arthist_table.rowCount() - 1
+
+            row_data = [artifact_type, submission_time, str(int(self.displayed_artifact.pos[0]))+'/'+\
+                                                        str(int(self.displayed_artifact.pos[1]))+'/'+\
+                                                        str(int(self.displayed_artifact.pos[2]))]
+
+            for col, val in enumerate(row_data):
+                
+                if (col==1):
+                    colon = submission_time.find(':')
+                    val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
+                    item = NumericItem(str(submission_time))
+                    item.setData(core.Qt.UserRole, val)
+
+
+                else: #if we're not dealing with a display time
+                    item = NumericItem(str(val))
+                    item.setData(core.Qt.UserRole, val)
+
+                item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled ) #make it non-editable
+                item.setTextAlignment(Qt.AlignHCenter) 
+
+                self.arthist_table.setItem(row, col, item)
+
+            
+
+            #add the response item, we don't want this to be a NumericItem
+            response_item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+            self.arthist_table.setItem(row, 3, response_item)
+
+
+            #go find the artifact in the queue and remove it
+            with self.update_queue_lock:
+                self.queue_table.setSortingEnabled(False)
+                row_ind = self.findDisplayedArtifact()
+
+                if(row_ind!=-1):
+                    self.queue_table.removeRow(self.queue_table.item(row_ind,0).row())
+
+
+                    #also remove it from the gui engine artifacts list and put it into the gui engine proposed list
+                    if self.displayed_artifact in self.gui_engine.queued_artifacts:
+                        self.gui_engine.queued_artifacts.remove(self.displayed_artifact)
+
+                    self.gui_engine.submitted_artifacts.append(self.displayed_artifact)
+
+                self.queue_table.setSortingEnabled(True)
+
+
+            #remove the artifact from the main visualization panel
+
+            #display a blank box for the image
+            self.displayArtifactImg(self.displayed_artifact, len(self.displayed_artifact.imgs))
+
+            self.orig_pos_label_x.setText('')
+            self.art_pos_textbox_x.setText('')
+
+            self.orig_pos_label_y.setText('')
+            self.art_pos_textbox_y.setText('')
+
+            self.orig_pos_label_z.setText('')
+            self.art_pos_textbox_z.setText('')
+
+            self.displayed_artifact = None
+
+            #remove any update on the artifact (messages about it being deleted or updated)
+            self.update_art_label.hide()
+
+
+        self.arthist_table.setSortingEnabled(True) 
+
+        if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
+            self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
+
+            self.arthist_table.viewport().update()
+
+        #reset the darpa proposal buttons
+        self.darpa_confirm_button.setEnabled(False)
+        self.darpa_cancel_button.setEnabled(False)
+
+        self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+        self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+
+        self.gui_engine.savePeriodically(self)
 
     def toDarpaFrame(self, point, robot_num):
         '''
@@ -1169,6 +1213,8 @@ class BasestationGuiPlugin(Plugin):
         '''
         return self.displayed_artifact
 
+    # def updateArtifactPriority(self):
+    #     self.update_artifact_priority_trigger.emit()
 
     def updateArtifactPriority(self):
         '''
@@ -1176,6 +1222,9 @@ class BasestationGuiPlugin(Plugin):
         self.dont_change_art_priority indicates if the change is automatic after clicking 
         on an artifact in the  queue and therefore don't do anything
         '''
+
+        # print "priority: ",isinstance(threading.current_thread(), threading._MainThread)
+        # print "priority: ",threading.current_thread().__class__.__name__
 
         if (not self.dont_change_art_priority) and self.displayed_artifact!=None :
 
@@ -1199,6 +1248,8 @@ class BasestationGuiPlugin(Plugin):
 
         self.dont_change_art_priority = False #reset its value
 
+    # def updateArtifactCat(self):
+    #     self.update_artifact_category_trigger.emit()
 
     def updateArtifactCat(self):
         '''
@@ -1229,11 +1280,16 @@ class BasestationGuiPlugin(Plugin):
         self.dont_change_art_category = False #reset its value
         
 
+    def sendToQueue(self,artifact):
+        self.queue_trigger.emit(artifact)
 
-    def sendToQueue(self, artifact):
+    def sendToQueueMonitor(self, artifact):
         '''
         Send the artifact subscribed to, to the queue
         '''
+
+        # print "queue table:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "queue table:",threading.current_thread().__class__.__name__
 
 
         with self.update_queue_lock:
@@ -1360,6 +1416,9 @@ class BasestationGuiPlugin(Plugin):
         queue is selected
         '''
 
+        # print "queue table click:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "queue table click:",threading.current_thread().__class__.__name__
+
         #remove any update on the artifact (messages about it being deleted or updated)
         self.update_art_label.hide()
 
@@ -1457,10 +1516,17 @@ class BasestationGuiPlugin(Plugin):
         self.dont_change_art_priority = False
 
         
+
     def updateArtifactInQueue(self, artifact):
+        self.update_artifact_trigger.emit(artifact)
+
+    def updateArtifactInQueueMonitor(self, artifact):
         '''
         An artifact's info has been changed and the queue needs to be updated
         '''
+
+        # print "update artifact:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "update artifact:",threading.current_thread().__class__.__name__
 
         for i in range(self.queue_table.rowCount()):
 
@@ -1530,12 +1596,18 @@ class BasestationGuiPlugin(Plugin):
             self.update_art_label.setStyleSheet("background-color: rgba(255, 255, 0, 80%)")
             self.update_art_label.show()
         
-
     def alertImgAboutRemoval(self):
+        self.alert_about_art_removal_trigger.emit()
+
+
+    def alertImgAboutRemovalMonitor(self):
         '''
         If the artifact is removed while the BSM is viewing it, pop up
         a message saying so
         '''
+
+        # print "alert about removal:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "alert about removal:",threading.current_thread().__class__.__name__
 
         #if the artifact is currently displayed, bring up a textbox alerting them
         self.update_art_label.setText('Artifact has been deleted!')
@@ -1546,16 +1618,21 @@ class BasestationGuiPlugin(Plugin):
         '''
         Function to remove an item from the queue
         '''
-        self.queue_table.removeRow(row)
+        pass
 
     def removeQueueArtifact(self, artifact):
+        self.remove_artifact_trigger.emit(artifact)        
+
+    def removeQueueArtifactMonitor(self, artifact):
         '''
         Function to remove an artifact from the queue
         '''
 
-        with self.update_queue_lock:
+        # print "removing from queue:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "removing from queue:",threading.current_thread().__class__.__name__
 
-            # self.queue_table.setSortingEnabled(False)
+
+        with self.update_queue_lock:
 
             #find the artifact row
             found = False
@@ -1877,11 +1954,16 @@ class BasestationGuiPlugin(Plugin):
         self.message_box_widget.setLayout(self.message_box_layout)
         self.global_widget.addWidget(self.message_box_widget, pos[0], pos[1], pos[2], pos[3]) 
 
-
     def addMessage(self, msg):
+        self.add_message_trigger.emit(msg)
+
+    def addMessageMonitor(self, msg):
         '''
         Add a message to the message box from a rostopic
         '''
+        # print "add message monitor:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "add message monitor:",threading.current_thread().__class__.__name__
+
         with self.update_message_box_lock:
             self.message_textbox.setSortingEnabled(False)
             
@@ -1896,12 +1978,18 @@ class BasestationGuiPlugin(Plugin):
 
             self.message_textbox.viewport().update()
 
+    def printMessage(self, msg, rgb):
+        self.print_message_trigger.emit(msg, rgb)
 
-    def printMessage(self, msg, rgb=None):
+
+    def printMessageMonitor(self, msg, rgb=None):
         '''
         Add message to the messag box that is simply a string from
         this application (not ROS)
         '''
+
+        # print "print message:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "print message:",threading.current_thread().__class__.__name__
         
         with self.update_message_box_lock:
             self.message_textbox.setSortingEnabled(False)
@@ -1959,23 +2047,29 @@ class BasestationGuiPlugin(Plugin):
         self.initMessagePanel(message_pos) #panel to display ros loginfo messages
 
         #initialize the subscribers for updating different parts of the GUI
-        self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
+        # self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
 
         self.status_panel_update_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.status_panel_update_callback)
+
+
 
         #load the darpa transform
         self.loadDarpaTransform()
 
     def updateInfoPanel(self, msg):
+        self.update_info_panel_trigger.emit(msg)
+
+    def updateInfoPanelMonitor(self, msg):
         '''
         Subscriber that constantly updates info panel
         '''
 
+        # print "update info panel:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "update info panel:",threading.current_thread().__class__.__name__
+
         
         #update the info panel
-        info_update = self.darpa_gui_bridge.darpa_status_update
-
-        self.info_label.setText(msg.data)
+        self.info_label.setText(msg)
 
         #save the state of the gui
         if (self.save_count == 30): #to make sure we save every x seconds
@@ -1988,6 +2082,9 @@ class BasestationGuiPlugin(Plugin):
         '''
         From a selected filename, fill in the various gui components
         '''
+
+        # print "fill in gui:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "fill in gui:",threading.current_thread().__class__.__name__
 
         #all we really need is the last line
         csv_data = None
@@ -2146,25 +2243,47 @@ class BasestationGuiPlugin(Plugin):
 
     
 
-
-
     def status_panel_update_callback(self, msg):
+        self.status_panel_trigger.emit(msg)#self.emit(SIGNAL("changeUI(PyQt_PyObject)"), msg)
+
+    def status_panel_update_monitor(self, msg):
+
+        # print "status panel:",isinstance(threading.current_thread(), threading._MainThread)
+        # print "status panel:",threading.current_thread().__class__.__name__
+
+        # print "start status", msg.value, type(msg.value)
+        msg_str = [ord(c) for c in msg.value]
+        # print msg_str
+        # print msg.color.r, msg.color.g, msg.color.b
         column_index = msg.robot_id
+        # print "1"
         if column_index < 0 or column_index >= self.status_table.columnCount():
             rospy.logerr('robot_id %d is out of bounds: ' % column_index)
             return
+        # print "2"
         if msg.key not in self.statuses:
             rospy.logerr('key %s is not the name of a row in the status panel' % msg.key)
             return
+        # print "3"
         row_index = self.statuses.index(msg.key)
+# 
+        # print "4"
 
         item = self.status_table.item(row_index, column_index)
+        
         if item == None:
             self.status_table.setItem(row_index, column_index, qt.QTableWidgetItem(''))
         item = self.status_table.item(row_index, column_index)
         item.setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
+        # if (row_index!=0):
+        #     item.setText(msg.value)
+        # else:
+        #     item.setText('hello')
         item.setText(msg.value)
+        # print "5"
         self.status_table.viewport().update()
+
+        # print "end status"
 
 
     def select_config_file(self):
@@ -2232,6 +2351,8 @@ class BasestationGuiPlugin(Plugin):
         '''
         Generates the gui using either start fresh or from using previous settings
         '''
+
+
         self.config_filename = config_filename
         self.ros_gui_bridge = RosGuiBridge(self.config_filename, self)
 
