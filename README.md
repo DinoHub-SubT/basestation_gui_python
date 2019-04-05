@@ -86,7 +86,7 @@ To define a waypoint, you need to add the interatice marker topic
 ```bash
 /define_waypoint/update
 ```
-to RViz. This marker will become visible upon selecting 1+ of the "Define waypoint" buttons in the gui. Its starting location is set as the robot pose. This marker then can be moved around to its final location by clicking and dragging in RViz. Once its final location is set, de-select the button in RViz, this de-selection will publish a RadioMsg waypoint to the robot. 
+to RViz. This marker will become visible upon selecting 1+ of the "Define waypoint" buttons in the gui. Its starting location is set as the robot pose. This marker then can be moved around to its final location by clicking and dragging in RViz. Once its final location is set, de-select the button in the gui, this de-selection will publish a RadioMsg waypoint to the robot. 
 
 =======
 # Troubleshooting
@@ -97,7 +97,7 @@ rqt --clear-config
 and re-launch the gui
 
 
-# ‚ÄúQuick Start Guide‚Äù
+# ìQuick Start Guideî
 
 ##Window 1
 
