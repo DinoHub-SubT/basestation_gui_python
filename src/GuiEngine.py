@@ -81,7 +81,7 @@ class GuiEngine:
         '''
 
         if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
-            print "Deleting artifact:", msg.artifact_report_id
+            # print "Deleting artifact:", msg.artifact_report_id
 
             self.removeArtifactFromGui(msg)
 
@@ -275,7 +275,7 @@ class GuiEngine:
         '''
 
         if (msg.artifact_type == RadioMsg.ARTIFACT_REMOVE): #we're removing an artifact not adding one
-            print "Deleting artifact:", msg.artifact_report_id
+            # print "Deleting artifact:", msg.artifact_report_id
 
             self.removeArtifactFromGui(msg)
 
