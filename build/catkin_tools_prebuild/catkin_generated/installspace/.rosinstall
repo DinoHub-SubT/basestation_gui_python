@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/autelgcs/basestation_ws/src/basestation_gui_python/install/setup.sh

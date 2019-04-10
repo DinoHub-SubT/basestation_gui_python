@@ -1,0 +1,8 @@
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/./setup.zsh
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/./setup.bash
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/./setup.sh
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/./env.sh
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/./_setup_util.py
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/lib/pkgconfig/catkin_tools_prebuild.pc
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/share/catkin_tools_prebuild/cmake/catkin_tools_prebuildConfig-version.cmake
+Symlinking /home/autelgcs/basestation_ws/src/basestation_gui_python/devel/share/catkin_tools_prebuild/cmake/catkin_tools_prebuildConfig.cmake
