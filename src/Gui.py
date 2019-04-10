@@ -1729,11 +1729,6 @@ class BasestationGuiPlugin(Plugin):
         self.queue_delete_cancel_button.setEnabled(False)
         self.queue_layout.addWidget(self.queue_delete_cancel_button, 2, 1)
 
-	#add support for requesting that all artifact info gets sent back
-        self.resend_art_data_button = qt.QPushButton("Re-send all artifact info")
-        self.resend_art_data_button.clicked.connect(self.resendArtifactInfo)
-        self.queue_layout.addWidget(self.resend_art_data_button, 3, 0, 1, 3)
-
 
         #make a table
         self.queue_table = qt.QTableWidget()
@@ -1764,19 +1759,11 @@ class BasestationGuiPlugin(Plugin):
 
 
         #add the table to the layout
-        self.queue_layout.addWidget(self.queue_table, 4, 0, 1, 3)
+        self.queue_layout.addWidget(self.queue_table, 3, 0, 1, 3)
 
         #add to the overall gui
         self.queue_widget.setLayout(self.queue_layout)
         self.global_widget.addWidget(self.queue_widget, pos[0], pos[1], pos[2], pos[3]) #last 2 parameters are rowspan and columnspan
-
-    def resendArtifactInfo(self):
-	'''
-	We want all of the artifact data to be re-sent. TODO for Bob 
-	is to delete the data the gui originally had
-	'''
-	
-	self.ros_gui_bridge.resendArtifactMsg()
 
     def deleteArtifact(self):
         '''

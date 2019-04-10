@@ -1,1 +1,0 @@
-/home/autelgcs/basestation_ws/src/basestation_gui_python/devel/.private/catkin_tools_prebuild/setup.zsh

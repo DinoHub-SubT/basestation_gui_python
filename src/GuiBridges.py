@@ -319,18 +319,6 @@ class RosGuiBridge:
 
         self.radio_pub.publish(radio_msg)
 
-    def resendArtifactMsg(self):
-	'''
-	We want all of the artifact data to be re-sent. TODO for Bob 
-	is to delete the data the gui originally had
-	'''
-	radio_msg = RadioMsg()
-	radio_msg.recipient_robot_id = 0 #hard-coded to be the ground vehicle
-	radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ODOM_REPORT
-
-	self.radio_pub.publish(radio_msg)
-	
-
 
 
     def handleBluetooth(self, robot_name, button):
