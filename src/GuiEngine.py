@@ -120,8 +120,17 @@ class GuiEngine:
                             sorted_tuple = sorted(zip(artifact.img_stamps,
                                 artifact.imgs), key=lambda t: t[0],
                                 reverse=True)
-                            artifact.img_stamps = [t[0] for t in sorted_tuple]
-                            artifact.imgs = [t[1] for t in sorted_tuple]
+
+                            artifact.img_stamps = []
+                            artifact.imgs = []
+                            artifact_stamps_set = set()
+                            for art_stamp, art_img in sorted_tuple:
+                                if art_stamp in artifact_stamps_set:
+                                    continue
+                                artifact_stamps_set.add(art_stamp)
+
+                                artifact.img_stamps.append(art_stamp)
+                                artifact.imgs.append(art_img)
 
                     if (msg.artifact_x != 0) and (msg.artifact_y != 0) and (msg.artifact_z != 0):
                         artifact.pos[0] = msg.artifact_x
