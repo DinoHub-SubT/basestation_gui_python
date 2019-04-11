@@ -989,7 +989,10 @@ class BasestationGuiPlugin(Plugin):
                                                                                             proposal_return
 
             #add this to the submission history panel 
-            submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time_raw))
+            try:
+                submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time_raw))
+            except:
+                submission_time = '99:99'
 
             if(score_change==0):
                 submission_correct='False'
@@ -1013,7 +1016,10 @@ class BasestationGuiPlugin(Plugin):
                                                      '\nSubmission Correct? '+submission_correct
 
             #update the artifacts' to_darpa time
-            self.displayed_artifact.time_to_darpa = int(float(submission_time_raw))
+            try:
+                self.displayed_artifact.time_to_darpa = int(float(submission_time_raw))
+            except:
+                self.displayed_artifact.time_to_darpa =  9999
 
 
             #add the stuff to the submission history table
@@ -1295,6 +1301,7 @@ class BasestationGuiPlugin(Plugin):
         with self.update_queue_lock:
 
             #if we need to connect to the command post, wait
+            #TODO: figure out why we would wait to be connected to the command post
             if (self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']==None):
 
                 #remove the artifact
@@ -1316,7 +1323,10 @@ class BasestationGuiPlugin(Plugin):
 
                 #fill in the row data
                 if (artifact.time_from_robot == -1 and self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None): #this is coming directly from the robot
-                    disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                    try:
+                        disp_time = self.darpa_gui_bridge.displaySeconds(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                    except:
+                        disp_time = '99:99'
                 
                 elif(self.connect_to_command_post):
                     disp_time = self.darpa_gui_bridge.displaySeconds(float(artifact.time_from_robot))
@@ -1344,7 +1354,10 @@ class BasestationGuiPlugin(Plugin):
                     self.queue_table.setItem(row, col, item)
 
                 if(self.connect_to_command_post and self.darpa_gui_bridge.darpa_status_update['run_clock']!=None):
-                    artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                    try:
+                        artifact.time_from_robot = int(float(self.darpa_gui_bridge.darpa_status_update['run_clock']))
+                    except:
+                        artifact.time_from_robot = 9999
 
                 else:
                     artifact.time_from_robot = 1

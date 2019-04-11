@@ -691,6 +691,7 @@ class DarpaGuiBridge:
 
         artifact_report_reply, http_status, http_reason = results
 
+
         return artifact_report_reply['run_clock'], artifact_report_reply['type'], artifact_report_reply['x'], \
                artifact_report_reply['y'], artifact_report_reply['z'], \
                artifact_report_reply['report_status'], artifact_report_reply['score_change'], http_status, http_reason
@@ -701,6 +702,11 @@ class DarpaGuiBridge:
         Function that calls the http code to get the status
         '''
         self.darpa_status_update = self.http_client.get_status_from_command_post()
+
+        try:
+            r = float(self.darpa_status_update['run_clock'])
+        except:
+            self.darpa_status_update['run_clock'] = 999
 
         #publish this data as something
         time_remaining = self.displaySeconds(float(self.darpa_status_update['run_clock']))
