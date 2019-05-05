@@ -88,6 +88,21 @@ To define a waypoint, you need to add the interatice marker topic
 ```
 to RViz. This marker will become visible upon selecting 1+ of the "Define waypoint" buttons in the gui. Its starting location is set as the robot pose. This marker then can be moved around to its final location by clicking and dragging in RViz. Once its final location is set, de-select the button in the gui, this de-selection will publish a RadioMsg waypoint to the robot. 
 
+# To add a new plugin
+
+Generate a .py file following the convention of the Gui.py format (inherit from the Plugin class, etc.)
+
+In the basestation_gui_python/plugin.xml file add the plugin. Keep it in the same group as the other plugins (Basestation Gui)
+
+Run rqt --force-discover. It should now show up in the drop-down for plugins. 
+
+To ensure that its displayed everytime the gui is roslaunched, add it to the perspective. To do this:
+-Position all of the plugins how you want them in the rqt window
+-On the top bar there is a Perspective tab. Click it
+-Export the perspective
+-Save it as whatever the gui.launch file calls. Probably /config/subt_test_perspective or something like that. 
+
+
 =======
 # Troubleshooting
 For some reason, sometimes it wants to launch twice (you'll see 2 messages about an HTTP server being launched). To fix this error for now, run 

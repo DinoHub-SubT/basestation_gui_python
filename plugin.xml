@@ -1,7 +1,7 @@
 <library path="src">
   <class name="BasestationGuiPlugin" type="Gui.BasestationGuiPlugin" base_class_type="rqt_gui_py::Plugin">
     <description>
-      An example Python GUI plugin to create a great user interface.
+      Main gui for SubT human interface
     </description>
     <qtgui>
       <group>
@@ -10,6 +10,19 @@
       <label>Basestation Gui</label>
       <icon type="theme">system-help</icon>
       <statustip>Basestation Gui interface.</statustip>
+    </qtgui>
+  </class>
+  <class name="MessagePlugin" type="MessagePlugin.MessagePlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin to display text messages
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>MessagePlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to display text messages.</statustip>
     </qtgui>
   </class>
 </library>

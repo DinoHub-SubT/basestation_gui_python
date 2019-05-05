@@ -19,7 +19,7 @@
 
 
 	<!--launch the gui-->
-    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen" />
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args = '--perspective-file $(find basestation_gui_python)/config/subt_test_gui.perspective' output="screen" />
 
    
 
