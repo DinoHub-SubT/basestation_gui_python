@@ -50,6 +50,7 @@ add_message_files(
    FakeWifiDetection.msg
    StatusPanelUpdate.msg
    GuiMessage.msg
+   DarpaStatus.msg
 #   Message1.msg
 #   Message2.msg
 )

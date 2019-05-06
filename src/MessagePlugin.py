@@ -43,7 +43,7 @@ import pdb
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage
+from basestation_gui_python.msg import GuiMessage, DarpaStatus
 
 class MessagePlugin(Plugin):
 
@@ -52,6 +52,9 @@ class MessagePlugin(Plugin):
 	def __init__(self, context):
 		super(MessagePlugin, self).__init__(context)
 		self.setObjectName('MessagePlugin')		
+
+		self.darpa_time = None
+		self.time_sub = rospy.Subscriber('/gui_darpa_status', DarpaStatus, self.setDarpaTime)
 
 		self.initMessagePanel(context) #layout plugin
 
@@ -92,6 +95,12 @@ class MessagePlugin(Plugin):
 		self.message_box_widget.setLayout(self.message_box_layout)
 		self.global_widget.addWidget(self.message_box_widget)
 
+	def setDarpaTime(self, msg):
+		'''
+		Function that saves the darpa time published from the darpa status node
+		into a local variable to be used here
+		'''
+		self.darpa_time = msg.time_remaining
 
 	def printMessage(self, msg):
 		self.print_message_trigger.emit(msg)
@@ -107,7 +116,12 @@ class MessagePlugin(Plugin):
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"		
 		
-		item = qt.QListWidgetItem('[--] '+msg.data)
+		
+
+		if (self.darpa_time != None):
+			item = qt.QListWidgetItem('['+self.displaySeconds(self.darpa_time)+']'+msg.data)
+		else:
+			item = qt.QListWidgetItem('[--] '+msg.data)
 
 		if (msg.color.r == 0) and (msg.color.g == 0) and (msg.color.b == 0): #if color hasn't been set, set to white
 			item.setBackground(gui.QColor(255, 255, 255))
@@ -115,15 +129,24 @@ class MessagePlugin(Plugin):
 			item.setBackground(gui.QColor(msg.color.r, msg.color.b, msg.color.g))
 
 		self.message_textbox.addItem(item)
+		self.message_textbox.sortItems(core.Qt.DescendingOrder)
 
 		self.message_textbox.viewport().update()
 
+	def displaySeconds(self, seconds):
+		'''
+		Function to convert seconds float into a min:sec string
+		'''
+		#convert strings to floats
+		seconds = float(seconds)
 
-	def select_config_file(self):
-		starting_path = os.path.join(rospkg.RosPack().get_path('basestation_gui_python'), 'config')
-		filename = qt.QFileDialog.getOpenFileName(self.widget, 'Open Config File', starting_path, "Config Files (*.yaml)")[0]
-		if filename != '':
-			self.initiateSettings(filename)
+		seconds_int = int(seconds-(int(seconds)/60)*60)
+		if seconds_int < 10:
+			seconds_str = '0'+str(seconds_int)
+		else:
+			seconds_str = str(seconds_int)
+
+		return str((int(seconds)/60))+':'+seconds_str
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here

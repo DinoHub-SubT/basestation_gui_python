@@ -4,6 +4,7 @@
 import rospy
 from basestation_gui_python.msg import GuiMessage
 import time
+import random
 
 def talker():
     pub = rospy.Publisher('/gui_message_print', GuiMessage, queue_size=10)
@@ -13,9 +14,9 @@ def talker():
 
     while not rospy.is_shutdown():
         msg.data = "hello"+str(time.time())
-        # msg.color.r = 255  
-        # msg.color.g = 0  
-        # msg.color.b = 0  
+        msg.color.r = random.random()*126. + 126.  
+        msg.color.g = random.random()*126. + 126.  
+        msg.color.b = random.random()*126. + 126.  
         pub.publish(msg)
         rate.sleep()
 
