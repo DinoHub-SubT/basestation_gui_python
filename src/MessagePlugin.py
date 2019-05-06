@@ -43,29 +43,34 @@ import pdb
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
+from basestation_gui_python.msg import GuiMessage
+
 class MessagePlugin(Plugin):
 
-	print_message_trigger = pyqtSignal(object, object) #to keep the message printing on the proper thread
+	print_message_trigger = pyqtSignal(object) #to keep the message printing on the proper thread
 
 	def __init__(self, context):
 		super(MessagePlugin, self).__init__(context)
-		self.setObjectName('MessagePlugin')
+		self.setObjectName('MessagePlugin')		
 
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()
-     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
+		self.initMessagePanel(context) #layout plugin
 
-		self.initMessagePanel()
+		#setup subscribers
+		self.message_sub = rospy.Subscriber('/gui_message_print', GuiMessage, self.printMessage)
 
 		self.print_message_trigger.connect(self.printMessageMonitor)
 
-	def initMessagePanel(self):
+	def initMessagePanel(self, context):
 		'''
 		Initialize the panel which displays various text messages
 		'''
+
+		#define the overall plugin
+		self.widget = QWidget()
+		self.global_widget = qt.QGridLayout()     
+		
+		self.widget.setLayout(self.global_widget)
+		context.add_widget(self.widget)
 
 		#define the overall widget
 		self.message_box_widget = QWidget()
@@ -88,38 +93,28 @@ class MessagePlugin(Plugin):
 		self.global_widget.addWidget(self.message_box_widget)
 
 
-	def printMessage(self, msg, rgb):
-		self.print_message_trigger.emit(msg, rgb)
+	def printMessage(self, msg):
+		self.print_message_trigger.emit(msg)
 
 
-	def printMessageMonitor(self, msg, rgb=None):
+	def printMessageMonitor(self, msg):
 		'''
 		Add message to the message box that is simply a string from
 		this application (not ROS)
 		'''
 
-		print "print message:",isinstance(threading.current_thread(), threading._MainThread)
-		print "print message:",threading.current_thread().__class__.__name__
+		#check that threading is working properly
+		if (not isinstance(threading.current_thread(), threading._MainThread)):
+			print "Drawing on the message panel not guarented to be on the proper thread"		
 		
-		# with self.update_message_box_lock:
-		#     self.message_textbox.setSortingEnabled(False)
+		item = qt.QListWidgetItem('[--] '+msg.data)
 
-
-		if (self.darpa_gui_bridge != None and self.darpa_gui_bridge.darpa_status_update['run_clock'] != None):
-			item = qt.QListWidgetItem('['+str(self.darpa_gui_bridge.displaySeconds(self.darpa_gui_bridge.darpa_status_update['run_clock']))+'] '+msg)
-		else:
-			item = qt.QListWidgetItem('[--] '+msg)
-
-		if (rgb != None):
-			item.setBackground(gui.QColor(rgb[0], rgb[1], rgb[2]))
+		if (msg.color.r == 0) and (msg.color.g == 0) and (msg.color.b == 0): #if color hasn't been set, set to white
+			item.setBackground(gui.QColor(255, 255, 255))
+		else: #set to color of message
+			item.setBackground(gui.QColor(msg.color.r, msg.color.b, msg.color.g))
 
 		self.message_textbox.addItem(item)
-
-
-
-			# self.message_textbox.setSortingEnabled(True)
-
-			# self.message_textbox.sortItems(core.Qt.DescendingOrder)
 
 		self.message_textbox.viewport().update()
 
@@ -131,43 +126,6 @@ class MessagePlugin(Plugin):
 			self.initiateSettings(filename)
 			
 	def shutdown_plugin(self):
-		pass
 		# TODO unregister all publishers here
-		# if(self.connect_to_command_post):
-		#     self.darpa_gui_bridge.shutdownHttpServer()
+		self.message_sub.unregister()
 		
-
-	def save_settings(self, plugin_settings, instance_settings):
-		# instance_settings.set_value('config_filename', self.config_filename)
-		pass
-
-	def restore_settings(self, plugin_settings, instance_settings):
-		'''
-		Function which lays out all of the widgets from a pre-specified .yaml 
-		config file. 
-		'''
-		self.initiateSettings(instance_settings.value('config_filename'))
-		
-
-	def initiateSettings(self, config_filename):
-		'''
-		Generates the gui using either start fresh or from using previous settings
-		'''
-
-
-		# self.config_filename = config_filename
-		# self.ros_gui_bridge = RosGuiBridge(self.config_filename, self)
-
-		# self.defineRobotTransformButtons()
-		
-		# config = yaml.load(open(self.config_filename, 'r').read())
-		# darpa_params = config['darpa_params']
-		# self.associateCatsWithLabels(darpa_params['artifact_labels'])
-
-		# self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename, self)
-
-		# self.buildGui()        
-		
-		# self.gui_engine = GuiEngine(self)
-
-		# self.ros_gui_bridge.initSubscribers(self)

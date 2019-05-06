@@ -147,7 +147,7 @@ class RosGuiBridge:
     def initSubscribers(self, gui):
         '''
         Called after all of the gui has been built. Avoid errors where the gui subscribes to something
-        and tried to populate na element (e.g. table) that does not exist
+        and tried to populate an element (e.g. table) that does not exist
         '''
 
         #subscriber for updating the corresponding textboxes for the refinement marker

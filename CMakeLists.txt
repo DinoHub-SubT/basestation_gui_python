@@ -49,6 +49,7 @@ add_message_files(
    NineHundredRadioMsg.msg
    FakeWifiDetection.msg
    StatusPanelUpdate.msg
+   GuiMessage.msg
 #   Message1.msg
 #   Message2.msg
 )
