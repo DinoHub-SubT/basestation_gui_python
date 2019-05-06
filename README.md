@@ -90,9 +90,9 @@ to RViz. This marker will become visible upon selecting 1+ of the "Define waypoi
 
 # To add a new plugin
 
-Generate a .py file following the convention of the Gui.py format (inherit from the Plugin class, etc.)
+Generate a .py file following the convention of the Gui.py format (inherit from the Plugin class, etc.). An barebones example is in src/SkeletonPlugin.py
 
-In the basestation_gui_python/plugin.xml file add the plugin. Keep it in the same group as the other plugins (Basestation Gui)
+In the basestation_gui_python/plugin.xml file add the plugin as a new class. Keep it in the same group as the other plugins (Basestation Gui)
 
 Run rqt --force-discover. It should now show up in the drop-down for plugins. 
 

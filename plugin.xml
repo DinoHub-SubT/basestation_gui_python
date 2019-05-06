@@ -25,4 +25,17 @@
       <statustip>Plugin to display text messages.</statustip>
     </qtgui>
   </class>
+  <class name="InfoPlugin" type="InfoPlugin.InfoPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      lugin to display info from darpa
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>InfoPlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to display info from darpa.</statustip>
+    </qtgui>
+  </class>
 </library>

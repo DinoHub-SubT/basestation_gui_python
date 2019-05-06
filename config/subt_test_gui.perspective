@@ -5,11 +5,33 @@
       "keys": {
         "running-plugins": {
           "type": "repr",
-          "repr": "{u'basestation_gui_python/BasestationGuiPlugin': [1], u'basestation_gui_python/MessagePlugin': [1, 2]}"
+          "repr": "{u'basestation_gui_python/BasestationGuiPlugin': [1], u'basestation_gui_python/MessagePlugin': [1, 2], u'basestation_gui_python/InfoPlugin': [1]}"
         }
       },
       "groups": {
-        "plugin__basestation_gui_python__MessagePlugin__1": {
+        "plugin__basestation_gui_python__InfoPlugin__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dockable": {
+                  "type": "repr",
+                  "repr": "True"
+                },
+                "parent": {
+                  "type": "repr",
+                  "repr": "None"
+                },
+                "dock_widget_title": {
+                  "type": "repr",
+                  "repr": "u''"
+                }
+              },
+              "groups": {}
+            }
+          }
+        },
+        "plugin__basestation_gui_python__MessagePlugin__2": {
           "keys": {},
           "groups": {
             "dock_widget__": {
@@ -62,7 +84,7 @@
             }
           }
         },
-        "plugin__basestation_gui_python__MessagePlugin__2": {
+        "plugin__basestation_gui_python__MessagePlugin__1": {
           "keys": {},
           "groups": {
             "dock_widget__": {
@@ -90,13 +112,13 @@
       "keys": {
         "geometry": {
           "type": "repr(QByteArray.hex)",
-          "repr(QByteArray.hex)": "QtCore.QByteArray('01d9d0cb00020000000000640000006400000640000004bb000000640000008200000640000004bb00000001000000000780')",
-          "pretty-print": "     d d @   d   @       "
+          "repr(QByteArray.hex)": "QtCore.QByteArray('01d9d0cb00020000000000640000001b000007da000005000000006400000039000007da0000050000000001000000000780')",
+          "pretty-print": "     d       d 9         "
         },
         "state": {
           "type": "repr(QByteArray.hex)",
-          "repr(QByteArray.hex)": "QtCore.QByteArray('000000ff00000000fd0000000100000003000005dd0000040efc0100000003fb00000054006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f004d0065007300730061006700650050006c007500670069006e005f005f0031005f005f0000000000ffffffff0000009700fffffffb00000054006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f004d0065007300730061006700650050006c007500670069006e005f005f0032005f005f0100000000000000970000009700fffffffb00000062006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f004200610073006500730074006100740069006f006e0047007500690050006c007500670069006e005f005f0031005f005f010000009d000005400000054000ffffff000005dd0000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720000000000ffffffff0000000000000000')",
-          "pretty-print": "                 Tbasestation_gui_python__MessagePlugin__1__          Tbasestation_gui_python__MessagePlugin__2__          bbasestation_gui_python__BasestationGuiPlugin__1__                            6MinimizedDockWidgetsToolbar        "
+          "repr(QByteArray.hex)": "QtCore.QByteArray('000000ff00000000fd00000001000000030000077700000475fc0100000003fb00000054006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f004d0065007300730061006700650050006c007500670069006e005f005f0031005f005f0000000000ffffffff0000009700fffffffb00000054006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f004d0065007300730061006700650050006c007500670069006e005f005f0032005f005f0100000000000001940000009700fffffffc0000019a000005dd0000054000fffffffc0200000002fb0000004e006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f0049006e0066006f0050006c007500670069006e005f005f0031005f005f0100000016000000520000005000fffffffb00000062006200610073006500730074006100740069006f006e005f006700750069005f0070007900740068006f006e005f005f004200610073006500730074006100740069006f006e0047007500690050006c007500670069006e005f005f0031005f005f010000006e0000041d0000040e00ffffff000007770000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720100000000ffffffff0000000000000000')",
+          "pretty-print": "                 Tbasestation_gui_python__MessagePlugin__1__          Tbasestation_gui_python__MessagePlugin__2__              @                                                  R P                                                       n       w                                                      "
         }
       },
       "groups": {
