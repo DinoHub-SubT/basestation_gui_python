@@ -97,7 +97,7 @@ rqt --clear-config
 and re-launch the gui
 
 
-# “Quick Start Guide”
+# Quick Start Guide
 
 ##Window 1
 
