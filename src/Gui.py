@@ -50,7 +50,7 @@ from GuiEngine import GuiEngine, Artifact
 import csv
 import cv2
 
-from basestation_gui_python.msg import StatusPanelUpdate
+from basestation_gui_python.msg import StatusPanelUpdate, ArtifactSubmissionReply
 
 from PyQt5.QtCore import pyqtSignal
 
@@ -153,6 +153,9 @@ class BasestationGuiPlugin(Plugin):
         self.update_refinement_pos_trigger.connect(self.updateRefinmentPosMonitor)
         self.add_message_trigger.connect(self.addMessageMonitor)
         self.update_info_panel_trigger.connect(self.updateInfoPanelMonitor)
+
+        #to communicate with the submission history panel
+        self.submission_reply_pub = rospy.Publisher('/gui_submission_reply', ArtifactSubmissionReply, queue_size = 10) 
         
     def loadDarpaTransform(self):
         '''
@@ -981,39 +984,38 @@ class BasestationGuiPlugin(Plugin):
 
         with self.artifact_proposal_lock: #to ensure we only draw one response at once
 
-            self.arthist_table.setSortingEnabled(False) #to avoid corrupting the table
-
-            self.printMessage("Submitted artifact of category: "+self.darpa_cat_box.currentText(), self.green_message) #checked
+            self.printMessage("Submitted artifact of category: " + self.darpa_cat_box.currentText(), self.green_message) #checked
             
             [submission_time_raw, artifact_type, x, y, z, report_status, score_change, http_response, http_reason] = \
                                                                                             proposal_return
 
-            #add this to the submission history panel 
-            try:
-                submission_time = self.darpa_gui_bridge.displaySeconds(float(submission_time_raw))
-            except:
-                submission_time = '99:99'
 
-            if(score_change==0):
-                submission_correct='False'
-                submission_color = gui.QColor(220,0,0)
-            else:
-                submission_correct='True'
-                submission_color = gui.QColor(0,220,0)
 
-            response_item = qt.QTableWidgetItem('Info')
-            response_item.setToolTip('DARPA response: '+str(report_status)+'\nHTTP Response: '+str(http_response)+str(http_reason)+\
-                                     '\nSubmission Correct? '+submission_correct)
+            #publish the message to display in thesubmission reply plugin
+            msg = ArtifactSubmissionReply()
+            msg.submission_time_raw = float(submission_time_raw)
+            msg.artifact_type = str(artifact_type)
+            msg.x = x
+            msg.y = y
+            msg.z = z
+            msg.report_status = str(report_status)
+            msg.score_change = score_change
+            msg.http_response = str(http_response)
+            msg.http_reason = str(http_reason)
+
+            self.submission_reply_pub.publish(msg)
+
+            
 
             self.printMessage('DARPA response: '+str(report_status)+' HTTP Response: '+str(http_response)+str(http_reason)+\
-                                     ' Submission Correct? '+submission_correct, self.green_message) #checked
+                                     ' Submission Correct? '+str((score_change!=0)), self.green_message) #checked
 
-            response_item.setBackground(submission_color)
+            
 
             #update the artifact's darpa_response property
             self.displayed_artifact.darpa_response = 'DARPA response: '+str(report_status)+'\nHTTP Response: '+\
                                                      str(http_response)+str(http_reason)+\
-                                                     '\nSubmission Correct? '+submission_correct
+                                                     '\nSubmission Correct? '+str((score_change!=0))
 
             #update the artifacts' to_darpa time
             try:
@@ -1021,39 +1023,6 @@ class BasestationGuiPlugin(Plugin):
             except:
                 self.displayed_artifact.time_to_darpa =  9999
 
-
-            #add the stuff to the submission history table
-
-            self.arthist_table.insertRow(self.arthist_table.rowCount())
-            row = self.arthist_table.rowCount() - 1
-
-            row_data = [artifact_type, submission_time, str(int(self.displayed_artifact.pos[0]))+'/'+\
-                                                        str(int(self.displayed_artifact.pos[1]))+'/'+\
-                                                        str(int(self.displayed_artifact.pos[2]))]
-
-            for col, val in enumerate(row_data):
-                
-                if (col==1):
-                    colon = submission_time.find(':')
-                    val = float(submission_time[:colon])*60 + float(submission_time[colon+1:])
-                    item = NumericItem(str(submission_time))
-                    item.setData(core.Qt.UserRole, val)
-
-
-                else: #if we're not dealing with a display time
-                    item = NumericItem(str(val))
-                    item.setData(core.Qt.UserRole, val)
-
-                item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled ) #make it non-editable
-                item.setTextAlignment(Qt.AlignHCenter) 
-
-                self.arthist_table.setItem(row, col, item)
-
-            
-
-            #add the response item, we don't want this to be a NumericItem
-            response_item.setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
-            self.arthist_table.setItem(row, 3, response_item)
 
 
             #go find the artifact in the queue and remove it
@@ -1092,14 +1061,6 @@ class BasestationGuiPlugin(Plugin):
 
             #remove any update on the artifact (messages about it being deleted or updated)
             self.update_art_label.hide()
-
-
-        self.arthist_table.setSortingEnabled(True) 
-
-        if(self.arthist_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
-            self.arthist_table.sortItems(1, core.Qt.DescendingOrder)
-
-            self.arthist_table.viewport().update()
 
         #reset the darpa proposal buttons
         self.darpa_confirm_button.setEnabled(False)

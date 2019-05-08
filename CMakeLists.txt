@@ -51,8 +51,7 @@ add_message_files(
    StatusPanelUpdate.msg
    GuiMessage.msg
    DarpaStatus.msg
-#   Message1.msg
-#   Message2.msg
+   ArtifactSubmissionReply.msg
 )
 
 ## Generate services in the 'srv' folder

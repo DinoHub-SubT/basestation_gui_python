@@ -94,13 +94,16 @@ Generate a .py file following the convention of the Gui.py format (inherit from 
 
 In the basestation_gui_python/plugin.xml file add the plugin as a new class. Keep it in the same group as the other plugins (Basestation Gui)
 
-Run rqt --force-discover. It should now show up in the drop-down for plugins. 
+Launch the gui using the normal launch command. If the pluging does not show up in the dropdown:
+	-Close the gui
+	-Run rqt --force-discover. 
+	-It should now show up in the drop-down for plugins. 
 
 To ensure that its displayed everytime the gui is roslaunched, add it to the perspective. To do this:
--Position all of the plugins how you want them in the rqt window
--On the top bar there is a Perspective tab. Click it
--Export the perspective
--Save it as whatever the gui.launch file calls. Probably /config/subt_test_perspective or something like that. 
+	-Position all of the plugins how you want them in the rqt window
+	-On the top bar there is a Perspective tab. Click it
+	-Export the perspective
+	-Save it as whatever the gui.launch file calls. Probably /config/subt_test_perspective or something like that. 
 
 
 =======
@@ -112,7 +115,7 @@ rqt --clear-config
 and re-launch the gui
 
 
-# “Quick Start Guide”
+# Quick Start Guide
 
 ##Window 1
 

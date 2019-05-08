@@ -51,7 +51,7 @@ class InfoPlugin(Plugin):
 
 	def __init__(self, context):
 		super(InfoPlugin, self).__init__(context)
-		self.setObjectName('MessagePlugin')		
+		self.setObjectName('InfoPlugin')		
 
 		self.initPanel(context) #layout plugin
 
@@ -103,7 +103,7 @@ class InfoPlugin(Plugin):
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"	
-			
+
 		self.info_label.setText("Time: "+str(self.displaySeconds(msg.time_remaining))+'\t Score: '+\
 								str(msg.score)+ '\t Remaining Reports: '+\
 								str(msg.remaining_reports))

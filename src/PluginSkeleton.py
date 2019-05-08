@@ -51,7 +51,7 @@ class SkeletonPlugin(Plugin):
 
 	def __init__(self, context):
 		super(SkeletonPlugin, self).__init__(context)
-		self.setObjectName('MessagePlugin')		
+		self.setObjectName('SkeletonPlugin')		
 
 		self.initPanel(context) #layout plugin
 
