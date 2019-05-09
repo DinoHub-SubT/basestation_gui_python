@@ -51,4 +51,17 @@
       <statustip>Plugin to display information about artifact submissions</statustip>
     </qtgui>
   </class>
+  <class name="RobotStatusPlugin" type="RobotStatusPlugin.RobotStatusPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin to display info about robot status (battery, mobility, etc.)
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>RobotStatusPlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to display info about robot status (battery, mobility, etc.)</statustip>
+    </qtgui>
+  </class>
 </library>

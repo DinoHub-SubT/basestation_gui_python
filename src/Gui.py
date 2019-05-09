@@ -2231,7 +2231,8 @@ class BasestationGuiPlugin(Plugin):
     
 
     def status_panel_update_callback(self, msg):
-        self.status_panel_trigger.emit(msg)#self.emit(SIGNAL("changeUI(PyQt_PyObject)"), msg)
+        pass
+        # self.status_panel_trigger.emit(msg)#self.emit(SIGNAL("changeUI(PyQt_PyObject)"), msg)
 
     def status_panel_update_monitor(self, msg):
 
