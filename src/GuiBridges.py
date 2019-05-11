@@ -39,37 +39,11 @@ class RosGuiBridge:
         for name in exp_params['robot_names']:
             self.robot_names.append(name)
 
-        
-
-        #robot names should be unique
-        if(len(np.unique(self.robot_names))!=len(self.robot_names)):
-            raise ValueError('Not all of the robot names are unique!')
-
-        # for command in exp_params['robot_commands']:
-        #     self.robot_commands.append(command)
-
-        # self.estop_commands = self.robot_commands[:4]
-
-        #remapping aerial commands
-        # self.remap_to_aerial_commands = {}
-        # self.remap_from_aerial_commands = {}
-
-
-        # for i, name in enumerate(exp_params['aerial_commands']):
-        #     self.remap_from_aerial_commands[name] =  self.robot_commands[i]
-        #     self.remap_to_aerial_commands[self.robot_commands[i]] =  name
 
         #define radio message publisher
         self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
         self.radio_900_pub = rospy.Publisher('/ros_to_teensy', NineHundredRadioMsg, queue_size=50) #queue_size arbitraily chosen
 
-        #subscriber for listening to waypoint goals
-        self.waypoint_topic = "/define_waypoint/feedback" #topic for listening to BSM-defined waypoints
-
-        # self.waypoint_listeners = []
-        # for i in range(len(self.robot_names)):
-        #     self.waypoint_listeners.append(rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, ""))
-        #     self.waypoint_listeners[-1].unregister() #don't start subscribing quite yet
 
         
         #read info on darpa-related commands (communication protocol, etc.)
@@ -81,67 +55,16 @@ class RosGuiBridge:
             self.artifact_categories.append(category)
 
 
-        #publisher for moving the refinment marker
-        self.refinement_marker_pos_pub = rospy.Publisher('/refinement_marker_pos', Point, queue_size=50)
-
-        #publisher for turning the marker off
-        self.refinement_marker_off_pub = rospy.Publisher('/refinement_marker_off', Point, queue_size=50)
-
-        [self.highlight_robot_marker,  self.ugv_bluetooth_marker, self.uav_bluetooth_marker] = self.initMarkers()
-        
-        #publisher for displaying the original position        
-        self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', MarkerArray, queue_size=50)
-
-         #publisher for displaying the original position        
-        self.highlight_robot_pub = rospy.Publisher('/highlight_robot_pub', Marker, queue_size=50)
-
-        #publisher for displaying the original position        
-        self.bluetooth_marker_pub_ugv = rospy.Publisher('/ugv/bluetooth_marker', Marker, queue_size=50)
-
-        #publisher for displaying the original position        
-        self.bluetooth_marker_pub_uav = rospy.Publisher('/uav/bluetooth_marker', Marker, queue_size=50)
 
         #publisher for the image coordinate clicked on (as percentage of the image)
         self.img_coord_pub = rospy.Publisher('/gui_img_clicked', Float32MultiArray, queue_size=10)
 
         #thread for publishing drone hard estop
-        self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
+        # self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
 
-        #add the markers for defining a waypoint
+                
 
-        #publisher for moving the refinment marker
-        self.define_waypoint_marker_pos_pub = rospy.Publisher('/define_waypoint_marker_pos', Point, queue_size=50)
-
-        #publisher for turning the marker off
-        self.define_waypoint_marker_off_pub = rospy.Publisher('/define_waypoint_marker_off', Point, queue_size=50)
-
-        #listen to the waypoint moving around
-        rospy.Subscriber(self.waypoint_topic, InteractiveMarkerFeedback, self.recordWaypoint)
-        self.waypoint = None
-
-    def persistentDroneHardEstop(self, robot_name):
-        '''
-        Publish a hard estop every __ seconds for the drone
-        '''
-
-
-        #make sure the button has not been unchecked since the last thread call
-        for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
-            if (cmd_button.text()=='Hard e-stop') and (cmd_button.isChecked()): 
-
-                radio_900_msg = NineHundredRadioMsg()
-                radio_900_msg.message_type = 1
-                radio_900_msg.recipient_robot_id = self.robot_names.index(robot_name)
-                self.radio_900_pub.publish(radio_900_msg)
-
-                radio_msg = RadioMsg()
-                radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
-                radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-                radio_msg.data = RadioMsg.ESTOP_HARD
-                self.radio_pub.publish(radio_msg)
-
-                self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
-                self.drone_hard_estop_thread.start()
+    
 
 
     def initSubscribers(self, gui):
@@ -220,216 +143,12 @@ class RosGuiBridge:
 
         return marker_list
 
-    def saveRobotPoseGround(self, msg):
-        '''
-        Function to save the robot pose for Ji's button
-        '''
-        self.robot_pos_ground = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
-
-    def getRobotPoseGround(self):
-        return self.robot_pos_ground
-
-
-    def saveRobotPoseAerial(self, msg):
-        '''
-        Function to save the robot pose for Ji's button
-        '''
-        self.robot_pos_aerial = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
-
-    def getRobotPoseAerial(self):
-        return self.robot_pos_aerial
-
-
-    def saveTotalPose(self, msg):
-        '''
-        Function to save the robot pose for Ji's button
-        '''
-        self.total_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
-
-    def getTotalPose(self):
-        return self.total_pos
-
-
-        
-    def publishRobotCommand(self, command, robot_name, button):
-        '''
-        A command button has been pressed. Publish a command from the gui to the robot
-        '''
-
-        if (command in [ "Return home", "Highlight robot", "Drop comms"]): #buttons are not checkable
-            if(command == "Return home"):
-                self.publishReturnHome(robot_name)
-            elif(command == "Highlight robot"):
-                self.highlightRobot(robot_name)
-            elif(command == "Drop comms"):
-                self.dropComms(robot_name)
-            else:
-                self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
-
-        elif(not button.isChecked()): #it has just be un-clicked
-
-            if(command == "Define waypoint"):
-                #find the robot name index and unsubscribe it
-                try:
-                    # ind = self.robot_names.index(robot_name)
-                    # self.waypoint_listeners[ind].unregister()
-                    self.publishWaypointGoal(robot_name)
-                except ValueError:
-                    self.gui.printMessage("Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!", self.gui.red_message)
-
-            elif(command == "Show bluetooth"):
-                self.handleBluetooth(robot_name, button)
-
-            elif(command == "Return to comms"):
-                self.pubLandInComms(robot_name, button)
-
-        else: #the button has just been pressed
-            if(command in self.estop_commands):
-                self.publishEstop(command, robot_name)
-
-            elif(command == "Define waypoint"):
-                self.defineWaypoint(robot_name)
-
-
-            elif(command == "Show bluetooth"):
-                self.handleBluetooth(robot_name, button)
-
-            elif(command == "Return to comms"):
-                self.pubLandInComms(robot_name, button)
-
-            else:
-                self.gui.printMessage('WARNING: Button pressed does not have a function call associated with it!', self.gui.red_message) #checked
-
-    def pubLandInComms(self, robot_name, button):
-        '''
-        Depending on if the button is pressed or not, send a 
-        message to land in comms range or back at home
-        '''
-
-        radio_msg = RadioMsg()
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_LANDING_BEHAVIOR
-
-        if (button.isChecked()):             
-            radio_msg.data = RadioMsg.LAND_IN_COMMS
-
-        else:            
-            radio_msg.data = RadioMsg.LAND_AT_HOME
-
-
-        self.radio_pub.publish(radio_msg)
-
-    def resendArtifactMsg(self):
-	'''
-	We want all of the artifact data to be re-sent. TODO for Bob 
-	is to delete the data the gui originally had
-	'''
-	radio_msg = RadioMsg()
-	radio_msg.recipient_robot_id = 0 #hard-coded to be the ground vehicle
-	radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ODOM_REPORT
-
-	self.radio_pub.publish(radio_msg)
-	
-
-
-
-    def handleBluetooth(self, robot_name, button):
-        '''
-        Make the bluetooth marker visualizable or hidden
-        '''
-
-
-        if (robot_name == 'Ground1'):
-
-            if(not button.isChecked()):
-                #change the alpha of the orig_pos marker to make it invisible
-                self.ugv_bluetooth_marker.color.a = 0.
-            else:
-                self.ugv_bluetooth_marker.color.a = 1.
-
-            self.bluetooth_marker_pub_ugv.publish(self.ugv_bluetooth_marker)
-
-        elif (robot_name == 'Aerial1'):
-            
-            if(not button.isChecked()):
-                #change the alpha of the orig_pos marker to make it invisible
-                self.uav_bluetooth_marker.color.a = 0.
-            else:
-                self.uav_bluetooth_marker.color.a = 1.
-
-            self.bluetooth_marker_pub_uav.publish(self.uav_bluetooth_marker)
-        
-
-    def dropComms(self, robot_name):
-        '''
-        Send out a message to drop a commas node
-        '''
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DROP_COMMS
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        self.radio_pub.publish(radio_msg)
-
-    def highlightRobot(self, robot_name):
-        '''
-        Publish an arrow pointng to the robot position
-        '''
-
-        pass
-
-
-
-
-    def publishEstop(self, command, robot_name):
-        '''
-        Publish an estop message after a button has been pressed
-        '''
-
-        return #todo, delete this function
-
-        radio_msg = RadioMsg()
-        send_900 = bool(False)
-        radio_900_msg = NineHundredRadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_900_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        if(command==self.estop_commands[1]):
-            radio_msg.data = RadioMsg.ESTOP_RESUME
-            radio_900_msg.message_type = 0
-            send_900 = True
-        elif(command==self.estop_commands[0]):
-            radio_msg.data = RadioMsg.ESTOP_PAUSE
-        elif(command==self.estop_commands[2]):
-            radio_msg.data = RadioMsg.ESTOP_SOFT
-        elif(command==self.estop_commands[3]):
-            radio_msg.data = RadioMsg.ESTOP_HARD
-            radio_900_msg.message_type = 1
-            send_900 = True
-            #make the estop persistent for the drone
-            if (robot_name.find('erial') != -1):
-                self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1]))
-                self.drone_hard_estop_thread.start()
-        else:
-            print 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
-
-        if send_900:
-            self.radio_900_pub.publish(radio_900_msg)
-
-        self.radio_pub.publish(radio_msg)
-
-    def publishReturnHome(self, robot_name):
-        '''
-        Send out a message for the robot to return home
-        '''
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_RETURN_HOME
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        self.radio_pub.publish(radio_msg)
-
     def publishRefinementMarkerPos(self, artifact, button):
         '''
         Publish a position change to the refinement marker
         '''
-        if(not button.isChecked()):
+
+        if (not button.isChecked()):
             #change the alpha of the orig_pos marker to make it invisible
             # self.orig_pos_marker.color.a = 0.
 
@@ -504,30 +223,48 @@ class RosGuiBridge:
 
             self.marker_orig_pos_pub.publish(self.marker_arr)
 
-
-
-
-
-            # self.orig_pos_marker.color.a = 1. #turn in back to visible if it was invisible
-
-            # self.orig_pos_marker.pose.position.x = artifact.pos[0]
-            # self.orig_pos_marker.pose.position.y = artifact.pos[1]
-            # self.orig_pos_marker.pose.position.z = artifact.pos[2]            
-
-            # self.orig_pos_marker.scale.x = 0.3
-            # self.orig_pos_marker.scale.y = 0.3
-            # self.orig_pos_marker.scale.z = 0.3
-
-    def adjustMaxTime(self, robot_name, max_time_box):
+    def saveRobotPoseGround(self, msg):
         '''
-        Send a maxtime for the aerial vehicle to fly
+        Function to save the robot pose for Ji's button
         '''
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_MAX_FLIGHT_TIME
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.data = str(float(max_time_box.currentText())*60)
+        self.robot_pos_ground = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
 
-        self.radio_pub.publish(radio_msg)
+    def getRobotPoseGround(self):
+        return self.robot_pos_ground
+
+
+    def saveRobotPoseAerial(self, msg):
+        '''
+        Function to save the robot pose for Ji's button
+        '''
+        self.robot_pos_aerial = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+
+    def getRobotPoseAerial(self):
+        return self.robot_pos_aerial
+
+
+    def saveTotalPose(self, msg):
+        '''
+        Function to save the robot pose for Ji's button
+        '''
+        self.total_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+
+    def getTotalPose(self):
+        return self.total_pos
+        
+
+
+    def resendArtifactMsg(self):
+	'''
+	We want all of the artifact data to be re-sent. TODO for Bob 
+	is to delete the data the gui originally had
+	'''
+    	radio_msg = RadioMsg()
+    	radio_msg.recipient_robot_id = 0 #hard-coded to be the ground vehicle
+    	radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ODOM_REPORT
+
+    	self.radio_pub.publish(radio_msg)
+	
 
 
        
@@ -538,84 +275,7 @@ class RosGuiBridge:
 
         self.waypoint = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
 
-    def publishWaypointGoal(self, robot_name):
-
-        if (self.waypoint != None):
-            radio_msg = RadioMsg()
-            radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
-            radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-            radio_msg.data = str(self.waypoint[0]) +","+str(self.waypoint[1]) +","+str(self.waypoint[2])
-
-            self.radio_pub.publish(radio_msg)
-
-        else:
-            self.gui.printMessage("Waypoint never set. Message never published. Please move the interactive marker in RViz.", self.gui.normal_message)
-
-        # #de-select the appropriate buttons
-        # for robot_list in self.gui.control_buttons:
-        #     for cmd_button in robot_list:
-        #         if (cmd_button.text()=='Define waypoint'):
-
-        #             cmd_button.setChecked(False)
-        #             ind = self.robot_names.index(robot_name)
-        #             self.waypoint_listeners[ind].unregister()
-
-
-        #publish a bogus message to put something on this topic to turn off the refinment marker
-        pose = Point(-1, -1, -1)
-        self.define_waypoint_marker_off_pub.publish(pose)
-
-
-
-
-    def defineWaypoint(self, robot_name):
-        '''
-        Listen for a waypoint to be pressed in Rviz
-        '''
-
-        #subscriber for listening to waypoint goals
-        try:
-            # self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
-
-            #publish the interactive marker
-
-            if (robot_name.find('erial') != -1):
-                
-                if (self.robot_pos_aerial == None):
-                    self.gui.printMessage('Nothing appears to have been published to the robot pose topic /uav1/integrated_to_map', self.gui.normal_message)
-
-                    #deselect the waypoint button
-                    for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
-                        if (cmd_button.text()=='Define waypoint') and (cmd_button.isChecked()): 
-                            cmd_button.setChecked(False)
-                
-                else:
-                    #reset the initial waypoint
-                    self.waypoint = None
-
-                    pose = Point(self.robot_pos_aerial[0], self.robot_pos_aerial[1], self.robot_pos_aerial[2]) #put robot pose in here
-                    self.define_waypoint_marker_pos_pub.publish(pose)
-
-            elif (robot_name.find('ound') != -1):
-
-                if (self.robot_pos_ground == None):
-                    self.gui.printMessage('Nothing appears to have been published to the robot pose topic /ugv1/integrated_to_map', self.gui.normal_message)
-
-                    #deselect the waypoint button
-                    for cmd_button in self.gui.control_buttons[self.robot_names.index(robot_name)]:
-                        if (cmd_button.text()=='Define waypoint') and (cmd_button.isChecked()): 
-                            cmd_button.setChecked(False)
-
-                
-                else:
-                    #reset the initial waypoint
-                    self.waypoint = None
-
-                    pose = Point(self.robot_pos_ground[0], self.robot_pos_ground[1], self.robot_pos_ground[2]) #put robot pose in here
-                    self.define_waypoint_marker_pos_pub.publish(pose)
-
-        except ValueError:
-            print "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been enabled!!"
+    
 
 
         

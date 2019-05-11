@@ -126,7 +126,7 @@ class MessagePlugin(Plugin):
 		if (msg.color.r == 0) and (msg.color.g == 0) and (msg.color.b == 0): #if color hasn't been set, set to white
 			item.setBackground(gui.QColor(255, 255, 255))
 		else: #set to color of message
-			item.setBackground(gui.QColor(msg.color.r, msg.color.b, msg.color.g))
+			item.setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
 
 		self.message_textbox.addItem(item)
 		self.message_textbox.sortItems(core.Qt.DescendingOrder)
