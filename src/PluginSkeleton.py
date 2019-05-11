@@ -5,7 +5,7 @@ Skeleton code to make a new plugin
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
 
 Copyright Carnegie Mellon University / Oregon State University <2019>
-This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebastion or Matt).
 '''
 
 import rospy
@@ -40,6 +40,7 @@ from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from GuiBridges import RosGuiBridge, DarpaGuiBridge
 from functools import partial
 import pdb
+import yaml
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 

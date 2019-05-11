@@ -384,13 +384,9 @@ class GuiEngine:
                                  str(artifact.unread)+ '|'+artifact.priority+'|'+ darpa_text + '|'+ artifact.unique_id+ '|'+\
                                  str(artifact.original_timestamp) +'|'+'//'
 
-        #save the vehicle statuses
-        vehicle_state_str = ''
-        for robot_buttons in self.gui.control_buttons:
-            for i, button in enumerate(robot_buttons):
-                if (button.isChecked()) and  (button.text() in self.gui.ros_gui_bridge.estop_commands): #if the estop button is checked
-                    vehicle_state_str+=str(button.text())
-            vehicle_state_str+='|'
+        #todo: save the vehicle statuses
+        vehicle_state_str = ""
+        
 
 
         #save the run info

@@ -55,7 +55,6 @@ class RobotStatusPlugin(Plugin):
 		self.setObjectName('RobotStatusPlugin')	
 
 		#get the number of robots
-		# parse the config file
 		rospack = rospkg.RosPack()
 		config_filename = rospack.get_path('basestation_gui_python')+'/config/gui_params.yaml'
 		config = yaml.load(open(config_filename, 'r').read())

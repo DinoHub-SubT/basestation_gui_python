@@ -52,6 +52,7 @@ add_message_files(
    GuiMessage.msg
    DarpaStatus.msg
    ArtifactSubmissionReply.msg
+   GuiRobCommand.msg
 )
 
 ## Generate services in the 'srv' folder

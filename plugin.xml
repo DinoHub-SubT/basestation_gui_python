@@ -64,4 +64,17 @@
       <statustip>Plugin to display info about robot status (battery, mobility, etc.)</statustip>
     </qtgui>
   </class>
+  <class name="RobotCommandPlugin" type="RobotCommandPlugin.RobotCommandPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin to include command buttons for the robot (e-stop, etc.)
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>RobotCommandPlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to include command buttons for the robot (e-stop, etc.)</statustip>
+    </qtgui>
+  </class>
 </library>

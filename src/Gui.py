@@ -357,6 +357,8 @@ class BasestationGuiPlugin(Plugin):
         Initial the panel containing e-stop command, etc for each robot
         '''
 
+        return #todo, delete this function
+
         #define the overall widget
         self.control_widget = QWidget()
         self.control_layout = qt.QGridLayout()

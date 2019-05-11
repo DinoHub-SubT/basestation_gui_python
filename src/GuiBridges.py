@@ -45,19 +45,19 @@ class RosGuiBridge:
         if(len(np.unique(self.robot_names))!=len(self.robot_names)):
             raise ValueError('Not all of the robot names are unique!')
 
-        for command in exp_params['robot_commands']:
-            self.robot_commands.append(command)
+        # for command in exp_params['robot_commands']:
+        #     self.robot_commands.append(command)
 
-        self.estop_commands = self.robot_commands[:4]
+        # self.estop_commands = self.robot_commands[:4]
 
         #remapping aerial commands
-        self.remap_to_aerial_commands = {}
-        self.remap_from_aerial_commands = {}
+        # self.remap_to_aerial_commands = {}
+        # self.remap_from_aerial_commands = {}
 
 
-        for i, name in enumerate(exp_params['aerial_commands']):
-            self.remap_from_aerial_commands[name] =  self.robot_commands[i]
-            self.remap_to_aerial_commands[self.robot_commands[i]] =  name
+        # for i, name in enumerate(exp_params['aerial_commands']):
+        #     self.remap_from_aerial_commands[name] =  self.robot_commands[i]
+        #     self.remap_to_aerial_commands[self.robot_commands[i]] =  name
 
         #define radio message publisher
         self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
@@ -383,6 +383,8 @@ class RosGuiBridge:
         '''
         Publish an estop message after a button has been pressed
         '''
+
+        return #todo, delete this function
 
         radio_msg = RadioMsg()
         send_900 = bool(False)
