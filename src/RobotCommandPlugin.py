@@ -236,8 +236,26 @@ class RobotCommandPlugin(Plugin):
 		Handle button colors, etc. upon pressing
 		Generate and publish a ROS command from a button press
 		'''
-		self.processButtonStyle(command, robot_name, button)
-		self.publishRobotCommand(command, robot_name, button)
+
+		#if its a button that needs confirmation, or its a confirmation button,
+		#follow a different procedure
+		#if its a button that needs confirmation, get that confirmation
+		if button.isChecked() and \
+			 ((command =='Hard e-stop') or (robot_name.find('erial') != -1 and command == 'Land')):
+
+			self.processButtonNeedingConfirmation(command, robot_name, button)
+			self.pending_info =[command, robot_name, button]
+
+		#we have just confirmed or cancelled a previous button press
+		elif (command in ['Cancel', 'Confirm']):
+			self.processConfirmCancelSequence(command, robot_name, button, self.pending_info)
+			
+
+		#if its a normal button
+		else:
+			self.processButtonStyle(command, robot_name, button)
+			self.publishRobotCommand(command, robot_name, button)
+
 
 	def processButtonStyle(self, command, robot_name, button):
 		'''
@@ -273,6 +291,14 @@ class RobotCommandPlugin(Plugin):
 		elif ((robot_name.find('erial') != -1) and button.text() == 'Explore forever'):
 			button.setText('Land in comms')
 
+		#de-activate any confirmation buttons that are left over from previous button presses
+		cmd_buttons = self.control_buttons[self.robot_names.index(robot_name)]
+
+		for cmd_button in cmd_buttons:
+			#de-activate the confirm/cancel buttons for that robot
+			if (cmd_button.text() in ['Confirm', 'Cancel']): 
+				cmd_button.setEnabled(False)
+				cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 
 					
 
@@ -332,6 +358,60 @@ class RobotCommandPlugin(Plugin):
 				msg.data = 'WARNING: Button pressed does not have a function call associated with it!'
 				msg.color.r, msg.color.g, msg.color.b = self.orange_message_color 
 				self.gui_message_pub.publish(msg)
+
+
+	def processButtonNeedingConfirmation(self, command, robot_name, button):
+		'''
+		Enable the confirm/cancel buttons for a pending button press
+		'''
+
+		#activate the confirm/cancel buttons for that robot
+		cmd_buttons = self.control_buttons[self.robot_names.index(robot_name)]
+
+		for cmd_button in cmd_buttons:
+			if (cmd_button.text() =='Confirm'):
+				cmd_button.setEnabled(True)
+				cmd_button.setStyleSheet("background-color:rgb(0, 220, 0)")
+
+			elif(cmd_button.text() =='Cancel'):
+				cmd_button.setEnabled(True)
+				cmd_button.setStyleSheet("background-color:rgb(220, 0, 0)")
+
+	def processConfirmCancelSequence(self, command, robot_name, button, pending_info):
+		'''
+		Process a confirm or cancel on a pending button press
+		'''
+
+		[pending_command, pending_robot_name, pending_button] = pending_info
+
+		if (command=='Confirm'):
+			self.processButtonStyle(pending_command, pending_robot_name, pending_button)
+			self.publishRobotCommand(pending_command, pending_robot_name, pending_button)
+
+		elif (command=='Cancel'):
+			#de-activate any confirmation buttons that are left over from previous button presses
+			cmd_buttons = self.control_buttons[self.robot_names.index(robot_name)]
+
+			for cmd_button in cmd_buttons:
+				#de-activate the confirm/cancel buttons for that robot
+				if (cmd_button.text() in ['Confirm', 'Cancel']): 
+					cmd_button.setEnabled(False)
+					cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+
+			#de-activate the pending button press
+			pending_button.setChecked(False)
+
+		else:
+			msg = GuiMessage()
+			msg.data = 'Something went wrong with confirm/cancel sequence'
+			msg.color.r, msg.color.g, msg.color.b = self.red_message_color 
+			self.gui_message_pub.publish(msg)
+
+
+		self.pending_info = None
+
+
+
 
 
 	def pubLandInComms(self, robot_name, button):
