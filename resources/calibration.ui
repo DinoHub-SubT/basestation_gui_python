@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>calibration_form</class>
+ <widget class="QWidget" name="calibration_form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>834</width>
+    <height>470</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>1</horstretch>
+    <verstretch>1</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Robot Calibration</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0">
+   <item>
+    <layout class="QVBoxLayout" name="outer_layout">
+     <item>
+      <widget class="QTableWidget" name="robot_table">
+       <property name="alternatingRowColors">
+        <bool>true</bool>
+       </property>
+       <property name="selectionMode">
+        <enum>QAbstractItemView::NoSelection</enum>
+       </property>
+       <attribute name="horizontalHeaderDefaultSectionSize">
+        <number>100</number>
+       </attribute>
+       <attribute name="horizontalHeaderMinimumSectionSize">
+        <number>40</number>
+       </attribute>
+       <attribute name="horizontalHeaderStretchLastSection">
+        <bool>true</bool>
+       </attribute>
+       <column>
+        <property name="text">
+         <string>Robot</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Aerial</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Points</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Save</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Remove</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Reset</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Calibrate</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Last Save</string>
+        </property>
+       </column>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="inner_layout">
+       <item>
+        <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QPushButton" name="add_robot_button">
+         <property name="text">
+          <string>Add Robot</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

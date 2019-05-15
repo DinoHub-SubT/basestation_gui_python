@@ -5,11 +5,25 @@
     </description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation GUI</label>
+        <icon type="theme">folder</icon>
       </group>
       <label>Basestation Gui</label>
-      <icon type="theme">system-help</icon>
+      <icon type="theme">system</icon>
       <statustip>Basestation Gui interface.</statustip>
+    </qtgui>
+  </class>
+  <class name="CalibrationPlugin" type="calibration.Calibration" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Calibrate robot positions and load transformed frames to DARPA.
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation GUI</label>
+      </group>
+      <label>Robot Calibration</label>
+      <icon type="theme">system-run</icon>
+      <statustip>Calibrate robot positions and load transformed frames to DARPA.</statustip>
     </qtgui>
   </class>
 </library>
