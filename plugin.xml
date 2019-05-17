@@ -77,4 +77,17 @@
       <statustip>Plugin to include command buttons for the robot (e-stop, etc.)</statustip>
     </qtgui>
   </class>
+  <class name="ArtifactQueuePlugin" type="ArtifactQueuePlugin.ArtifactQueuePlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin to display the artifact queue
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>ArtifactQueuePlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to display the artifact queue</statustip>
+    </qtgui>
+  </class>
 </library>

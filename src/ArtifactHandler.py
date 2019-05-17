@@ -70,6 +70,8 @@ class ArtifactHandler:
 
     	self.queued_artifacts.append(artifact)
 
+    	print "Generate new artifact", artifact.unique_id
+
     def archiveArtifact(self, msg):
     	'''
     	Used when an artifact should eb removed from the queue. 
@@ -87,10 +89,11 @@ class ArtifactHandler:
     		self.archived_artifacts.append(artifact)
     		self.queued_artifacts.remove(artifact)
 
-    # def updateArtifactInfo(self, msg):
-    # 	'''
-    # 	Update the information for an existing artifact
-    # 	'''
+    def updateArtifactInfo(self, msg):
+    	'''
+    	Update the information for an existing artifact
+    	'''
+    	pass
 
     def skeletonFunction(self, msg):
     	pass

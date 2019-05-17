@@ -1654,9 +1654,11 @@ class BasestationGuiPlugin(Plugin):
         msg.orig_pose.position.y = -0.1
         msg.orig_pose.position.z = -0.1
         msg.source_robot_id = -1
-        msg.artifact_report_id = -1
+        msg.artifact_report_id = None
         # msg.imgs = []
         # msg.img_stamps = []
+
+        print "artifact made,"
 
 
         self.add_new_artifact_pub.publish(msg)
