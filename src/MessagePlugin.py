@@ -123,10 +123,19 @@ class MessagePlugin(Plugin):
 		else:
 			item = qt.QListWidgetItem('[--] '+msg.data)
 
-		if (msg.color.r == 0) and (msg.color.g == 0) and (msg.color.b == 0): #if color hasn't been set, set to white
-			item.setBackground(gui.QColor(255, 255, 255))
-		else: #set to color of message
-			item.setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
+		if msg.color == msg.COLOR_ORANGE:
+			msg_color = [242., 143, 50.]
+		elif msg.color == msg.COLOR_RED:
+			msg_color = [250,128,114]
+		elif msg.color == msg.COLOR_GREEN:
+			msg_color = [144,238,144]
+		elif msg.color == msg.COLOR_GRAY:
+			msg_color = [220,220,220]
+		else:
+			msg_color = [255, 255, 255]
+
+
+		item.setBackground(gui.QColor(msg_color[0], msg_color[1], msg_color[2]))
 
 		self.message_textbox.addItem(item)
 		self.message_textbox.sortItems(core.Qt.DescendingOrder)

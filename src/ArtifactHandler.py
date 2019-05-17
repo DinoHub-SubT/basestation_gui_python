@@ -35,42 +35,79 @@ class ArtifactHandler:
 
     	self.to_queue_pub = rospy.Publisher('/gui/artifact_to_queue', Artifact, queue_size = 10)
 
+    def guiArtifactToRos(self, artifact):
+        '''
+        Converts an GuiArtifact to a ros message
+        '''
+        msg = Artifact()
 
+        msg.category = artifact.category
+        msg.curr_pose.position.x = artifact.pose[0]
+        msg.curr_pose.position.y = artifact.pose[1]
+        msg.curr_pose.position.z = artifact.pose[2]
+        msg.orig_pose.position.x = artifact.orig_pose[0]
+        msg.orig_pose.position.y = artifact.orig_pose[1]
+        msg.orig_pose.position.z = artifact.orig_pose[2]
+        msg.source_robot_id = artifact.source_robot_id
+        msg.artifact_report_id = artifact.artifact_report_id
+        msg.time_from_robot = artifact.time_from_robot
+        msg.time_to_darpa = artifact.time_to_darpa
+        msg.unread = artifact.unread
+        msg.priority = artifact.priority
+        msg.darpa_response = artifact.darpa_response
+        msg.imgs = artifact.imgs
+        msg.img_stamps = artifact.img_stamps
+        msg.original_timestamp = artifact.original_timestamp
+        msg.unique_id = artifact.unique_id
+
+        return msg
+
+    def rosArtifactToGuiArtifact(self, msg):
+        '''
+        Converts a Ros artifact to a GuiArtifact
+        '''
+        
+        if (msg.artifact_report_id == -1): #we're manually generating an artifact, make a new 
+                                            #artifact id for it
+            
+            #go find the smallest id, and increment it by 1 to generate new id
+            min_negative_id = 0
+            for artifact in self.all_artifacts:
+                if (artifact.artifact_report_id < min_negative_id):
+                    min_negative_id = artifact.artifact_report_id
+
+            artifact_report_id = min_negative_id - 1
+
+        else:
+            artifact_report_id = msg.artifact_report_id
+
+
+        #generate new artifact
+        artifact = GuiArtifact(original_timestamp = msg.original_timestamp, category = msg.category, \
+                            pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
+                            source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
+                            imgs = msg.imgs, img_stamps = msg.img_stamps)
+
+        return artifact
 
     def generateNewArtifact(self, msg):
     	'''
     	Generate a new artifact
     	'''
 
-    	if (msg.artifact_report_id == -1): #we're manually generating an artifact, make a new 
-    									    #artifact id for it
-    		
-    		#go find the smallest id, and increment it by 1 to generate new id
-    		min_negative_id = 0
-    		for artifact in self.all_artifacts:
-    			if (artifact.artifact_report_id < min_negative_id):
-    				min_negative_id = artifact.artifact_report_id
+        #fill in some of the info for the message being published to add to queue
+        artifact = self.rosArtifactToGuiArtifact(msg)
 
-    		artifact_report_id = min_negative_id - 1
+        self.all_artifacts.append(artifact)
+        self.queued_artifacts.append(artifact)
 
-    	else:
-    		artifact_report_id = msg.artifact_report_id
-
-
-    	#generate new artifact
-    	artifact = GuiArtifact(original_timestamp = msg.original_timestamp, category = msg.category, \
-    					    position = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
-				            source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
-				            imgs = msg.imgs, img_stamps = msg.img_stamps)
-
-    	self.all_artifacts.append(artifact)
+        #publish this message to be visualized by plugins
+        ros_msg = self.guiArtifactToRos(artifact) #necessary step to fill in some defaults (i.e. priority)
+                                             #to be used by other parts of the gui
 
     	#add the artifact to the queue
-    	self.to_queue_pub.publish(msg)
-
-    	self.queued_artifacts.append(artifact)
-
-    	print "Generate new artifact", artifact.unique_id
+    	self.to_queue_pub.publish(ros_msg)
+        
 
     def archiveArtifact(self, msg):
     	'''
@@ -104,13 +141,13 @@ class GuiArtifact:
     '''
     Class to handle artifacts as an object in the gui
     '''
-    def __init__(self, original_timestamp=1, category=-1, position="",
+    def __init__(self, original_timestamp=1, category=-1, pose="",
             source_robot_id="", artifact_report_id="", imgs=None, 
             img_stamps=None):
         
         self.category = category
-        self.pos = position
-        self.orig_pos = copy.deepcopy(position)
+        self.pose = pose
+        self.orig_pose = copy.deepcopy(pose)
         self.source_robot_id = source_robot_id
         self.artifact_report_id = artifact_report_id
         self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?

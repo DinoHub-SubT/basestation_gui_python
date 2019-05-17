@@ -80,7 +80,9 @@ class ArtifactQueuePlugin(Plugin):
 
 		#setup subscribers
 		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
+
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact', Artifact, queue_size = 10)
+		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
 
@@ -122,8 +124,8 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_layout.addWidget(self.queue_duplicate_artifact_button, 1, 2)
 
 		#add support for deleting artifacts
-		self.queue_archive_artifact_button = qt.QPushButton("Delete artifact")
-		self.queue_archive_artifact_button.clicked.connect(self.deleteArtifact)
+		self.queue_archive_artifact_button = qt.QPushButton("Archive artifact")
+		self.queue_archive_artifact_button.clicked.connect(self.archiveArtifact)
 		self.queue_layout.addWidget(self.queue_archive_artifact_button, 2, 0)
 
 		self.queue_archive_confirm_button = qt.QPushButton("Confirm")
@@ -167,7 +169,7 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_table.cellClicked.connect(self.queueClick)
 
 		#add the table to the layout
-		self.queue_layout.addWidget(self.queue_table, 4, 0, 1, 3)
+		self.queue_layout.addWidget(self.queue_table, 5, 0, 1, 3)
 
 		#add to the overall gui
 		self.queue_widget.setLayout(self.queue_layout)
@@ -196,21 +198,55 @@ class ArtifactQueuePlugin(Plugin):
 		'''
 		pass
 
-	def deleteArtifact(self):
+	def archiveArtifact(self):
 		'''
 		Archive artifact. At this moment, this means it never shows back up
 		in the gui. Adds it to a list of arhcived artifacts in the
 		artifact handler
 		'''
-		pass
+
+		#confirm we've actually selected an artifact
+		rows_selected =  self.getSelectedRowIndices()
+
+
+		if (len(rows_selected)==0):
+			msg = GuiMessage()
+			msg.data = 'No artifact(s) selected, did not delete anything'
+			msg.color = msg.COLOR_ORANGE
+			self.message_pub.publish(msg)
+			print "here"
+
+		#make the confirm/delete buttons pressable and the correct color
+		else:
+			self.queue_archive_cancel_button.setStyleSheet("background-color:rgb(220, 0, 0)")
+			self.queue_archive_cancel_button.setEnabled(True)
+
+			self.queue_archive_confirm_button.setStyleSheet("background-color:rgb(0, 220, 0)")
+			self.queue_archive_confirm_button.setEnabled(True) 
+
+
+	def getSelectedRowIndices(self):
+		'''
+		Returns the indice(s) of the selected rows in the queue table.
+		Always returns a list, unlike self.queue_table.selectionModel().selectedRows()
+		'''
+
+		if(self.queue_table.rowCount()==0):
+			return []
+
+		return [a.row() for a in self.queue_table.selectionModel().selectedRows()]
+
 
 
 	def confirmArchiveArtifact(self):
 		'''
-		A deletion of am artifatc has been confirmed. Remove the artifact
+		A deletion of am artifact has been confirmed. Remove the artifact
 		from the queue
 		'''
-		pass
+		rows_selected = self.getSelectedRowIndices()
+
+		for row in rows_selected:
+			r=0
 
 	def cancelArchiveArtifact(self):
 		'''
@@ -234,10 +270,19 @@ class ArtifactQueuePlugin(Plugin):
 		#PROBABLY PUT A CONFIRM/DELETE BUTTON HERE
 		pass
 
-	def queueClick(self):
+	def queueClick(self, row, col):
 		'''
 		An artifact was clicked on the artifact queue
 		'''
+
+		#select the whole row. for visualization mostly
+		self.queue_table.selectRow(row)
+
+	def displaySeconds(self, seconds):
+		'''
+		Function to convert seconds float into a min:sec string
+		'''
+		return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
 
 
 
@@ -252,10 +297,59 @@ class ArtifactQueuePlugin(Plugin):
 		'''
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarented to be on the proper thread"			
+			print "Drawing on the message panel not guarented to be on the proper thread"
+
+		self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
+
+		self.queue_table.insertRow(self.queue_table.rowCount())
+		row = self.queue_table.rowCount() - 1
+
+		#generate the display time
+		disp_time = self.displaySeconds(msg.time_from_robot)
+
+		row_data = [msg.source_robot_id, msg.priority, disp_time, \
+					msg.category, '!', msg.unique_id]
+
+		print row_data
+
+		for col, val in enumerate(row_data):
+
+			if (col==2):
+				colon = disp_time.find(':')
+				val = float(disp_time[:colon])*60 + float(disp_time[colon+1:])
+				item = NumericItem(str(disp_time))
+				item.setData(core.Qt.UserRole, val)
+			
+			else: #if we're not dealing with a display time
+				item = NumericItem(str(val))
+				item.setData(core.Qt.UserRole, val)                    
+
+			self.queue_table.setItem(row, col, item)
+
+		#color the unread green
+		self.queue_table.item(row, 4).setBackground(gui.QColor(0,255,0))
+
+		for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
+			if self.queue_table.item(row, i) != None: 
+				self.queue_table.item(row, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
+				self.queue_table.item(row, i).setTextAlignment(Qt.AlignHCenter) 
+
+		self.queue_table.setSortingEnabled(True) #to avoid corrupting the table
+
+		if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
+			self.queue_table.sortItems(2, core.Qt.DescendingOrder)
+			
+			self.queue_table.viewport().update()			
 
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
 		pass
-		
+
+class NumericItem(qt.QTableWidgetItem):
+	'''
+	Class which overwrites a pyqt table widget item in order to allow for better sorting (e.g. '2'<'100')
+	'''
+	def __lt__(self, other):
+		return (self.data(core.Qt.UserRole) <\
+				other.data(core.Qt.UserRole))

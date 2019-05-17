@@ -7,7 +7,7 @@ import time
 import random
 
 def talker():
-    pub = rospy.Publisher('/gui_message_print', GuiMessage, queue_size=10)
+    pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
     rospy.init_node('talker', anonymous=True)
     rate = rospy.Rate(0.1) # 10hz
     # msg = GuiMessage()

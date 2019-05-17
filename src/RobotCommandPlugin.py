@@ -112,10 +112,7 @@ class RobotCommandPlugin(Plugin):
 
 		self.robot_positions = [None]*len(self.robot_names)
 
-		self.green_message_color = [144,238,144]
-		self.red_message_color = [250,128,114]
-		self.orange_message_color = [242., 143, 50.]
-		self.normal_message_color = [220,220,220]
+		
 		
 
 	def initPanel(self, context):
@@ -317,7 +314,7 @@ class RobotCommandPlugin(Plugin):
 			else:
 				msg = GuiMessage()
 				msg.data = 'WARNING: Button pressed does not have a function call associated with it!'
-				msg.color.r, msg.color.g, msg.color.b = self.orange_message_color
+				msg.color = msg.COLOR_ORANGE
 				self.gui_message_pub.publish(msg)
 
 		elif(not button.isChecked()): #it has just be un-clicked
@@ -329,7 +326,7 @@ class RobotCommandPlugin(Plugin):
 				except ValueError:
 					msg = GuiMessage()
 					msg.data = "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!"
-					msg.color.r, msg.color.g, msg.color.b = self.red_message_color 
+					msg.color = msg.COLOR_RED
 					self.gui_message_pub.publish(msg)
 
 			elif(command == "Show bluetooth"):
@@ -356,7 +353,7 @@ class RobotCommandPlugin(Plugin):
 			else:
 				msg = GuiMessage()
 				msg.data = 'WARNING: Button pressed does not have a function call associated with it!'
-				msg.color.r, msg.color.g, msg.color.b = self.orange_message_color 
+				msg.color = msg.COLOR_ORANGE
 				self.gui_message_pub.publish(msg)
 
 
@@ -404,7 +401,7 @@ class RobotCommandPlugin(Plugin):
 		else:
 			msg = GuiMessage()
 			msg.data = 'Something went wrong with confirm/cancel sequence'
-			msg.color.r, msg.color.g, msg.color.b = self.red_message_color 
+			msg.color = msg.COLOR_RED
 			self.gui_message_pub.publish(msg)
 
 
@@ -500,7 +497,7 @@ class RobotCommandPlugin(Plugin):
 		else:
 			msg = GuiMessage()
 			msg.data = 'WARNING: The pressed button does not correspond to an estop command the Bridge knows about'
-			msg.color.r, msg.color.g, msg.color.b = self.orange_message_color
+			msg.color = msg.COLOR_ORANGE
 			self.gui_message_pub.publish(msg)
 
 		if send_900:
@@ -556,7 +553,7 @@ class RobotCommandPlugin(Plugin):
 		else:
 			msg = GuiMessage()
 			msg.data = 'Waypoint never set. Message never published. Please move the interactive marker in RViz.'
-			msg.color.r, msg.color.g, msg.color.b = self.normal_message_color
+			msg.color = msg.COLOR_GRAY
 			self.gui_message_pub.publish(msg)
 
 
@@ -582,7 +579,8 @@ class RobotCommandPlugin(Plugin):
 				msg = GuiMessage()
 				msg.data = 'Nothing appears to have been published to the robot pose topic ' +\
 										 self.robot_pos_topics[self.robot_names.index(robot_name)]
-				msg.color.r, msg.color.g, msg.color.b = self.normal_message_color 
+				
+				msg.color = msg.COLOR_GRAY
 				self.gui_message_pub.publish(msg)
 
 				#deselect the waypoint button
@@ -605,7 +603,7 @@ class RobotCommandPlugin(Plugin):
 		except ValueError:
 			msg = GuiMessage()
 			msg.data = 'Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been enabled!!'
-			msg.color.r, msg.color.g, msg.color.b = self.normal_message_color 
+			msg.color = msg.COLOR_GRAY
 			self.gui_message_pub.publish(msg)
 
 	def recordWaypoint(self, msg):
