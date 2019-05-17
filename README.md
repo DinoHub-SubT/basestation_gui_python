@@ -92,7 +92,12 @@ to RViz. This marker will become visible upon selecting 1+ of the "Define waypoi
 
 Generate a .py file following the convention of the Gui.py format (inherit from the Plugin class, etc.). An barebones example is in src/SkeletonPlugin.py
 
-In the basestation_gui_python/plugin.xml file add the plugin as a new class. Keep it in the same group as the other plugins (Basestation Gui)
+In the basestation_gui_python/plugin.xml file add the plugin as a new class. Keep it in the same group as the other plugins (Basestation Gui).
+
+In package.xml, add the following line within the existing export tag:
+```bash
+<rqt_gui plugin="${prefix}/plugin.xml"/>
+```
 
 Launch the gui using the normal launch command. If the pluging does not show up in the dropdown:
 	-Close the gui
