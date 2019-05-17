@@ -56,7 +56,7 @@ class ArtifactSubmissionPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers
-		self.submission_reply_sub = rospy.Subscriber('/gui_submission_reply', ArtifactSubmissionReply, self.submissionReply)
+		self.submission_reply_sub = rospy.Subscriber('/gui/submission_reply', ArtifactSubmissionReply, self.submissionReply)
 
 		self.submission_reply_trigger.connect(self.submissionReplyMonitor)
 

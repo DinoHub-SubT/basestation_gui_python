@@ -90,16 +90,16 @@ class RobotCommandPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers/publishers
-		self.rob_command_sub = rospy.Subscriber('/gui_rob_command_update', GuiRobCommand, self.robCommandUpdate)
+		self.rob_command_sub = rospy.Subscriber('/gui/rob_command_update', GuiRobCommand, self.robCommandUpdate)
 		self.waypoint_sub = rospy.Subscriber('/define_waypoint/feedback', InteractiveMarkerFeedback, self.recordWaypoint)
 		self.waypoint = None   
 		for i, topic in enumerate(self.robot_pos_topics):
 			rospy.Subscriber(topic, Odometry, self.saveRobotPos, (i))
 		
 
-		self.rob_command_pub = rospy.Publisher('/gui_rob_command_press', GuiRobCommand, queue_size = 10)
+		self.rob_command_pub = rospy.Publisher('/gui/rob_command_press', GuiRobCommand, queue_size = 10)
 		self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
-		self.gui_message_pub = rospy.Publisher('/gui_message_print', GuiMessage, queue_size=10)
+		self.gui_message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.radio_900_pub = rospy.Publisher('/ros_to_teensy', NineHundredRadioMsg, queue_size=50) #queue_size arbitraily chosen
 		self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', MarkerArray, queue_size=50)#for displaying the original position 
 		self.highlight_robot_pub = rospy.Publisher('/highlight_robot_pub', Marker, queue_size=50)#for displaying robot position           

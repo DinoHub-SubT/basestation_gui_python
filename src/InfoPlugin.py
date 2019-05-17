@@ -57,7 +57,7 @@ class InfoPlugin(Plugin):
 
 		#setup subscribers
 		self.info_string = None
-		self.info_sub = rospy.Subscriber('/gui_darpa_status', DarpaStatus, self.setInfoString)
+		self.info_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setInfoString)
 
 		self.info_trigger.connect(self.setInfoStringMonitor)
 

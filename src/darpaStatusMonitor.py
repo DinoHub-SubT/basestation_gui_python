@@ -55,7 +55,7 @@ class DarpaBridge:
 			self.get_status_thread = threading.Timer(1.0, self.getStatus)
 			self.get_status_thread.start()
 
-			self.status_pub = rospy.Publisher('/gui_darpa_status', DarpaStatus, queue_size=10)
+			self.status_pub = rospy.Publisher('/gui/darpa_status', DarpaStatus, queue_size=10)
 
 
 	def getStatus(self):

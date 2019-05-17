@@ -57,7 +57,7 @@ class SkeletonPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers
-		self.skeleton_sub = rospy.Subscriber('/gui_skeleton_print', GuiMessage, self.skeletonFunction)
+		self.skeleton_sub = rospy.Subscriber('/gui/skeleton_print', GuiMessage, self.skeletonFunction)
 
 		self.skeleton_trigger.connect(self.skeletonFunctionMonitor)
 

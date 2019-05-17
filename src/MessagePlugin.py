@@ -54,12 +54,12 @@ class MessagePlugin(Plugin):
 		self.setObjectName('MessagePlugin')		
 
 		self.darpa_time = None
-		self.time_sub = rospy.Subscriber('/gui_darpa_status', DarpaStatus, self.setDarpaTime)
+		self.time_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setDarpaTime)
 
 		self.initMessagePanel(context) #layout plugin
 
 		#setup subscribers
-		self.message_sub = rospy.Subscriber('/gui_message_print', GuiMessage, self.printMessage)
+		self.message_sub = rospy.Subscriber('/gui/message_print', GuiMessage, self.printMessage)
 
 		self.print_message_trigger.connect(self.printMessageMonitor)
 

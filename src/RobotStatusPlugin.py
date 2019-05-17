@@ -70,7 +70,7 @@ class RobotStatusPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers
-		self.robot_status_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.robotStatus)
+		self.robot_status_sub = rospy.Subscriber('/gui/status_panel_update', StatusPanelUpdate, self.robotStatus)
 
 		self.robot_status_trigger.connect(self.robotStatusMonitor)
 

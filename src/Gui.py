@@ -50,7 +50,7 @@ from GuiEngine import GuiEngine, Artifact
 import csv
 import cv2
 
-from basestation_gui_python.msg import StatusPanelUpdate, ArtifactSubmissionReply
+from basestation_gui_python.msg import StatusPanelUpdate, ArtifactSubmissionReply, Artifact
 
 from PyQt5.QtCore import pyqtSignal
 
@@ -155,7 +155,11 @@ class BasestationGuiPlugin(Plugin):
         self.update_info_panel_trigger.connect(self.updateInfoPanelMonitor)
 
         #to communicate with the submission history panel
-        self.submission_reply_pub = rospy.Publisher('/gui_submission_reply', ArtifactSubmissionReply, queue_size = 10) 
+        self.submission_reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10) 
+
+        self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact', Artifact, queue_size = 10)
+
+
         
     def loadDarpaTransform(self):
         '''
@@ -1637,7 +1641,26 @@ class BasestationGuiPlugin(Plugin):
         For BSM to manually add an artifact
         '''
 
-        self.gui_engine.addArtifactManually()
+        # original_timestamp = msg.original_timestamp, category = msg.category, \
+        #                     position = [msg.orig_pos_x, msg.orig_pos_y, msg.orig_pos_z],
+        #                     source_robot_id = msg.source_robot_id, artifact_report_id = msg.artifact_report_id, \
+        #                     imgs = msg.imgs, img_stamps = msg.img_stamps
+
+        # self.gui_engine.addArtifactManually()
+        msg = Artifact()
+        msg.original_timestamp = -1
+        msg.category = self.artifact_categories[0]
+        msg.orig_pose.position.x = -0.1
+        msg.orig_pose.position.y = -0.1
+        msg.orig_pose.position.z = -0.1
+        msg.source_robot_id = -1
+        msg.artifact_report_id = -1
+        # msg.imgs = []
+        # msg.img_stamps = []
+
+
+        self.add_new_artifact_pub.publish(msg)
+
 
     def duplicateArtifact(self):
         '''
@@ -2038,7 +2061,7 @@ class BasestationGuiPlugin(Plugin):
         #initialize the subscribers for updating different parts of the GUI
         # self.info_subscriber = rospy.Subscriber('/darpa_status_updates', String, self.updateInfoPanel)
 
-        self.status_panel_update_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.status_panel_update_callback)
+        self.status_panel_update_sub = rospy.Subscriber('/gui/status_panel_update', StatusPanelUpdate, self.status_panel_update_callback)
 
 
 
@@ -2351,6 +2374,14 @@ class BasestationGuiPlugin(Plugin):
         config = yaml.load(open(self.config_filename, 'r').read())
         darpa_params = config['darpa_params']
         self.associateCatsWithLabels(darpa_params['artifact_labels'])
+
+        #read info on darpa-related commands (communication protocol, etc.)
+        darpa_params = config['darpa_params']
+
+        #artifact categories used for the gui
+        self.artifact_categories = []
+        for category in darpa_params['artifact_categories']:
+            self.artifact_categories.append(category)
 
         self.darpa_gui_bridge = DarpaGuiBridge(self.config_filename, self)
 

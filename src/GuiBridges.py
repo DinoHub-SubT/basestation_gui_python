@@ -57,7 +57,7 @@ class RosGuiBridge:
 
 
         #publisher for the image coordinate clicked on (as percentage of the image)
-        self.img_coord_pub = rospy.Publisher('/gui_img_clicked', Float32MultiArray, queue_size=10)
+        self.img_coord_pub = rospy.Publisher('/gui/img_clicked', Float32MultiArray, queue_size=10)
 
         #thread for publishing drone hard estop
         # self.drone_hard_estop_thread = threading.Timer(2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])) 
@@ -90,7 +90,7 @@ class RosGuiBridge:
         rospy.Subscriber('/position', Odometry, self.saveTotalPose)
 
         #subscriber for listening to messages
-        rospy.Subscriber('/gui_message_listener', String, self.gui.addMessage)
+        rospy.Subscriber('/gui/message_listener', String, self.gui.addMessage)
 
 
 

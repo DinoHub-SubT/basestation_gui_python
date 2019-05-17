@@ -53,6 +53,7 @@ add_message_files(
    DarpaStatus.msg
    ArtifactSubmissionReply.msg
    GuiRobCommand.msg
+   Artifact.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -74,6 +75,7 @@ add_message_files(
    DEPENDENCIES
    std_msgs
    sensor_msgs
+   geometry_msgs
 #   std_msgs  # Or other packages containing msgs
  )
 
