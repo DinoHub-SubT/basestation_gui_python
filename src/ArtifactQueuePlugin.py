@@ -44,11 +44,12 @@ import yaml
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact
+from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, RadioMsg
 
 class ArtifactQueuePlugin(Plugin):
 
 	queue_trigger = pyqtSignal(object) #to keep the drawing on the proper thread
+	archive_artifact_trigger = pyqtSignal() 
 
 	def __init__(self, context):
 		super(ArtifactQueuePlugin, self).__init__(context)
@@ -83,8 +84,10 @@ class ArtifactQueuePlugin(Plugin):
 
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
+		self.archive_artifact_pub = rospy.Publisher('/gui/archive_artifact', String, queue_size=10)
 
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
+		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
 
 	def initPanel(self, context):
 		'''
@@ -142,14 +145,14 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_archive_cancel_button.setEnabled(False)
 		self.queue_layout.addWidget(self.queue_archive_cancel_button, 2, 1)
 
-		#add support for requesting that all artifact info gets sent back
-		self.resend_art_data_button = qt.QPushButton("Re-send all artifact info")
-		self.resend_art_data_button.clicked.connect(self.resendArtifactInfo)
-		self.queue_layout.addWidget(self.resend_art_data_button, 3, 0, 1, 3)
+		# #add support for requesting that all artifact info gets sent back
+		# self.resend_art_data_button = qt.QPushButton("Re-send all artifact info")
+		# self.resend_art_data_button.clicked.connect(self.resendArtifactInfo)
+		# self.queue_layout.addWidget(self.resend_art_data_button, 3, 0, 1, 3)
 
 		self.submit_all_queued_artifacts_button = qt.QPushButton("Submit all queued artifacts!")
 		self.submit_all_queued_artifacts_button.clicked.connect(self.submitAllQueuedArtifacts)
-		self.queue_layout.addWidget(self.submit_all_queued_artifacts_button, 4, 0, 1, 3)
+		self.queue_layout.addWidget(self.submit_all_queued_artifacts_button, 3, 0, 1, 3)
 
 
 		#make a table
@@ -169,7 +172,7 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_table.cellClicked.connect(self.queueClick)
 
 		#add the table to the layout
-		self.queue_layout.addWidget(self.queue_table, 5, 0, 1, 3)
+		self.queue_layout.addWidget(self.queue_table, 4, 0, 1, 3)
 
 		#add to the overall gui
 		self.queue_widget.setLayout(self.queue_layout)
@@ -200,8 +203,8 @@ class ArtifactQueuePlugin(Plugin):
 
 	def archiveArtifact(self):
 		'''
-		Archive artifact. At this moment, this means it never shows back up
-		in the gui. Adds it to a list of arhcived artifacts in the
+		Archive artifact. Currently, this means it never shows back up
+		in the gui. Adds it to a list of archived artifacts in the
 		artifact handler
 		'''
 
@@ -214,7 +217,6 @@ class ArtifactQueuePlugin(Plugin):
 			msg.data = 'No artifact(s) selected, did not delete anything'
 			msg.color = msg.COLOR_ORANGE
 			self.message_pub.publish(msg)
-			print "here"
 
 		#make the confirm/delete buttons pressable and the correct color
 		else:
@@ -236,23 +238,60 @@ class ArtifactQueuePlugin(Plugin):
 
 		return [a.row() for a in self.queue_table.selectionModel().selectedRows()]
 
-
-
 	def confirmArchiveArtifact(self):
+		self.archive_artifact_trigger.emit()
+
+	def confirmArchiveArtifactMonitor(self):
 		'''
 		A deletion of am artifact has been confirmed. Remove the artifact
 		from the queue
 		'''
+
+		#check that threading is working properly
+		if (not isinstance(threading.current_thread(), threading._MainThread)):
+			print "Drawing on the message panel not guarented to be on the proper thread"
+
 		rows_selected = self.getSelectedRowIndices()
 
+		handler_msg = String()
+		update_msg = GuiMessage()
+
 		for row in rows_selected:
-			r=0
+
+			#send a message to the MessagePluging about this
+			update_msg.data = 'Artifact removed from table:'+str(self.queue_table.item(row,0).text())+'//'+\
+												   str(self.queue_table.item(row,2).text())+'//'+\
+												   str(self.queue_table.item(row,3).text())
+
+			update_msg.color = update_msg.COLOR_GREEN
+			self.message_pub.publish(update_msg)
+
+			#delete it from the ArtifactHandler book-keeping
+			handler_msg.data = self.queue_table.item(row,5).text()
+			self.archive_artifact_pub.publish(handler_msg) #only send the unique ID
+			
+			#delete it from the queue table
+			self.queue_table.removeRow(self.queue_table.item(row,0).row())
+
+			#reset the confirm/cancel buttons
+			self.queue_archive_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+			self.queue_archive_cancel_button.setEnabled(False)
+
+			self.queue_archive_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+			self.queue_archive_confirm_button.setEnabled(False)
+
+
 
 	def cancelArchiveArtifact(self):
 		'''
 		Do not actually archive the artifact. Leave it as-is. 
+		Just reset the confirm/cancel buttons
 		'''
-		pass
+		self.queue_archive_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+		self.queue_archive_cancel_button.setEnabled(False)
+
+		self.queue_archive_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+		self.queue_archive_confirm_button.setEnabled(False)
 
 	def resendArtifactInfo(self):
 		'''
@@ -310,7 +349,6 @@ class ArtifactQueuePlugin(Plugin):
 		row_data = [msg.source_robot_id, msg.priority, disp_time, \
 					msg.category, '!', msg.unique_id]
 
-		print row_data
 
 		for col, val in enumerate(row_data):
 

@@ -221,8 +221,8 @@ class RobotCommandPlugin(Plugin):
 			button.setStyleSheet("background-color:rgb(126, 126, 126)")
 			button.setEnabled(False)
 
-		elif (command in ['Return home', 'Drop comms']):
-			button.setStyleSheet("QPushButton:pressed { background-color: red }") #a button stays red when its in a clicked state
+		elif (command in ['Return home', 'Drop comms', 'Re-send artifacts']):
+			button.setStyleSheet("QPushButton:pressed { background-color: green }") #a button stays red when its in a clicked state
 			
 		else:
 			button.setCheckable(True) # a button pressed will stay pressed, until unclicked
@@ -297,20 +297,22 @@ class RobotCommandPlugin(Plugin):
 				cmd_button.setEnabled(False)
 				cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 
-					
+						
 
 	def publishRobotCommand(self, command, robot_name, button):
 		'''
 		A command button has been pressed. Publish a command from the gui to the robot
 		'''
 
-		if (command in [ "Return home", "Highlight robot", "Drop comms"]): #buttons are not checkable
+		if (command in [ "Return home", "Highlight robot", "Drop comms", "Re-send artifacts"]): #buttons are not checkable
 			if(command == "Return home"):
 				self.publishReturnHome(robot_name)
 			elif(command == "Highlight robot"):
 				self.highlightRobot(robot_name)
 			elif(command == "Drop comms"):
 				self.dropComms(robot_name)
+			elif(command=="Re-send artifacts"):
+				self.resendArtifacts(robot_name)
 			else:
 				msg = GuiMessage()
 				msg.data = 'WARNING: Button pressed does not have a function call associated with it!'
@@ -356,7 +358,21 @@ class RobotCommandPlugin(Plugin):
 				msg.color = msg.COLOR_ORANGE
 				self.gui_message_pub.publish(msg)
 
+	def resendArtifacts(self, robot_name):
+		'''
+		Re-send all fo the artifact detections from the robot.
+		Useful when the robot goes out of comms range and comes
+		back in, we can have the detections while out of range sent
+		back
+		'''
 
+		radio_msg = RadioMsg()
+		radio_msg.recipient_robot_id = self.robot_names.index(robot_name) 
+		radio_msg.message_type = RadioMsg.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
+
+		self.radio_pub.publish(radio_msg)
+
+	
 	def processButtonNeedingConfirmation(self, command, robot_name, button):
 		'''
 		Enable the confirm/cancel buttons for a pending button press
