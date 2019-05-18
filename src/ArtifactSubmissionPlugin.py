@@ -181,6 +181,8 @@ class ArtifactSubmissionPlugin(Plugin):
 			self.submission_reply_table.sortItems(1, core.Qt.DescendingOrder)		
 			self.submission_reply_table.viewport().update()
 
+	
+
 	def displaySeconds(self, seconds):
 		'''
 		Function to convert seconds float into a min:sec string

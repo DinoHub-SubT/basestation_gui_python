@@ -1,7 +1,7 @@
 #!/usr/bin/python
 '''
 Functions to handle the artifacts. From detections, to creating new ones, to
-keeping track of existing artifacts. 
+keeping track of existing artifacts to submitting artifacts to DARPA
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
 
 Copyright Carnegie Mellon University / Oregon State University <2019>
@@ -9,9 +9,10 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 '''
 
 import rospy
-from basestation_gui_python.msg import Artifact, GuiMessage
+from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply
 import copy
 from std_msgs.msg import String
+from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 
 class ArtifactHandler:
 	'''
@@ -24,19 +25,24 @@ class ArtifactHandler:
 		self.focused_artifact = [] # artifact being displayed in the manipulator plugin
 		self.archived_artifacts = [] #artifacts deleted from queue but we may want to keep around		
 									 #(future gui development needed to actually use this info)
-
+		self.submitted_artifacts = []
 
 		#subscriber and publishers
 		rospy.Subscriber('/gui/generate_new_artifact', Artifact, self.generateNewArtifact)
 		rospy.Subscriber('/gui/focus_on_artifact', Artifact, self.skeletonFunction)
 		rospy.Subscriber('/gui/archive_artifact', String, self.archiveArtifact)
+		rospy.Subscriber('/gui/duplicate_artifact', String, self.duplicateArtifact)
 		rospy.Subscriber('/gui/propose_artifact', Artifact, self.skeletonFunction)
 		rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.skeletonFunction)
 		rospy.Subscriber('/gui/update_artifact_info', Artifact, self.updateArtifactInfo) #location, category, or priority
+		rospy.Subscriber('/gui/submit_artifact', String, self.submitArtifact)
 
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
-
 		self.to_queue_pub = rospy.Publisher('/gui/artifact_to_queue', Artifact, queue_size = 10)
+		self.reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
+		self.submission_reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
+
+		self.http_client = TeamClient() #client to interact with darpa scoring server
 
 	def guiArtifactToRos(self, artifact):
 		'''
@@ -110,6 +116,138 @@ class ArtifactHandler:
 
 		#add the artifact to the queue
 		self.to_queue_pub.publish(ros_msg)
+
+	def findArtifact(self, unique_id):
+		'''
+		Given a uniqueid, return the artifact being referenced
+		'''
+
+		#go find the artifact
+		ret_artifact = None
+		for artifact in self.all_artifacts:
+			if (artifact.unique_id == unique_id):
+				ret_artifact = artifact
+				break
+
+		if (ret_artifact != None):
+			return ret_artifact
+
+		else:
+			update_msg = GuiMessage()
+			update_msg.data = 'Artifact with unique id: '+str(unique_id)+' not found.'
+			update_msg.color = update_msg.COLOR_RED
+			self.message_pub.publish(update_msg)
+
+			return None
+
+
+	def duplicateArtifact(self, msg):
+		'''
+		Take in the unique id of an artifact to duplicate and 
+		duplicates it
+		'''
+
+		#go find the artifact
+		artifact_to_dup = self.findArtifact(msg.data)
+
+		if (artifact_to_dup != None):
+
+			#find a unique negative id. manually generated artifacts have a negative id
+			negative_id_list = []
+			for art in self.all_artifacts:
+				if (art.artifact_report_id < 0):
+					negative_id_list.append(art.artifact_report_id)
+
+			artifact_id = (len(negative_id_list) + 1) * -1
+
+			#make the robot_id negative as well. 
+			art_source_id = (artifact_to_dup.source_robot_id + 1) * -1 #'+1' because one of the robot ids is 0, which won't go negative
+													 # with '*-1'
+
+			#generate the artifact object
+			artifact = GuiArtifact(copy.deepcopy(artifact_to_dup.original_timestamp), copy.deepcopy(artifact_to_dup.category), \
+								copy.deepcopy(artifact_to_dup.pose), art_source_id,
+								artifact_id, copy.deepcopy(artifact_to_dup.imgs),
+								copy.deepcopy(artifact_to_dup.img_stamps))
+
+		   #  GuiArtifact(original_timestamp = msg.original_timestamp, category = msg.category, \
+								# pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
+								# source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
+								# imgs = msg.imgs, img_stamps = msg.img_stamps)
+
+			#add the artifact to the list of queued objects and to the all_artifacts list
+			self.queued_artifacts.append(artifact)
+			self.all_artifacts.append(artifact)
+
+			#publish this message to be visualized by plugins
+			ros_msg = self.guiArtifactToRos(artifact) #necessary step to fill in some defaults (i.e. priority)
+												 #to be used by other parts of the gui
+
+			#add the artifact to the queue
+			self.to_queue_pub.publish(ros_msg)
+
+
+	def submitArtifact(self, msg):
+		'''
+		Submit an artifact report to DARPA
+		msg is just a string that's the unqiue_id of the artifact to submit
+		'''
+
+		artifact = self.findArtifact(msg.data)
+
+		if (artifact != None):
+
+			artifact_report = ArtifactReport(x = float(artifact.pose[0]), \
+											 y = float(artifact.pose[1]), \
+											 z = float(artifact.pose[2]), \
+											 type = str(artifact.category))
+
+			results = self.http_client.send_artifact_report(artifact_report)
+
+			if (results != []): #we actually get something back
+				artifact_report_reply, http_status, http_reason = results
+
+				proposal_return = [artifact_report_reply['run_clock'], artifact_report_reply['type'], \
+								  artifact_report_reply['x'], artifact_report_reply['y'], \
+								  artifact_report_reply['z'],  artifact_report_reply['report_status'], \
+								  artifact_report_reply['score_change'], http_status, http_reason]
+
+				self.publishSubmissionReply(proposal_return)
+
+				#remove the artifact from the book keeping
+				self.queued_artifacts.remove(artifact)
+				self.submitted_artifacts.append(artifact)
+
+		else: #we could not find the artifact unique_id
+			update_msg = GuiMessage()
+			update_msg.data = 'Artifact with unique id: '+str(msg.data)+' not found.'
+			update_msg.color = update_msg.COLOR_RED
+			self.message_pub.publish(update_msg)
+
+
+	def publishSubmissionReply(self, proposal_return):
+		'''
+		Publish the information returned by DARPA about our artifact submission
+		'''
+
+		[submission_time_raw, artifact_type, x, y, z, report_status, \
+							score_change, http_response, http_reason] = proposal_return
+
+		#publish the message to display in thesubmission reply plugin        
+		msg = ArtifactSubmissionReply()
+		msg.submission_time_raw = float(submission_time_raw)
+		msg.artifact_type = str(artifact_type)
+		msg.x = x
+		msg.y = y
+		msg.z = z
+		msg.report_status = str(report_status)
+		msg.score_change = score_change
+		msg.http_response = str(http_response)
+		msg.http_reason = str(http_reason)
+
+		self.submission_reply_pub.publish(msg)
+
+
 		
 
 	def archiveArtifact(self, msg):
@@ -119,17 +257,13 @@ class ArtifactHandler:
 		'''
 
 		#go find the artifact
-		artifact_to_archive = None
-		for artifact in self.all_artifacts:
-			if (artifact.unique_id == msg.data):
-				artifact_to_archive = artifact
-				break
+		artifact_to_archive = self.findArtifact(msg.data)
 
 		update_msg = GuiMessage()
 
 		if (artifact_to_archive != None):
-			self.archived_artifacts.append(artifact)
-			self.queued_artifacts.remove(artifact)
+			self.archived_artifacts.append(artifact_to_archive)
+			self.queued_artifacts.remove(artifact_to_archive)
 
 			update_msg.data = 'Artifact archived in handler:'+str(artifact_to_archive.source_robot_id)+'//'+\
 												   str(artifact_to_archive.original_timestamp)+'//'+\

@@ -50,6 +50,8 @@ class ArtifactQueuePlugin(Plugin):
 
 	queue_trigger = pyqtSignal(object) #to keep the drawing on the proper thread
 	archive_artifact_trigger = pyqtSignal() 
+	update_table_trigger = pyqtSignal(object, object, object)
+	submit_all_artifacts_trigger = pyqtSignal()
 
 	def __init__(self, context):
 		super(ArtifactQueuePlugin, self).__init__(context)
@@ -85,9 +87,13 @@ class ArtifactQueuePlugin(Plugin):
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.archive_artifact_pub = rospy.Publisher('/gui/archive_artifact', String, queue_size=10)
+		self.duplicate_pub = rospy.Publisher('/gui/duplicate_artifact', String, queue_size=10)
+		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact', String, queue_size=10)
 
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
 		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
+		self.update_table_trigger.connect(self.updateQueueTableMonitor)
+		self.submit_all_artifacts_trigger.connect(self.submitAllQueuedArtifactsMonitor)
 
 	def initPanel(self, context):
 		'''
@@ -145,11 +151,6 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_archive_cancel_button.setEnabled(False)
 		self.queue_layout.addWidget(self.queue_archive_cancel_button, 2, 1)
 
-		# #add support for requesting that all artifact info gets sent back
-		# self.resend_art_data_button = qt.QPushButton("Re-send all artifact info")
-		# self.resend_art_data_button.clicked.connect(self.resendArtifactInfo)
-		# self.queue_layout.addWidget(self.resend_art_data_button, 3, 0, 1, 3)
-
 		self.submit_all_queued_artifacts_button = qt.QPushButton("Submit all queued artifacts!")
 		self.submit_all_queued_artifacts_button.clicked.connect(self.submitAllQueuedArtifacts)
 		self.queue_layout.addWidget(self.submit_all_queued_artifacts_button, 3, 0, 1, 3)
@@ -178,6 +179,28 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_widget.setLayout(self.queue_layout)
 		self.global_widget.addWidget(self.queue_widget) #last 2 parameters are rowspan and columnspan
 
+	def updateQueueTable(self, row, col, data):
+		self.update_table_trigger.emit(row, col, data)
+
+	def updateQueueTableMonitor(self, row, col, data):
+		'''
+		Update an element in the queue table
+		'''
+
+		#check that threading is working properly
+		if (not isinstance(threading.current_thread(), threading._MainThread)):
+			print "Drawing on the message panel not guarenteed to be on the proper thread"
+
+		if (type(data) == str):
+			self.queue_table.item(row,col).setText(data)
+			self.queue_table.item(row,col).setBackground(gui.QColor(255,255,255)) # to rem0ve the green background if its the unread element
+
+		else:
+			msg = GuiMessage()
+			msg.data = 'Tried to update queue table with non-string value. Therefore table not updated'
+			msg.color = msg.COLOR_ORANGE
+			self.message_pub.publish(msg)
+
 
 	def manuallyAddArtifact(self):
 		'''
@@ -197,9 +220,23 @@ class ArtifactQueuePlugin(Plugin):
 
 	def duplicateArtifact(self):
 		'''
-		Duplicate the artifact that is being clicked on
+		Duplicate the artifact(s) that is being clicked on
 		'''
-		pass
+		
+		rows_selected = self.getSelectedRowIndices()
+
+		if (len(rows_selected)==0):
+			msg = GuiMessage()
+			msg.data = 'No artifact(s) selected, did not duplicate anything'
+			msg.color = msg.COLOR_ORANGE
+			self.message_pub.publish(msg)
+
+		#make the confirm/delete buttons pressable and the correct color
+		else:
+			msg = String()
+			for row in rows_selected:
+				msg.data = self.queue_table.item(row,5).text()
+				self.duplicate_pub.publish(msg)
 
 	def archiveArtifact(self):
 		'''
@@ -243,13 +280,13 @@ class ArtifactQueuePlugin(Plugin):
 
 	def confirmArchiveArtifactMonitor(self):
 		'''
-		A deletion of am artifact has been confirmed. Remove the artifact
+		A deletion of an artifact has been confirmed. Remove the artifact
 		from the queue
 		'''
 
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarented to be on the proper thread"
+			print "Drawing on the message panel not guarenteed to be on the proper thread"
 
 		rows_selected = self.getSelectedRowIndices()
 
@@ -305,9 +342,27 @@ class ArtifactQueuePlugin(Plugin):
 		'''
 		Submit all of the queued artifacts to DARPA
 		'''
+		self.submit_all_artifacts_trigger.emit()
 
-		#PROBABLY PUT A CONFIRM/DELETE BUTTON HERE
-		pass
+	def submitAllQueuedArtifactsMonitor(self):
+		'''
+		Submit all of the queued artifacts to DARPA
+		'''
+
+		#check that threading is working properly
+		if (not isinstance(threading.current_thread(), threading._MainThread)):
+			print "Drawing on the message panel not guarenteed to be on the proper thread"
+
+		msg = String()
+
+		for row in range(self.queue_table.rowCount()):
+			msg.data = self.queue_table.item(row,5).text()
+			self.artifact_submit_pub.publish(msg)
+
+		#remove all of the rows from the table
+		while (self.queue_table.rowCount() > 0):
+			self.queue_table.removeRow(0)
+
 
 	def queueClick(self, row, col):
 		'''
@@ -317,14 +372,14 @@ class ArtifactQueuePlugin(Plugin):
 		#select the whole row. for visualization mostly
 		self.queue_table.selectRow(row)
 
+		#remove the unread indicator from the last column
+		self.updateQueueTable(row,4,'')
+
 	def displaySeconds(self, seconds):
 		'''
 		Function to convert seconds float into a min:sec string
 		'''
 		return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
-
-
-
 	
 	def addArtifactToQueue(self, msg):
 		self.queue_trigger.emit(msg)
@@ -336,7 +391,7 @@ class ArtifactQueuePlugin(Plugin):
 		'''
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarented to be on the proper thread"
+			print "Drawing on the message panel not guarenteed to be on the proper thread"
 
 		self.queue_table.setSortingEnabled(False) #to avoid corrupting the table
 

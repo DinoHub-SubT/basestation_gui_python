@@ -2290,15 +2290,9 @@ class BasestationGuiPlugin(Plugin):
             self.status_table.setItem(row_index, column_index, qt.QTableWidgetItem(''))
         item = self.status_table.item(row_index, column_index)
         item.setBackground(gui.QColor(msg.color.r, msg.color.g, msg.color.b))
-        # if (row_index!=0):
-        #     item.setText(msg.value)
-        # else:
-        #     item.setText('hello')
         item.setText(msg.value)
-        # print "5"
         self.status_table.viewport().update()
 
-        # print "end status"
 
 
     def select_config_file(self):
