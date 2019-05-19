@@ -1,8 +1,7 @@
 #internal parameters for defining experimental parameters relevant to the gui
 experiment_params:
   robot_names: ['Ground1', 'Aerial1']
-  robot_pos_topics: ['/ugv1/integrated_to_map', '/uav1/integrated_to_map'] #MUST BE IN SAME ORDER AS ROBOT NAMES
-  
+  robot_pos_topics: ['/ugv1/integrated_to_map', '/uav1/integrated_to_map'] #MUST BE IN SAME ORDER AS ROBOT NAMES  
   ground_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop comms', 'Show bluetooth', 'Return to comms', 'Re-send artifacts', 'Confirm', 'Cancel']
   aerial_commands: ['Hover', 'Resume/Takeoff', 'Land', 'Hard e-stop', 'Define waypoint', 'Return home', 'Land in comms', 'Re-send artifacts', 'Confirm', 'Cancel']
 
@@ -13,5 +12,3 @@ darpa_params:
   scoring_uris: ['http://api/status/', 'http://api/artifact_reports/']
   artifact_categories: ["Survivor", "Fire Extinguisher", "Cell Phone", "Backpack", "Drill"]
   artifact_labels: [4, 3, 5, 1, 2]
-
-

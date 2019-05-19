@@ -800,7 +800,7 @@ class BasestationGuiPlugin(Plugin):
         Buttons and textboxes to refine the position and complete actions with the  artifact
         '''
 
-         #define the overall widget
+        # define the overall widget
         self.artmanip_widget = QWidget()
         self.artmanip_layout = qt.QGridLayout() 
 

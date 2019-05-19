@@ -170,11 +170,6 @@ class ArtifactHandler:
 								artifact_id, copy.deepcopy(artifact_to_dup.imgs),
 								copy.deepcopy(artifact_to_dup.img_stamps))
 
-		   #  GuiArtifact(original_timestamp = msg.original_timestamp, category = msg.category, \
-								# pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
-								# source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
-								# imgs = msg.imgs, img_stamps = msg.img_stamps)
-
 			#add the artifact to the list of queued objects and to the all_artifacts list
 			self.queued_artifacts.append(artifact)
 			self.all_artifacts.append(artifact)

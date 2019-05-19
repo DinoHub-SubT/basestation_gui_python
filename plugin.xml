@@ -90,4 +90,30 @@
       <statustip>Plugin to display the artifact queue</statustip>
     </qtgui>
   </class>
+  <class name="ArtifactManipulationPlugin" type="ArtifactManipulationPlugin.ArtifactManipulationPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin to manipulation artifact properties (position, category, submission to DARPA, etc.)
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>ArtifactManipulationPlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to manipulation artifact properties (position, category, submission to DARPA, etc.)</statustip>
+    </qtgui>
+  </class>
+  <class name="ArtifactImageVisualizerPlugin" type="ArtifactImageVisualizerPlugin.ArtifactImageVisualizerPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin to visualize artifact rgb images
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>ArtifactImageVisualizerPlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin to visualize artifact rgb images</statustip>
+    </qtgui>
+  </class>
 </library>
