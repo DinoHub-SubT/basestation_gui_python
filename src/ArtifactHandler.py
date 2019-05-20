@@ -410,23 +410,35 @@ class ArtifactHandler:
 			self.message_pub.publish(update_msg)
 			return
 
-		if (direction == 0 and self.img_ind_displayed < (len(self.all_artifacts[self.focused_artifact_id].imgs) - 1)):
-			#we have some runway to go forward in the sequence
-			self.img_ind_displayed += 1
+		if (len(self.all_artifacts[self.focused_artifact_id].imgs) == 0): #display a black image because this artifact has no images
+			self.publishImgToDisplay(-1)
+
+		elif (direction == 0):
+
+			if (self.img_ind_displayed < (len(self.all_artifacts[self.focused_artifact_id].imgs) - 1)):
+				#we have some runway to go forward in the sequence
+				self.img_ind_displayed += 1
+
+			else:
+				#we can't go forward anymore, loop back around
+				self.img_ind_displayed = 0
 
 			self.publishImgToDisplay(self.img_ind_displayed)
 
-		elif (direction == 1 and self.img_ind_displayed > 0):
-			#we have some runway to go backward in the sequence
-			self.img_ind_displayed -= 1
+		elif (direction == 1):
+
+			if (self.img_ind_displayed > 0):
+				#we have some runway to go backward in the sequence
+				self.img_ind_displayed -= 1
+			else:
+				#we're already at the beginning on thre sequence, loop back around
+				self.img_ind_displayed = len(self.all_artifacts[self.focused_artifact_id].imgs) - 1
 
 			self.publishImgToDisplay(self.img_ind_displayed)
 
 		elif (direction == 2 and (len(self.all_artifacts[self.focused_artifact_id].imgs)>0)): #display the first image
 			self.publishImgToDisplay(0)
 
-		elif (direction ==2 and (len(self.all_artifacts[self.focused_artifact_id].imgs) == 0)): #display a black image because this artifact has no images
-			self.publishImgToDisplay(-1)
 
 
 	def publishImgToDisplay(self, ind):
