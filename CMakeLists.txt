@@ -54,6 +54,8 @@ add_message_files(
    ArtifactSubmissionReply.msg
    GuiRobCommand.msg
    Artifact.msg
+   WifiDetection.msg
+   ArtifactDisplayImage.msg
 )
 
 ## Generate services in the 'srv' folder

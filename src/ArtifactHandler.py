@@ -9,10 +9,16 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 '''
 
 import rospy
-from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply
+from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply, WifiDetection, ArtifactDisplayImage
 import copy
-from std_msgs.msg import String
+from std_msgs.msg import String, UInt8
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import rospkg
+import yaml
+import cv2
+
 
 class ArtifactHandler:
 	'''
@@ -20,29 +26,75 @@ class ArtifactHandler:
 	to make new ones, delete artifacts, etc.
 	'''
 	def __init__(self):
-		self.all_artifacts = [] 
-		self.queued_artifacts = [] # artifacts currently in the queue
-		self.focused_artifact = [] # artifact being displayed in the manipulator plugin
-		self.archived_artifacts = [] #artifacts deleted from queue but we may want to keep around		
+		self.all_artifacts = {} # dictionary of artifacts, indexed by unique_id
+		self.queued_artifacts = {} # dictionary of artifacts currently in the queue
+		self.focused_artifact_id = None # artifact being displayed in the manipulator plugin
+		self.img_ind_displayed = 0 #the index of the image to display for the artifact focused on
+		self.img_displayed = 0 #artifact image index in the set of images to be displayed
+		self.archived_artifacts = {} # dictionary ofartifacts deleted from queue but we may want to keep around		
 									 #(future gui development needed to actually use this info)
-		self.submitted_artifacts = []
+		self.submitted_artifacts = {}
+
+		#read in the artifact categories
+		rospack = rospkg.RosPack()
+		config_filename = rospack.get_path('basestation_gui_python')+'/config/gui_params.yaml'
+		config = yaml.load(open(config_filename, 'r').read())
+
+		darpa_params = config['darpa_params']
+
+		self.artifact_categories = ['Unknown'] #categories from robot are 1-based. so element 0 is unknown
+		for category in darpa_params['artifact_categories']:
+			self.artifact_categories.append(category)
+
+		self.http_client = TeamClient() #client to interact with darpa scoring server
+		self.br = CvBridge() #bridge from opencv to ros image messages
+
 
 		#subscriber and publishers
-		rospy.Subscriber('/gui/generate_new_artifact', Artifact, self.generateNewArtifact)
-		rospy.Subscriber('/gui/focus_on_artifact', Artifact, self.skeletonFunction)
+		rospy.Subscriber('/gui/generate_new_artifact_manual', Artifact, self.generateNewArtifactManually)
+		rospy.Subscriber('/gui/focus_on_artifact', String, self.setFocusedArtifact)
 		rospy.Subscriber('/gui/archive_artifact', String, self.archiveArtifact)
 		rospy.Subscriber('/gui/duplicate_artifact', String, self.duplicateArtifact)
-		rospy.Subscriber('/gui/propose_artifact', Artifact, self.skeletonFunction)
 		rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.skeletonFunction)
 		rospy.Subscriber('/gui/update_artifact_info', Artifact, self.updateArtifactInfo) #location, category, or priority
 		rospy.Subscriber('/gui/submit_artifact', String, self.submitArtifact)
+		rospy.Subscriber('/gui/change_disp_img', UInt8, self.getArtifactImage) # to handle button presses iterating over artifact images
+		rospy.Subscriber('/gui/wifi_detection', WifiDetection, self.handleWifiDetection)
+		rospy.Subscriber('/fake_artifact_imgs', WifiDetection, self.handleWifiDetection)#for fake wifi detections
 
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.to_queue_pub = rospy.Publisher('/gui/artifact_to_queue', Artifact, queue_size = 10)
 		self.reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
 		self.submission_reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
+		self.img_display_pub = rospy.Publisher('/gui/img_to_display', ArtifactDisplayImage, queue_size = 10)
 
-		self.http_client = TeamClient() #client to interact with darpa scoring server
+		
+
+	def handleWifiDetection(self, msg):
+		'''
+		An artifact detection or update has come in over wifi. Generate a 
+		new artifact and save to proper dictionaries/lists, or update an existing 
+		artifact.
+		'''
+
+		msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
+
+		if (msg.artifact_type == WifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+			print "NOT ARCHIVING ARTIFACT DETECTIONS!!"
+
+			# self.archiveArtifact(String(msg_unique_id))
+
+		else: 
+
+			#determine if we already have the artifact and this is an update message
+			if (msg_unique_id in self.all_artifacts.keys()):
+				self.updateWifiDetection(msg)
+
+			else: #this is a completely new artifact detection
+				self.generateNewArtifactWifi(msg)
+
+
+
 
 	def guiArtifactToRos(self, artifact):
 		'''
@@ -64,10 +116,17 @@ class ArtifactHandler:
 		msg.unread = artifact.unread
 		msg.priority = artifact.priority
 		msg.darpa_response = artifact.darpa_response
-		msg.imgs = artifact.imgs
 		msg.img_stamps = artifact.img_stamps
 		msg.original_timestamp = artifact.original_timestamp
 		msg.unique_id = artifact.unique_id
+
+		#convert the mages from numpy to ros
+		ros_imgs = []
+		for img in artifact.imgs:
+			ros_img = self.br.cv2_to_imgmsg(img)
+			ros_imgs.append(ros_img)
+
+		msg.imgs = ros_imgs
 
 		return msg
 
@@ -92,54 +151,88 @@ class ArtifactHandler:
 
 
 		#generate new artifact
-		artifact = GuiArtifact(original_timestamp = msg.original_timestamp, category = msg.category, \
+		artifact = GuiArtifact(original_timestamp = float(msg.original_timestamp), category = msg.category, \
 							pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
 							source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
 							imgs = msg.imgs, img_stamps = msg.img_stamps)
 
 		return artifact
 
-	def generateNewArtifact(self, msg):
+	##############################################################################
+	# Functions to support generating artifacts
+	##############################################################################
+
+	def updateWifiDetection(self, msg):
 		'''
-		Generate a new artifact
+		Update artifact from information detected by the robot
+		and trasmitted via WiFi 
+		'''
+		pass
+
+	def generateNewArtifactWifi(self, msg):
+		'''
+		Generate a new artifact which has been detected from the robot
+		and trasmitted via WiFi 
+		'''
+
+		#decode the type
+		artifact_category = self.artifact_categories[msg.artifact_type]#msg.category is an int using a agreed-upon convention
+
+		#handle the images
+		imgs = []
+		img_stamps = []
+
+		for img in msg.imgs:
+			cv_image = self.br.imgmsg_to_cv2(img)
+			cv2.putText(cv_image, "Timestamp: %f" %
+				img.header.stamp.to_sec(),
+					(5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
+					(255, 255, 255), 1)
+			imgs.append(cv_image)
+			img_stamps.append(img.header.stamp)
+
+		artifact = GuiArtifact(original_timestamp = 4.5, category = artifact_category, \
+							pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z],
+							source_robot_id = msg.artifact_robot_id, artifact_report_id = msg.artifact_report_id, \
+							imgs = imgs, img_stamps = img_stamps)
+
+		self.bookeepAndPublishNewArtifact(artifact)
+
+		
+
+	def bookeepAndPublishNewArtifact(self, artifact):
+		'''
+		Add the new artifact to the various lists and publish the
+		info that we have a new artofact to the various channels
+
+		Input is a GuiArtifact object
+		'''
+
+		self.all_artifacts[artifact.unique_id] = artifact
+		self.queued_artifacts[artifact.unique_id] = artifact
+
+		#publish this message to be visualized by plugins
+		ros_msg = self.guiArtifactToRos(artifact) #necessary step to fill in some defaults (i.e. priority)
+											 #to be used by other parts of the gui
+								 
+
+		#add the artifact to the queue
+		self.to_queue_pub.publish(ros_msg)
+
+		print "detection pushed to queue"
+
+
+
+	def generateNewArtifactManually(self, msg):
+		'''
+		Generate a new artifact from a button press for manually-adding one. 
+		Input message is custom ROS artifact message
 		'''
 
 		#fill in some of the info for the message being published to add to queue
 		artifact = self.rosArtifactToGuiArtifact(msg)
 
-		self.all_artifacts.append(artifact)
-		self.queued_artifacts.append(artifact)
-
-		#publish this message to be visualized by plugins
-		ros_msg = self.guiArtifactToRos(artifact) #necessary step to fill in some defaults (i.e. priority)
-											 #to be used by other parts of the gui
-
-		#add the artifact to the queue
-		self.to_queue_pub.publish(ros_msg)
-
-	def findArtifact(self, unique_id):
-		'''
-		Given a uniqueid, return the artifact being referenced
-		'''
-
-		#go find the artifact
-		ret_artifact = None
-		for artifact in self.all_artifacts:
-			if (artifact.unique_id == unique_id):
-				ret_artifact = artifact
-				break
-
-		if (ret_artifact != None):
-			return ret_artifact
-
-		else:
-			update_msg = GuiMessage()
-			update_msg.data = 'Artifact with unique id: '+str(unique_id)+' not found.'
-			update_msg.color = update_msg.COLOR_RED
-			self.message_pub.publish(update_msg)
-
-			return None
-
+		self.bookeepAndPublishNewArtifact(artifact)		
 
 	def duplicateArtifact(self, msg):
 		'''
@@ -148,7 +241,7 @@ class ArtifactHandler:
 		'''
 
 		#go find the artifact
-		artifact_to_dup = self.findArtifact(msg.data)
+		artifact_to_dup = self.all_artifacts[msg.unique_id]
 
 		if (artifact_to_dup != None):
 
@@ -171,8 +264,8 @@ class ArtifactHandler:
 								copy.deepcopy(artifact_to_dup.img_stamps))
 
 			#add the artifact to the list of queued objects and to the all_artifacts list
-			self.queued_artifacts.append(artifact)
-			self.all_artifacts.append(artifact)
+			self.queued_artifacts[artifact.unique_id] = artifact
+			self.all_artifacts[artifact.unique_id] = artifact
 
 			#publish this message to be visualized by plugins
 			ros_msg = self.guiArtifactToRos(artifact) #necessary step to fill in some defaults (i.e. priority)
@@ -181,6 +274,10 @@ class ArtifactHandler:
 			#add the artifact to the queue
 			self.to_queue_pub.publish(ros_msg)
 
+	##############################################################################
+	# Functions to support DARPA artifact proposals
+	##############################################################################
+
 
 	def submitArtifact(self, msg):
 		'''
@@ -188,7 +285,7 @@ class ArtifactHandler:
 		msg is just a string that's the unqiue_id of the artifact to submit
 		'''
 
-		artifact = self.findArtifact(msg.data)
+		artifact = self.all_artifacts[msg.unique_id]
 
 		if (artifact != None):
 
@@ -210,8 +307,8 @@ class ArtifactHandler:
 				self.publishSubmissionReply(proposal_return)
 
 				#remove the artifact from the book keeping
-				self.queued_artifacts.remove(artifact)
-				self.submitted_artifacts.append(artifact)
+				self.queued_artifacts.pop(artifact.unique_id, default= None) #defauilt return value is None if key not found
+				self.submitted_artifacts[artifact.unique_id] = artifact
 
 		else: #we could not find the artifact unique_id
 			update_msg = GuiMessage()
@@ -242,23 +339,22 @@ class ArtifactHandler:
 
 		self.submission_reply_pub.publish(msg)
 
-
-		
-
 	def archiveArtifact(self, msg):
 		'''
 		Used when an artifact should be removed from the queue. 
 		May require a separate plugin to manage such items.
+		Message is a string of the unique_id
 		'''
 
 		#go find the artifact
-		artifact_to_archive = self.findArtifact(msg.data)
+		artifact_to_archive = self.all_artifacts[msg.data]
 
 		update_msg = GuiMessage()
 
 		if (artifact_to_archive != None):
-			self.archived_artifacts.append(artifact_to_archive)
-			self.queued_artifacts.remove(artifact_to_archive)
+			self.archived_artifacts[artifact_to_archive.unique_id] = artifact_to_archive
+
+			self.queued_artifacts.pop(artifact_to_archive.unique_id, default= None) #defauilt return value is None if key not found
 
 			update_msg.data = 'Artifact archived in handler:'+str(artifact_to_archive.source_robot_id)+'//'+\
 												   str(artifact_to_archive.original_timestamp)+'//'+\
@@ -271,6 +367,102 @@ class ArtifactHandler:
 			update_msg.data = 'Artifact not removed from handler'
 			update_msg.color = update_msg.COLOR_RED
 			self.message_pub.publish(update_msg)
+
+	##############################################################################
+	# Functions to support artifact manipulation/visualization
+	##############################################################################
+
+	def setFocusedArtifact(self, msg):
+		'''
+		Set the artifact we're going to be visualizing/manipulating/etc.
+		Incoming message is a string of the unique id of the artifact we selected
+		'''
+		self.focused_artifact_id = msg.data
+
+		self.img_ind_displayed = 0 #reset the images index we're displaying
+		self.getArtifactImage(UInt8(2)) #display the first image in the detection
+
+
+
+	def getArtifactImage(self, msg):
+		'''
+		Get another artifact image to show. 
+
+		msg.data defines whethere we go forward in the set or backward
+			0 means go forward
+			1 means go backward
+			2 means display the first image
+		'''
+
+		direction = msg.data #
+
+		#check for errors with request
+		update_msg = GuiMessage()
+
+		if (direction not in [0,1,2]):
+			update_msg.data = 'Somehow a wrong direction was sent. Image not changed.'
+			update_msg.color = update_msg.COLOR_RED
+			self.message_pub.publish(update_msg)
+
+		if (self.focused_artifact_id == None):
+			update_msg.data = 'No artifact has been selected. Please select one from the queue'
+			update_msg.color = update_msg.COLOR_ORANGE
+			self.message_pub.publish(update_msg)
+			return
+
+		if (direction == 0 and self.img_ind_displayed < (len(self.all_artifacts[self.focused_artifact_id].imgs) - 1)):
+			#we have some runway to go forward in the sequence
+			self.img_ind_displayed += 1
+
+			self.publishImgToDisplay(self.img_ind_displayed)
+
+		elif (direction == 1 and self.img_ind_displayed > 0):
+			#we have some runway to go backward in the sequence
+			self.img_ind_displayed -= 1
+
+			self.publishImgToDisplay(self.img_ind_displayed)
+
+		elif (direction == 2 and (len(self.all_artifacts[self.focused_artifact_id].imgs)>0)): #display the first image
+			self.publishImgToDisplay(0)
+
+		elif (direction ==2 and (len(self.all_artifacts[self.focused_artifact_id].imgs) == 0)): #display a black image because this artifact has no images
+			self.publishImgToDisplay(-1)
+
+
+	def publishImgToDisplay(self, ind):
+		'''
+		Publish an image to be displayed in the artifact manipulation panel
+		'''
+
+		#error checking
+		if (self.focused_artifact_id == None):
+			update_msg.data = 'No artifact has been selected. Please select one from the queue'
+			update_msg.color = update_msg.COLOR_ORANGE
+			self.message_pub.publish(update_msg)
+			return
+
+		msg = ArtifactDisplayImage()
+
+		if (ind == -1): # this artifact contains no images display the blank black image
+
+			rospack = rospkg.RosPack()
+			img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
+
+			img = cv2.imread(img_filename)
+
+			msg.img = self.br.cv2_to_imgmsg(img)
+			msg.image_ind = 0
+			msg.num_images = 0
+
+		else:
+			#publish the image
+			msg.img = self.br.cv2_to_imgmsg(self.all_artifacts[self.focused_artifact_id].imgs[ind])
+			msg.image_ind = ind
+			msg.num_images = len(self.all_artifacts[self.focused_artifact_id].imgs)
+		
+		self.img_display_pub.publish(msg)
+
+
 
 	def updateArtifactInfo(self, msg):
 		'''

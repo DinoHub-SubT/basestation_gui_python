@@ -84,11 +84,12 @@ class ArtifactQueuePlugin(Plugin):
 		#setup subscribers
 		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
 
-		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact', Artifact, queue_size = 10)
+		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.archive_artifact_pub = rospy.Publisher('/gui/archive_artifact', String, queue_size=10)
 		self.duplicate_pub = rospy.Publisher('/gui/duplicate_artifact', String, queue_size=10)
 		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact', String, queue_size=10)
+		self.focus_on_artifact_pub = rospy.Publisher('/gui/focus_on_artifact', String, queue_size=10) #publish the artifact id we selected
 
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
 		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
@@ -373,7 +374,14 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_table.selectRow(row)
 
 		#remove the unread indicator from the last column
-		self.updateQueueTable(row,4,'')
+		self.updateQueueTable(row, 4, '')
+
+		#publish that we have selected this artifact
+		msg = String()
+		msg.data = msg.data = self.queue_table.item(row,5).text()
+		self.focus_on_artifact_pub.publish(msg)
+
+
 
 	def displaySeconds(self, seconds):
 		'''

@@ -10,7 +10,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 
 import rospy
 import rospkg
-from std_msgs.msg import String
+from std_msgs.msg import String, UInt8
 import threading
 
 from qt_gui.plugin import Plugin
@@ -44,9 +44,9 @@ import yaml
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage, DarpaStatus
-from sensor_msgs.msg import Image
+from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactDisplayImage 
 import cv2
+from cv_bridge import CvBridge
 
 class ArtifactImageVisualizerPlugin(Plugin):
 
@@ -61,10 +61,17 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
+		self.br = CvBridge() #bridge from opencv to ros image messages
+
+
 		#setup subscribers
-		self.image_sub = rospy.Subscriber('/gui/focus_img', Image, self.dispImage)
+		self.image_sub = rospy.Subscriber('/gui/img_to_display', ArtifactDisplayImage, self.dispImage)
+		# rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.dispImage)
+
+		self.img_request_pub = rospy.Publisher('/gui/change_disp_img', UInt8, queue_size=10)
 
 		self.disp_image_trigger.connect(self.dispImageMonitor)
+
 
 
 	def initPanel(self, context):
@@ -129,15 +136,37 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		self.global_widget.addWidget(self.artvis_widget)
 
 	def imgBack(self):
-		pass
+		'''
+		Get the previous image in the sequence
+		'''
+		msg = UInt8()
+		msg.data = 1
+		self.img_request_pub.publish(msg)
+
 	def imgForward(self):
-		pass
-	def publishImageCoord(self):
+		'''
+		Get the next image in the sequence
+		'''
+		msg = UInt8()
+		msg.data = 0
+		self.img_request_pub.publish(msg)	
+
+	def publishImageCoord(self, event):
 		'''
 		At some point there was a request for image coordinate clicks
-		to be publsihed, in order to possibly extract 3d info. The backend was not written
+		to be published, in order to possibly extract 3d info. The backend was not written
 		for this, so this function currently does nothing
 		'''
+
+		 # self.artifact_img_width, self.artifact_img_length
+        # x_coord = event.pos().x() / float(self.gui.artifact_img_width)
+        # y_coord = event.pos().y() / float(self.gui.artifact_img_length)
+        
+        # msg = Float32MultiArray()
+        # msg.data = [x_coord, y_coord]
+
+        # self.img_coord_pub.publish(msg)
+
 		pass
 	
 	def dispImage(self, msg):
@@ -149,7 +178,25 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		'''
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarented to be on the proper thread"			
+			print "Drawing on the message panel not guarented to be on the proper thread"	
+
+		img = self.br.imgmsg_to_cv2(msg.img)
+
+		if (len(img.shape) > 2): #if there's actually an image
+			img = cv2.resize(img,(self.artifact_img_width, self.artifact_img_length))
+
+			img_height, img_width = img.shape[:2]
+			img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
+			img = gui.QPixmap.fromImage(img)
+			self.art_image.setPixmap(img)
+
+		#change the label
+		if (msg.num_images == 0):
+			image_ind = 0
+		else:
+			image_ind = msg.image_ind + 1
+			
+		self.img_displayed_label.setText('Img '+str(image_ind)+'/'+str(msg.num_images))
 
 			
 	def shutdown_plugin(self):

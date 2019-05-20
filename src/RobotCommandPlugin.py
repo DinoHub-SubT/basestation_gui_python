@@ -89,12 +89,17 @@ class RobotCommandPlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
+		self.robot_positions = [None]*len(self.robot_names)
+		self.rob_command_trigger.connect(self.robCommandUpdateMonitor)
+
 		#setup subscribers/publishers
 		self.rob_command_sub = rospy.Subscriber('/gui/rob_command_update', GuiRobCommand, self.robCommandUpdate)
 		self.waypoint_sub = rospy.Subscriber('/define_waypoint/feedback', InteractiveMarkerFeedback, self.recordWaypoint)
 		self.waypoint = None   
 		for i, topic in enumerate(self.robot_pos_topics):
 			rospy.Subscriber(topic, Odometry, self.saveRobotPos, (i))
+
+
 		
 
 		self.rob_command_pub = rospy.Publisher('/gui/rob_command_press', GuiRobCommand, queue_size = 10)
@@ -108,9 +113,9 @@ class RobotCommandPlugin(Plugin):
 		self.define_waypoint_marker_pos_pub = rospy.Publisher('/define_waypoint_marker_pos', Point, queue_size=50)#publisher for moving the refinment marker
 		self.define_waypoint_marker_off_pub = rospy.Publisher('/define_waypoint_marker_off', Point, queue_size=50)#publisher for turning the marker off
 
-		self.rob_command_trigger.connect(self.robCommandUpdateMonitor)
+		
 
-		self.robot_positions = [None]*len(self.robot_names)
+		
 
 		
 		

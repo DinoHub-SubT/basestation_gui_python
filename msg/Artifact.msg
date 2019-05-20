@@ -10,7 +10,7 @@ bool unread
 string priority
 string darpa_response
 sensor_msgs/Image[] imgs
-float32[] img_stamps
+time[] img_stamps
 float32 original_timestamp
 string unique_id
 

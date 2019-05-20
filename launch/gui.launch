@@ -8,9 +8,9 @@
 	<arg name="simulating_artifact_detections" default="false"/>
 	<param name="simulating_artifact_detections" value= "$(arg simulating_artifact_detections)" />
 
-	<!-- <group if="$(arg simulating_artifact_detections)">
+	<group if="$(arg simulating_artifact_detections)">
 		<node pkg="basestation_gui_python" name="fake_artifact_detections" type="fake_artifact_detections.py" output="screen"/>
-	</group> -->
+	</group>
 
 	<!-- launch the interactive marker stuff -->
 	<node pkg="basestation_gui_python" name="interactiveMarkerProcessing" type="interactiveMarkerProcessing.py" args = 'basic_controls' output="screen"/>

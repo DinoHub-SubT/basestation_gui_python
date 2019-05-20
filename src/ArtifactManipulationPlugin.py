@@ -70,7 +70,7 @@ class ArtifactManipulationPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers
-		self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', Artifact, self.focusOnArtifact)
+		self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.focusOnArtifact)
 
 		self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
 
