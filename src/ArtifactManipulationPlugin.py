@@ -45,7 +45,7 @@ import yaml
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact
+from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, ArtifactUpdate
 
 class ArtifactManipulationPlugin(Plugin):
 
@@ -55,24 +55,35 @@ class ArtifactManipulationPlugin(Plugin):
 		super(ArtifactManipulationPlugin, self).__init__(context)
 		self.setObjectName('ArtifactManipulationPlugin')
 
-		#get the artifact categories
+		#get the artifact categories and priorities
 		rospack = rospkg.RosPack()
 		config_filename = rospack.get_path('basestation_gui_python')+'/config/gui_params.yaml'
 		config = yaml.load(open(config_filename, 'r').read())
 
-		self.artifact_categories = []
+		self.artifact_categories, self.artifact_priorities = [], []
 
 		exp_params = config['darpa_params']
 		
 		for name in exp_params['artifact_categories']:
 			self.artifact_categories.append(name)
 
+		gui_params = config['experiment_params']
+		
+		for name in gui_params['artifact_priorities']:
+			self.artifact_priorities.append(name)
+
+		self.artifact_id_displayed = None
+
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers
-		self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.focusOnArtifact)
+		# self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.focusOnArtifact)
+		rospy.Subscriber('/gui/refresh_manipulation_info', Artifact, self.focusOnArtifact) #the information relevant to manipulation for the artifact in focus has been changed
+
+		self.update_artifact_info_pub = rospy.Publisher('/gui/update_artifact_info', ArtifactUpdate, queue_size=10)
 
 		self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
+
 
 	def initPanel(self, context):
 		'''
@@ -206,7 +217,20 @@ class ArtifactManipulationPlugin(Plugin):
 	def updateArtifactCat(self):
 		pass
 	def updateArtifactPriority(self):
-		pass
+		'''
+		Change the artifact priority
+		'''
+		if (self.artifact_id_displayed != None): #we're actually displaying an artifact
+
+			msg = ArtifactUpdate()
+
+			msg.unique_id  = self.artifact_id_displayed
+			msg.update_type = ArtifactUpdate.PROPERTY_PRIORITY
+			msg.category = self.artifact_priority_box.currentText()
+
+			self.update_artifact_info_pub.publish(msg)
+
+
 	def decideArtifact(self):
 		pass
 	def proposeArtifact(self):
@@ -221,11 +245,32 @@ class ArtifactManipulationPlugin(Plugin):
 
 	def focusOnArtifactMonitor(self, msg):
 		'''
-		Draw something on the gui in this function
+		Update the information displayed for manipulating re artifact (position, category, etc.)
 		'''
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarented to be on the proper thread"			
+			print "Drawing on the message panel not guarented to be on the proper thread"
+
+		self.artifact_id_displayed = msg.unique_id
+		
+		#change the original and refined positions
+		self.orig_pos_label_x.setText(str(msg.orig_pose.position.x)[:7])
+		self.orig_pos_label_y.setText(str(msg.orig_pose.position.y)[:7])
+		self.orig_pos_label_z.setText(str(msg.orig_pose.position.z)[:7])
+
+		self.art_pos_textbox_x.setText(str(msg.curr_pose.position.x)[:7])
+		self.art_pos_textbox_y.setText(str(msg.curr_pose.position.y)[:7])
+		self.art_pos_textbox_z.setText(str(msg.curr_pose.position.z)[:7])
+
+		#change the priority
+		ind = self.artifact_priorities.index(msg.priority)
+
+		if (ind != None):
+			self.artifact_priority_box.setCurrentIndex(ind)  
+
+		#change the category
+		
+
 
 			
 	def shutdown_plugin(self):

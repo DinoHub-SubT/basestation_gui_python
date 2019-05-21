@@ -9,7 +9,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 '''
 
 import rospy
-from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply, WifiDetection, ArtifactDisplayImage
+from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply, WifiDetection, ArtifactDisplayImage, ArtifactUpdate
 import copy
 from std_msgs.msg import String, UInt8
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
@@ -46,6 +46,13 @@ class ArtifactHandler:
 		for category in darpa_params['artifact_categories']:
 			self.artifact_categories.append(category)
 
+		self.artifact_priorities = []
+
+		gui_params = config['experiment_params']
+		
+		for name in gui_params['artifact_priorities']:
+			self.artifact_priorities.append(name)
+
 		self.http_client = TeamClient() #client to interact with darpa scoring server
 		self.br = CvBridge() #bridge from opencv to ros image messages
 
@@ -56,17 +63,18 @@ class ArtifactHandler:
 		rospy.Subscriber('/gui/archive_artifact', String, self.archiveArtifact)
 		rospy.Subscriber('/gui/duplicate_artifact', String, self.duplicateArtifact)
 		rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.skeletonFunction)
-		rospy.Subscriber('/gui/update_artifact_info', Artifact, self.updateArtifactInfo) #location, category, or priority
 		rospy.Subscriber('/gui/submit_artifact', String, self.submitArtifact)
 		rospy.Subscriber('/gui/change_disp_img', UInt8, self.getArtifactImage) # to handle button presses iterating over artifact images
 		rospy.Subscriber('/gui/wifi_detection', WifiDetection, self.handleWifiDetection)
 		rospy.Subscriber('/fake_artifact_imgs', WifiDetection, self.handleWifiDetection)#for fake wifi detections
+		rospy.Subscriber('/gui/update_artifact_info', ArtifactUpdate,self.updateArtifactInfo) #for updates from the manipulation panels
 
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.to_queue_pub = rospy.Publisher('/gui/artifact_to_queue', Artifact, queue_size = 10)
 		self.reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
 		self.submission_reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
 		self.img_display_pub = rospy.Publisher('/gui/img_to_display', ArtifactDisplayImage, queue_size = 10)
+		self.manipulation_info_pub = rospy.Publisher('/gui/refresh_manipulation_info', Artifact, queue_size = 10)
 
 		
 
@@ -140,7 +148,11 @@ class ArtifactHandler:
 			
 			#go find the smallest id, and increment it by 1 to generate new id
 			min_negative_id = 0
-			for artifact in self.all_artifacts:
+
+			for artifact_key in self.all_artifacts.keys():
+
+				artifact = self.all_artifacts[artifact_key]
+
 				if (artifact.artifact_report_id < min_negative_id):
 					min_negative_id = artifact.artifact_report_id
 
@@ -154,9 +166,35 @@ class ArtifactHandler:
 		artifact = GuiArtifact(original_timestamp = float(msg.original_timestamp), category = msg.category, \
 							pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
 							source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
-							imgs = msg.imgs, img_stamps = msg.img_stamps)
+							imgs = msg.imgs, img_stamps = msg.img_stamps, priority = self.artifact_priorities[1])
 
 		return artifact
+
+	def updateArtifactInfo(self, msg):
+		'''
+		Update an artifact's info
+
+		msg is a custom ArtifactInfo message
+		'''
+
+		artifact = self.all_artifacts[msg.unique_id]
+
+		if (msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY):
+			artifact.category = msg.category
+
+		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE):
+			artifact.curr_pose = msg.curr_pose
+
+		elif (msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY):
+			artifact.priority = msg.priority
+
+		else:
+			update_msg = GuiMessage()
+			update_msg.data = 'We received an update message of unknown type. Artifact not updated'
+			update_msg.color = update_msg.COLOR_RED
+			self.message_pub.publish(update_msg)
+
+
 
 	##############################################################################
 	# Functions to support generating artifacts
@@ -191,10 +229,10 @@ class ArtifactHandler:
 			imgs.append(cv_image)
 			img_stamps.append(img.header.stamp)
 
-		artifact = GuiArtifact(original_timestamp = 4.5, category = artifact_category, \
+		artifact = GuiArtifact(original_timestamp = msg.artifact_stamp.secs, category = artifact_category, \
 							pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z],
 							source_robot_id = msg.artifact_robot_id, artifact_report_id = msg.artifact_report_id, \
-							imgs = imgs, img_stamps = img_stamps)
+							imgs = imgs, img_stamps = img_stamps, priority = self.artifact_priorities[1])
 
 		self.bookeepAndPublishNewArtifact(artifact)
 
@@ -218,8 +256,6 @@ class ArtifactHandler:
 
 		#add the artifact to the queue
 		self.to_queue_pub.publish(ros_msg)
-
-		print "detection pushed to queue"
 
 
 
@@ -261,7 +297,7 @@ class ArtifactHandler:
 			artifact = GuiArtifact(copy.deepcopy(artifact_to_dup.original_timestamp), copy.deepcopy(artifact_to_dup.category), \
 								copy.deepcopy(artifact_to_dup.pose), art_source_id,
 								artifact_id, copy.deepcopy(artifact_to_dup.imgs),
-								copy.deepcopy(artifact_to_dup.img_stamps))
+								copy.deepcopy(artifact_to_dup.img_stamps), copy.deepcopy(artifact.priority))
 
 			#add the artifact to the list of queued objects and to the all_artifacts list
 			self.queued_artifacts[artifact.unique_id] = artifact
@@ -382,6 +418,19 @@ class ArtifactHandler:
 		self.img_ind_displayed = 0 #reset the images index we're displaying
 		self.getArtifactImage(UInt8(2)) #display the first image in the detection
 
+		self.publishManipulationInfomation(msg.data)
+
+
+
+	def publishManipulationInfomation(self, unique_id):
+		'''
+		Send out the artifact manipulation data (original pose and current pose)
+
+		msg is a string that is the unique_id for the artifact
+		'''
+
+		msg = self.guiArtifactToRos(self.all_artifacts[unique_id])
+		self.manipulation_info_pub.publish(msg)
 
 
 	def getArtifactImage(self, msg):
@@ -493,7 +542,8 @@ class GuiArtifact:
 	'''
 	def __init__(self, original_timestamp=1, category=-1, pose="",
 			source_robot_id="", artifact_report_id="", imgs=None, 
-			img_stamps=None):
+			img_stamps=None, priority=None):
+		
 		
 		self.category = category
 		self.pose = pose
@@ -503,7 +553,7 @@ class GuiArtifact:
 		self.time_from_robot = -1 #time the detection has come in from the robot. TODO: change to be something different?
 		self.time_to_darpa = -1 #time submitted to darpa
 		self.unread = True
-		self.priority = 'Med'
+		self.priority = priority
 		self.darpa_response = ''
 		self.imgs = imgs if imgs is not None else []
 		self.img_stamps = img_stamps if img_stamps is not None else []

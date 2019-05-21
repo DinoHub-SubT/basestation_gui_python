@@ -56,6 +56,7 @@ add_message_files(
    Artifact.msg
    WifiDetection.msg
    ArtifactDisplayImage.msg
+   ArtifactUpdate.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -62,7 +62,7 @@ class FakePublisher:
 
         else: #update some artifacts
             # print "updated artifact", time.time()
-            self.pubArtifactReport(update = False) #True)
+            self.pubArtifactReport(update = True)
             
         # print self.deleted_ids
 

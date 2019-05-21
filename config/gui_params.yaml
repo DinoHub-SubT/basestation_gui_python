@@ -4,6 +4,7 @@ experiment_params:
   robot_pos_topics: ['/ugv1/integrated_to_map', '/uav1/integrated_to_map'] #MUST BE IN SAME ORDER AS ROBOT NAMES  
   ground_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop comms', 'Show bluetooth', 'Return to comms', 'Re-send artifacts', 'Confirm', 'Cancel']
   aerial_commands: ['Hover', 'Resume/Takeoff', 'Land', 'Hard e-stop', 'Define waypoint', 'Return home', 'Land in comms', 'Re-send artifacts', 'Confirm', 'Cancel']
+  artifact_priorities: ['Low', 'Med', 'High']
 
 
 #parameters for communicating with the DARPA command post
