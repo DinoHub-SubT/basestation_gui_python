@@ -44,7 +44,7 @@ import yaml
 from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, RadioMsg
+from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, RadioMsg, ArtifactUpdate
 
 class ArtifactQueuePlugin(Plugin):
 
@@ -83,6 +83,7 @@ class ArtifactQueuePlugin(Plugin):
 
 		#setup subscribers
 		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
+		rospy.Subscriber('/gui/update_artifact_in_queue', ArtifactUpdate, self.updateArtifactInQueue) # an artifact's property has changed. just update the queue accordingly
 
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
@@ -179,6 +180,40 @@ class ArtifactQueuePlugin(Plugin):
 		#add to the overall gui
 		self.queue_widget.setLayout(self.queue_layout)
 		self.global_widget.addWidget(self.queue_widget) #last 2 parameters are rowspan and columnspan
+
+	def updateArtifactInQueue(self, msg):
+		'''
+		Find the element in the table we need to updsate. 
+
+		msg is of type ArtifactUpdate containing the info to be changed
+		'''
+
+		artifact_row = None
+		for row in range(self.queue_table.rowCount()):
+			if (self.queue_table.item(row,5).text() == msg.unique_id):
+				artifact_row = row
+				break
+
+
+		if (artifact_row != None):
+			if (msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY):
+				self.updateQueueTable(row, 3, msg.category) 
+
+			elif (msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY):
+				self.updateQueueTable(row, 1, msg.priority)
+
+			else:
+				update_msg = GuiMessage()
+				update_msg.data = 'We received an update message of unknown type or of type pose. Artifact queue not updated'
+				update_msg.color = update_msg.COLOR_RED
+				self.message_pub.publish(update_msg)
+
+		else: #we never found an artifact with the same id in the queue
+			update_msg = GuiMessage()
+			update_msg.data = 'Could not find artifact with proper unique_id in table. Artifact not updated in queue'
+			update_msg.color = update_msg.COLOR_RED
+			self.message_pub.publish(update_msg)
+
 
 	def updateQueueTable(self, row, col, data):
 		self.update_table_trigger.emit(row, col, data)

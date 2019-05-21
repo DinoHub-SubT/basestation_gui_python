@@ -75,6 +75,7 @@ class ArtifactHandler:
 		self.submission_reply_pub = rospy.Publisher('/gui/submission_reply', ArtifactSubmissionReply, queue_size = 10)
 		self.img_display_pub = rospy.Publisher('/gui/img_to_display', ArtifactDisplayImage, queue_size = 10)
 		self.manipulation_info_pub = rospy.Publisher('/gui/refresh_manipulation_info', Artifact, queue_size = 10)
+		self.update_artifact_in_queue_pub = rospy.Publisher('/gui/update_artifact_in_queue', ArtifactUpdate, queue_size=10) #ot change artifact info in the queue
 
 		
 
@@ -142,31 +143,34 @@ class ArtifactHandler:
 		'''
 		Converts a Ros artifact to a GuiArtifact
 		'''
-		
-		if (msg.artifact_report_id == -1): #we're manually generating an artifact, make a new 
-											#artifact id for it
-			
-			#go find the smallest id, and increment it by 1 to generate new id
-			min_negative_id = 0
+		if (msg.unique_id in self.all_artifacts.keys()): #we already have this artifact
+			artifact = self.all_artifacts[msg.unique_key]
 
-			for artifact_key in self.all_artifacts.keys():
+		else: # we need to generate a new artifact
+			if (msg.artifact_report_id == -1): #we're manually generating an artifact, make a new 
+												#artifact id for it
+				
+				#go find the smallest id, and increment it by 1 to generate new id
+				min_negative_id = 0
 
-				artifact = self.all_artifacts[artifact_key]
+				for artifact_key in self.all_artifacts.keys():
 
-				if (artifact.artifact_report_id < min_negative_id):
-					min_negative_id = artifact.artifact_report_id
+					artifact = self.all_artifacts[artifact_key]
 
-			artifact_report_id = min_negative_id - 1
+					if (artifact.artifact_report_id < min_negative_id):
+						min_negative_id = artifact.artifact_report_id
 
-		else:
-			artifact_report_id = msg.artifact_report_id
+				artifact_report_id = min_negative_id - 1
+
+			else:
+				artifact_report_id = msg.artifact_report_id
 
 
-		#generate new artifact
-		artifact = GuiArtifact(original_timestamp = float(msg.original_timestamp), category = msg.category, \
-							pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
-							source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
-							imgs = msg.imgs, img_stamps = msg.img_stamps, priority = self.artifact_priorities[1])
+			#generate new artifact
+			artifact = GuiArtifact(original_timestamp = float(msg.original_timestamp), category = msg.category, \
+								pose = [msg.orig_pose.position.x, msg.orig_pose.position.y, msg.orig_pose.position.z],
+								source_robot_id = msg.source_robot_id, artifact_report_id = artifact_report_id, \
+								imgs = msg.imgs, img_stamps = msg.img_stamps, priority = self.artifact_priorities[1])
 
 		return artifact
 
@@ -179,14 +183,27 @@ class ArtifactHandler:
 
 		artifact = self.all_artifacts[msg.unique_id]
 
+
 		if (msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY):
 			artifact.category = msg.category
 
-		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE):
-			artifact.curr_pose = msg.curr_pose
+			#change the value in the artifact queue
+			self.update_artifact_in_queue_pub.publish(msg)
+
+		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_X):
+			artifact.pose[0] = msg.curr_pose.position.x
+		
+		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_Y):
+			artifact.pose[1] = msg.curr_pose.position.y
+
+		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_Z):
+			artifact.pose[2] = msg.curr_pose.position.z
 
 		elif (msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY):
 			artifact.priority = msg.priority
+
+			#change the value in the artifact queue
+			self.update_artifact_in_queue_pub.publish(msg)
 
 		else:
 			update_msg = GuiMessage()
@@ -415,7 +432,7 @@ class ArtifactHandler:
 		'''
 		self.focused_artifact_id = msg.data
 
-		self.img_ind_displayed = 0 #reset the images index we're displaying
+		self.img_ind_displayed = 0 #reset the image index we're displaying
 		self.getArtifactImage(UInt8(2)) #display the first image in the detection
 
 		self.publishManipulationInfomation(msg.data)
@@ -524,12 +541,6 @@ class ArtifactHandler:
 		self.img_display_pub.publish(msg)
 
 
-
-	def updateArtifactInfo(self, msg):
-		'''
-		Update the information for an existing artifact
-		'''
-		pass
 
 	def skeletonFunction(self, msg):
 		pass

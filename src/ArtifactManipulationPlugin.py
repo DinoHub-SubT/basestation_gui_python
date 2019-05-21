@@ -81,6 +81,7 @@ class ArtifactManipulationPlugin(Plugin):
 		rospy.Subscriber('/gui/refresh_manipulation_info', Artifact, self.focusOnArtifact) #the information relevant to manipulation for the artifact in focus has been changed
 
 		self.update_artifact_info_pub = rospy.Publisher('/gui/update_artifact_info', ArtifactUpdate, queue_size=10)
+		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 
 		self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
 
@@ -136,6 +137,15 @@ class ArtifactManipulationPlugin(Plugin):
 		self.artmanip_layout.addWidget(self.refined_pos_label, 3, 0, 1, 3)
 
 		self.art_pos_textbox_x, self.art_pos_textbox_y, self.art_pos_textbox_z = qt.QLineEdit(), qt.QLineEdit(), qt.QLineEdit()
+
+		#any change in any pose box will update the artifact's entire psoe with
+		#the values from the other pose textboxes as well
+
+		#editingFinished waits until all of the text has been typed into the box, so this
+		#doesn't fire at every character input into the textboxes
+		self.art_pos_textbox_x.editingFinished.connect(partial(self.updateArtifactPose, 0))
+		self.art_pos_textbox_y.editingFinished.connect(partial(self.updateArtifactPose, 1))
+		self.art_pos_textbox_z.editingFinished.connect(partial(self.updateArtifactPose, 2))
 	   
 		#fill in some fake data
 		self.art_pos_textbox_x.setText(str(robot_pos[0]))
@@ -212,13 +222,68 @@ class ArtifactManipulationPlugin(Plugin):
 		self.artmanip_widget.setLayout(self.artmanip_layout)
 		self.global_widget.addWidget(self.artmanip_widget)
 
+
+
 	def processArtRefinementPress(self):
 		pass
+
+	def updateArtifactPose(self, element):
+		'''
+		Update the artifact's pose after the linedit box contents have been changed
+
+		element defines which element i the psoe we update
+			0 is x
+			1 is y
+			2 is z
+		'''
+
+		if (self.artifact_id_displayed != None): #we're actually displaying an artifact
+
+			msg = ArtifactUpdate()
+
+			msg.unique_id  = self.artifact_id_displayed
+
+			if (element == 0):
+				msg.update_type = ArtifactUpdate.PROPERTY_POSE_X
+				msg.curr_pose.position.x = float(self.art_pos_textbox_x.text())
+
+			elif (element == 1):
+				msg.update_type = ArtifactUpdate.PROPERTY_POSE_Y
+				msg.curr_pose.position.y = float(self.art_pos_textbox_y.text())
+
+			elif (element == 2):
+				msg.update_type = ArtifactUpdate.PROPERTY_POSE_Z
+				msg.curr_pose.position.z = float(self.art_pos_textbox_z.text())
+
+			else:
+				update_msg = GuiMessage()
+				update_msg.data = 'We received an update to artifact pose with unknown indice (should be 0, 1, or 2). Artifact not updated'
+				update_msg.color = update_msg.COLOR_RED
+				self.message_pub.publish(update_msg)
+
+			self.update_artifact_info_pub.publish(msg)
+
+
 	def updateArtifactCat(self):
-		pass
+		'''
+		Change the artifact category after the combox box has been changed
+		'''
+
+		if (self.artifact_id_displayed != None): #we're actually displaying an artifact
+
+			msg = ArtifactUpdate()
+
+			msg.unique_id  = self.artifact_id_displayed
+			msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
+			msg.category = self.darpa_cat_box.currentText()
+
+			self.update_artifact_info_pub.publish(msg)
+
+			
+
 	def updateArtifactPriority(self):
 		'''
-		Change the artifact priority
+		Change the artifact priority after the combo box has been changed
 		'''
 		if (self.artifact_id_displayed != None): #we're actually displaying an artifact
 
@@ -226,7 +291,7 @@ class ArtifactManipulationPlugin(Plugin):
 
 			msg.unique_id  = self.artifact_id_displayed
 			msg.update_type = ArtifactUpdate.PROPERTY_PRIORITY
-			msg.category = self.artifact_priority_box.currentText()
+			msg.priority = self.artifact_priority_box.currentText()
 
 			self.update_artifact_info_pub.publish(msg)
 
@@ -246,6 +311,8 @@ class ArtifactManipulationPlugin(Plugin):
 	def focusOnArtifactMonitor(self, msg):
 		'''
 		Update the information displayed for manipulating re artifact (position, category, etc.)
+
+		msg is custom msg type Artifact
 		'''
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
@@ -263,13 +330,19 @@ class ArtifactManipulationPlugin(Plugin):
 		self.art_pos_textbox_z.setText(str(msg.curr_pose.position.z)[:7])
 
 		#change the priority
-		ind = self.artifact_priorities.index(msg.priority)
+		priority_ind = self.artifact_priority_box.findText(msg.priority, core.Qt.MatchFixedString)
 
-		if (ind != None):
-			self.artifact_priority_box.setCurrentIndex(ind)  
+		if (priority_ind >= 0):
+			self.artifact_priority_box.setCurrentIndex(priority_ind)  
+
 
 		#change the category
-		
+		category_ind = self.darpa_cat_box.findText(msg.category, core.Qt.MatchFixedString)
+
+		if (category_ind >= 0):
+			self.darpa_cat_box.setCurrentIndex(category_ind)
+
+
 
 
 			
