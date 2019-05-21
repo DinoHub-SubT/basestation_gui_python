@@ -113,6 +113,13 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
 		self.artvis_layout.addWidget(self.art_image, 1, 0, 3, 3) #last 2 parameters are rowspan and columnspan
 
+		self.update_art_label = qt.QLabel()
+		self.update_art_label.setText('Updates here')
+		self.update_art_label.setAlignment(Qt.AlignCenter)
+		self.update_art_label.setStyleSheet("background-color: rgba(126, 126, 126,50%)")
+		self.update_art_label.hide()
+		self.artvis_layout.addWidget(self.update_art_label, 3, 0, 1, 3)
+
 		boldFont = gui.QFont()
 		boldFont.setBold(True) 
 
@@ -159,13 +166,13 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		'''
 
 		 # self.artifact_img_width, self.artifact_img_length
-        # x_coord = event.pos().x() / float(self.gui.artifact_img_width)
-        # y_coord = event.pos().y() / float(self.gui.artifact_img_length)
-        
-        # msg = Float32MultiArray()
-        # msg.data = [x_coord, y_coord]
+		# x_coord = event.pos().x() / float(self.gui.artifact_img_width)
+		# y_coord = event.pos().y() / float(self.gui.artifact_img_length)
+		
+		# msg = Float32MultiArray()
+		# msg.data = [x_coord, y_coord]
 
-        # self.img_coord_pub.publish(msg)
+		# self.img_coord_pub.publish(msg)
 
 		pass
 	
@@ -195,7 +202,7 @@ class ArtifactImageVisualizerPlugin(Plugin):
 			image_ind = 0
 		else:
 			image_ind = msg.image_ind + 1
-			
+
 		self.img_displayed_label.setText('Img '+str(image_ind)+'/'+str(msg.num_images))
 
 			

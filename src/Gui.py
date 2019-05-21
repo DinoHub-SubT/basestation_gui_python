@@ -876,6 +876,8 @@ class BasestationGuiPlugin(Plugin):
         self.art_refinement_button.clicked.connect(self.processArtRefinementPress)
         self.artmanip_layout.addWidget(self.art_refinement_button, 5, 0 , 1, 3)
 
+        
+
 
 
  #add in a few buttons at the bottom to do various things

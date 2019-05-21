@@ -90,9 +90,12 @@ class ArtifactHandler:
 		msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
 
 		if (msg.artifact_type == WifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
-			print "NOT ARCHIVING ARTIFACT DETECTIONS!!"
+			self.archiveArtifact(String(msg_unique_id))
 
-			# self.archiveArtifact(String(msg_unique_id))
+			#remove the artifact from the queue
+			remove_msg = String()
+			remove_msg.data = msg_unique_id
+			self.remove_artifact_from_queue_pub.publish(remove_msg)
 
 		else: 
 

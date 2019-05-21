@@ -346,6 +346,18 @@ class ArtifactManipulationPlugin(Plugin):
 			self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 			self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 
+			#clear the various boxes
+			self.orig_pos_label_x.setText('')
+			self.orig_pos_label_y.setText('')
+			self.orig_pos_label_z.setText('')
+
+			self.art_pos_textbox_x.setText('')
+			self.art_pos_textbox_y.setText('')
+			self.art_pos_textbox_z.setText('')
+
+			#reset the focused artifact id
+			self.artifact_id_displayed = None
+
 
 	def cancelProposal(self):
 		'''

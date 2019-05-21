@@ -58,9 +58,7 @@ class ArtifactQueuePlugin(Plugin):
 		super(ArtifactQueuePlugin, self).__init__(context)
 		self.setObjectName('ArtifactQueuePlugin')	
 
-		#get the robot names, artifact categories	
-
-		#get the number of robots
+		#get the robot names, artifact categories
 		rospack = rospkg.RosPack()
 		config_filename = rospack.get_path('basestation_gui_python')+'/config/gui_params.yaml'
 		config = yaml.load(open(config_filename, 'r').read())
@@ -79,6 +77,8 @@ class ArtifactQueuePlugin(Plugin):
 		self.artifact_categories = []
 		for category in darpa_params['artifact_categories']:
 			self.artifact_categories.append(category)
+
+		self.displayed_artifact_id = None
 
 		self.initPanel(context) #layout plugin
 
@@ -376,28 +376,34 @@ class ArtifactQueuePlugin(Plugin):
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarenteed to be on the proper thread"
 
-		#find the artifact in the queue table
-		for row in range(self.queue_table.rowCount()):
-			if (self.queue_table.item(row,5).text() == msg.data):
-				update_msg = GuiMessage()
+		if (msg.data == self.displayed_artifact_id):
+			#we're trying to delete something we're currently viewing
+			r=0 
 
-				update_msg.data = 'Artifact removed from table:'+str(self.queue_table.item(row,0).text())+'//'+\
-													   str(self.queue_table.item(row,2).text())+'//'+\
-													   str(self.queue_table.item(row,3).text())
+		else: #we're deleting something we're not currently viewing
+			#find the artifact in the queue table
+			for row in range(self.queue_table.rowCount()):
+				print self.queue_table.item(row,5).text(), msg.data
+				if (self.queue_table.item(row,5).text() == msg.data):
+					update_msg = GuiMessage()
 
-				update_msg.color = update_msg.COLOR_GREEN
-				self.message_pub.publish(update_msg)
-				
-				#delete it from the queue table
-				self.queue_table.removeRow(self.queue_table.item(row,0).row())
+					update_msg.data = 'Artifact removed from table:'+str(self.queue_table.item(row,0).text())+'//'+\
+														   str(self.queue_table.item(row,2).text())+'//'+\
+														   str(self.queue_table.item(row,3).text())
 
-				return
+					update_msg.color = update_msg.COLOR_GREEN
+					self.message_pub.publish(update_msg)
+					
+					#delete it from the queue table
+					self.queue_table.removeRow(self.queue_table.item(row,0).row())
 
-		#if we get to this point, we did not find the artifact to delete
-		update_msg = GuiMessage()
-		update_msg.data = 'Could not find artifact with proper unique_id in table. Artifact not removed from queue'
-		update_msg.color = update_msg.COLOR_RED
-		self.message_pub.publish(update_msg)
+					return
+
+			#if we get to this point, we did not find the artifact to delete
+			update_msg = GuiMessage()
+			update_msg.data = 'Could not find artifact with proper unique_id in table. Artifact not removed from queue'
+			update_msg.color = update_msg.COLOR_RED
+			self.message_pub.publish(update_msg)
 
 
 	def resendArtifactInfo(self):
@@ -445,9 +451,12 @@ class ArtifactQueuePlugin(Plugin):
 		#remove the unread indicator from the last column
 		self.updateQueueTable(row, 4, '')
 
+		#so we know what's currently being displayed
+		self.displayed_artifact_id = self.queue_table.item(row,5).text()
+
 		#publish that we have selected this artifact
 		msg = String()
-		msg.data = msg.data = self.queue_table.item(row,5).text()
+		msg.data = self.queue_table.item(row,5).text() 
 		self.focus_on_artifact_pub.publish(msg)
 
 
