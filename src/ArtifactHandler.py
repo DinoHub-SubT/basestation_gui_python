@@ -76,6 +76,7 @@ class ArtifactHandler:
 		self.img_display_pub = rospy.Publisher('/gui/img_to_display', ArtifactDisplayImage, queue_size = 10)
 		self.manipulation_info_pub = rospy.Publisher('/gui/refresh_manipulation_info', Artifact, queue_size = 10)
 		self.update_artifact_in_queue_pub = rospy.Publisher('/gui/update_artifact_in_queue', ArtifactUpdate, queue_size=10) #ot change artifact info in the queue
+		self.remove_artifact_from_queue_pub = rospy.Publisher('/gui/remove_artifact_from_queue', String, queue_size=10)
 
 		
 
@@ -338,7 +339,7 @@ class ArtifactHandler:
 		msg is just a string that's the unqiue_id of the artifact to submit
 		'''
 
-		artifact = self.all_artifacts[msg.unique_id]
+		artifact = self.all_artifacts[msg.data]
 
 		if (artifact != None):
 
@@ -360,8 +361,14 @@ class ArtifactHandler:
 				self.publishSubmissionReply(proposal_return)
 
 				#remove the artifact from the book keeping
-				self.queued_artifacts.pop(artifact.unique_id, default= None) #defauilt return value is None if key not found
+				self.queued_artifacts.pop(artifact.unique_id) 
 				self.submitted_artifacts[artifact.unique_id] = artifact
+
+				#remove the artifact from the queue
+				remove_msg = String()
+				remove_msg.data = msg.data
+				self.remove_artifact_from_queue_pub.publish(remove_msg)
+
 
 		else: #we could not find the artifact unique_id
 			update_msg = GuiMessage()
@@ -407,7 +414,7 @@ class ArtifactHandler:
 		if (artifact_to_archive != None):
 			self.archived_artifacts[artifact_to_archive.unique_id] = artifact_to_archive
 
-			self.queued_artifacts.pop(artifact_to_archive.unique_id, default= None) #defauilt return value is None if key not found
+			self.queued_artifacts.pop(artifact_to_archive.unique_id) #defauilt return value is None if key not found
 
 			update_msg.data = 'Artifact archived in handler:'+str(artifact_to_archive.source_robot_id)+'//'+\
 												   str(artifact_to_archive.original_timestamp)+'//'+\

@@ -52,6 +52,7 @@ class ArtifactQueuePlugin(Plugin):
 	archive_artifact_trigger = pyqtSignal() 
 	update_table_trigger = pyqtSignal(object, object, object)
 	submit_all_artifacts_trigger = pyqtSignal()
+	remove_artifact_fom_queue_trigger = pyqtSignal(object)
 
 	def __init__(self, context):
 		super(ArtifactQueuePlugin, self).__init__(context)
@@ -84,6 +85,7 @@ class ArtifactQueuePlugin(Plugin):
 		#setup subscribers
 		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
 		rospy.Subscriber('/gui/update_artifact_in_queue', ArtifactUpdate, self.updateArtifactInQueue) # an artifact's property has changed. just update the queue accordingly
+		rospy.Subscriber('/gui/remove_artifact_from_queue', String, self.removeArtifactFromQueue)
 
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
@@ -96,6 +98,7 @@ class ArtifactQueuePlugin(Plugin):
 		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
 		self.update_table_trigger.connect(self.updateQueueTableMonitor)
 		self.submit_all_artifacts_trigger.connect(self.submitAllQueuedArtifactsMonitor)
+		self.remove_artifact_fom_queue_trigger.connect(self.removeArtifactFromQueueMonitor)
 
 	def initPanel(self, context):
 		'''
@@ -331,20 +334,14 @@ class ArtifactQueuePlugin(Plugin):
 
 		for row in rows_selected:
 
-			#send a message to the MessagePluging about this
-			update_msg.data = 'Artifact removed from table:'+str(self.queue_table.item(row,0).text())+'//'+\
-												   str(self.queue_table.item(row,2).text())+'//'+\
-												   str(self.queue_table.item(row,3).text())
-
-			update_msg.color = update_msg.COLOR_GREEN
-			self.message_pub.publish(update_msg)
-
 			#delete it from the ArtifactHandler book-keeping
 			handler_msg.data = self.queue_table.item(row,5).text()
 			self.archive_artifact_pub.publish(handler_msg) #only send the unique ID
 			
 			#delete it from the queue table
-			self.queue_table.removeRow(self.queue_table.item(row,0).row())
+			msg = String()
+			msg.data = self.queue_table.item(row,5).text()
+			self.removeArtifactFromQueue(msg)
 
 			#reset the confirm/cancel buttons
 			self.queue_archive_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
@@ -352,7 +349,6 @@ class ArtifactQueuePlugin(Plugin):
 
 			self.queue_archive_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 			self.queue_archive_confirm_button.setEnabled(False)
-
 
 
 	def cancelArchiveArtifact(self):
@@ -365,6 +361,44 @@ class ArtifactQueuePlugin(Plugin):
 
 		self.queue_archive_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 		self.queue_archive_confirm_button.setEnabled(False)
+
+	def removeArtifactFromQueue(self, msg):
+		self.remove_artifact_fom_queue_trigger.emit(msg)
+
+	def removeArtifactFromQueueMonitor(self, msg):
+		'''
+		Remove an artifact from the queue, i.e. after is has been submitted
+
+		msg is a string of the artifact unique_id to remove
+		'''
+
+		#check that threading is working properly
+		if (not isinstance(threading.current_thread(), threading._MainThread)):
+			print "Drawing on the message panel not guarenteed to be on the proper thread"
+
+		#find the artifact in the queue table
+		for row in range(self.queue_table.rowCount()):
+			if (self.queue_table.item(row,5).text() == msg.data):
+				update_msg = GuiMessage()
+
+				update_msg.data = 'Artifact removed from table:'+str(self.queue_table.item(row,0).text())+'//'+\
+													   str(self.queue_table.item(row,2).text())+'//'+\
+													   str(self.queue_table.item(row,3).text())
+
+				update_msg.color = update_msg.COLOR_GREEN
+				self.message_pub.publish(update_msg)
+				
+				#delete it from the queue table
+				self.queue_table.removeRow(self.queue_table.item(row,0).row())
+
+				return
+
+		#if we get to this point, we did not find the artifact to delete
+		update_msg = GuiMessage()
+		update_msg.data = 'Could not find artifact with proper unique_id in table. Artifact not removed from queue'
+		update_msg.color = update_msg.COLOR_RED
+		self.message_pub.publish(update_msg)
+
 
 	def resendArtifactInfo(self):
 		'''

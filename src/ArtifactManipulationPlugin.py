@@ -74,6 +74,9 @@ class ArtifactManipulationPlugin(Plugin):
 
 		self.artifact_id_displayed = None
 
+		#if we're also simulating the darpa command post
+		self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
+
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers
@@ -82,6 +85,7 @@ class ArtifactManipulationPlugin(Plugin):
 
 		self.update_artifact_info_pub = rospy.Publisher('/gui/update_artifact_info', ArtifactUpdate, queue_size=10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
+		self.submit_pub = rospy.Publisher('/gui/submit_artifact', String, queue_size=10)
 
 		self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
 
@@ -297,11 +301,65 @@ class ArtifactManipulationPlugin(Plugin):
 
 
 	def decideArtifact(self):
-		pass
+		'''
+		If we're displaying an artifact, unlock the Confirm/Cancel buttons which will
+		evenetually allow us to submit an artifact to DARPA
+		'''
+		if (self.artifact_id_displayed == None):
+			update_msg = GuiMessage()
+			update_msg.data = 'Nothing proposed. Please select and artifact from the queue'
+			update_msg.color = update_msg.COLOR_ORANGE
+			self.message_pub.publish(update_msg)
+
+		elif(self.connect_to_command_post):
+
+			#enable the confirm and cancel buttons
+			self.darpa_confirm_button.setEnabled(True)
+			self.darpa_cancel_button.setEnabled(True) 
+
+			#color the buttons appropriately
+			self.darpa_confirm_button.setStyleSheet("background-color:rgb(0,220,0)")
+			self.darpa_cancel_button.setStyleSheet("background-color:rgb(220,0,0)")
+
+		else:
+			update_msg = GuiMessage()
+			update_msg.data = 'Not connected to darpa basestation. Thus artifatc not submitted.'
+			update_msg.color = update_msg.COLOR_ORANGE
+			self.message_pub.publish(update_msg)
+
 	def proposeArtifact(self):
-		pass
+		'''
+		Propose an artifact to DARPA 
+		'''
+
+		if (self.artifact_id_displayed != None):
+
+			msg = String()
+			msg.data = self.artifact_id_displayed
+
+			self.submit_pub.publish(msg)
+
+			#reset the darpa proposal buttons
+			self.darpa_confirm_button.setEnabled(False)
+			self.darpa_cancel_button.setEnabled(False)
+
+			self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+			self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+
+
 	def cancelProposal(self):
-		pass
+		'''
+		Cancel an artifact proposal, which simply amounts to disabling 
+		the confirm/cancel buttons
+		'''
+		
+		#reset the darpa proposal buttons
+		self.darpa_confirm_button.setEnabled(False)
+		self.darpa_cancel_button.setEnabled(False)
+
+		self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+		self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+
 
 	
 	def focusOnArtifact(self, msg):
