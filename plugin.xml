@@ -116,4 +116,17 @@
       <statustip>Plugin to visualize artifact rgb images</statustip>
     </qtgui>
   </class>
+  <class name="GlobalButtonsPlugin" type="GlobalButtonsPlugin.GlobalButtonsPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Plugin for buttons relevant to entire gui (e.g. big estop, loading from csv, etc.)
+    </description>
+    <qtgui>
+      <group>
+        <label>Basestation Gui</label>
+      </group>
+      <label>GlobalButtonsPlugin</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Plugin for buttons relevant to entire gui (e.g. big estop, loading from csv, etc.)</statustip>
+    </qtgui>
+  </class>
 </library>

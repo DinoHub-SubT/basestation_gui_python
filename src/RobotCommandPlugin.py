@@ -10,7 +10,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 
 import rospy
 import rospkg
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PoseStamped, Point
 from nav_msgs.msg import Odometry
 import threading
@@ -37,7 +37,7 @@ if QT_BINDING == 'pyside':
 
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
-from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy, QTabWidget
 
 from GuiBridges import RosGuiBridge, DarpaGuiBridge
 from functools import partial
@@ -95,6 +95,8 @@ class RobotCommandPlugin(Plugin):
 		#setup subscribers/publishers
 		self.rob_command_sub = rospy.Subscriber('/gui/rob_command_update', GuiRobCommand, self.robCommandUpdate)
 		self.waypoint_sub = rospy.Subscriber('/define_waypoint/feedback', InteractiveMarkerFeedback, self.recordWaypoint)
+		rospy.Subscriber('/gui/global_estop', Bool, self.processGlobalEstopCommand)
+
 		self.waypoint = None   
 		for i, topic in enumerate(self.robot_pos_topics):
 			rospy.Subscriber(topic, Odometry, self.saveRobotPos, (i))
@@ -141,8 +143,11 @@ class RobotCommandPlugin(Plugin):
 		control_label.setAlignment(Qt.AlignCenter)
 		self.control_layout.addWidget(control_label)
 
+		#define the tab widget which the other widgets will go in
+		self.tabs = QTabWidget()
+
 		#define the number of commands in a single column
-		num_in_col = 6
+		num_in_col = 7
 		self.control_buttons = []
 
 		#establish the sub-panel for each robot
@@ -150,7 +155,7 @@ class RobotCommandPlugin(Plugin):
 
 			#define the layout and group for a single robot
 			robot_layout = qt.QGridLayout()
-			robot_groupbox = qt.QGroupBox("Controls "+robot_name)
+			robot_tab = QWidget()
 			robot_button_list = []
 
 			#add the robot commands
@@ -181,28 +186,25 @@ class RobotCommandPlugin(Plugin):
 				else:
 					row+=1
 
-			#add custom buttons
+			#add a combobox to set the max run time for the vehicle
+			max_time_list = np.arange(0., 10.5, 0.5).tolist()
+			max_time_box = qt.QComboBox()
 
-			#add a combobox to set the max run time for the aerial vehicle
-			if (robot_name.find('erial') != -1):
-				max_time_list = np.arange(0., 10.5, 0.5).tolist()
-				max_time_box = qt.QComboBox()
+			for speed in max_time_list:
+				max_time_box.addItem(str(speed))
+			
+			max_time_box.currentTextChanged.connect(partial(self.adjustMaxTime, robot_name, max_time_box)) 
 
-				for speed in max_time_list:
-					max_time_box.addItem(str(speed))
-				
-				max_time_box.currentTextChanged.connect(partial(self.adjustMaxTime, robot_name, max_time_box)) 
-
-				robot_layout.addWidget(max_time_box, row, col)
+			robot_layout.addWidget(max_time_box, row, col)
 
 			#add buttons in robot panel
-
 			self.control_buttons.append(robot_button_list)
 
-			robot_groupbox.setLayout(robot_layout)
-			self.control_layout.addWidget(robot_groupbox)
+			robot_tab.setLayout(robot_layout)
+			self.tabs.addTab(robot_tab, robot_name)
 
 		#add to the overall gui
+		self.control_layout.addWidget(self.tabs)
 		self.control_widget.setLayout(self.control_layout)
 		self.global_widget.addWidget(self.control_widget)
 
@@ -232,6 +234,36 @@ class RobotCommandPlugin(Plugin):
 		else:
 			button.setCheckable(True) # a button pressed will stay pressed, until unclicked
 			button.setStyleSheet("QPushButton:checked { background-color: red }") #a button stays red when its in a clicked state
+
+	def processGlobalEstopCommand(self, msg):
+		'''
+		The big red button (a global estop button) has just been pressed.
+		The commands have already been sent via radio. We now just need to
+		press/un-press the proper estop buttons
+
+		msg is just a boolean indicating whether we should do this or not
+		its always True
+		'''
+
+		if (msg.data == True):
+			for robot_buttons in self.control_buttons:
+				for button in robot_buttons:
+
+					#check to see if a soft-estop button. if so, press it
+					if (button.text() == self.ground_estop_commands[2]) or \
+					   (button.text() == self.aerial_estop_commands[2]):
+
+					   button.setChecked(True)
+
+
+					#if its an estop button that is not soft estop, un-press it
+					elif ((button.text() in self.ground_estop_commands) or\
+					    (button.text() in self.aerial_estop_commands)): 
+
+						button.setChecked(False)
+
+
+
 
 	def processRobotCommandPress(self, command, robot_name, button):
 		'''

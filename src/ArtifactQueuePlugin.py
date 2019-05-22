@@ -86,6 +86,7 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
 		rospy.Subscriber('/gui/update_artifact_in_queue', ArtifactUpdate, self.updateArtifactInQueue) # an artifact's property has changed. just update the queue accordingly
 		rospy.Subscriber('/gui/remove_artifact_from_queue', String, self.removeArtifactFromQueue)
+		rospy.Subscriber('/gui/submit_artifact', String, self.artifactSubmitted)
 
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
@@ -184,6 +185,16 @@ class ArtifactQueuePlugin(Plugin):
 		#add to the overall gui
 		self.queue_widget.setLayout(self.queue_layout)
 		self.global_widget.addWidget(self.queue_widget) #last 2 parameters are rowspan and columnspan
+
+	def artifactSubmitted(self, msg):
+		'''
+		An artifact was just submitted. IF its the one we were viewing, reset the displayed artifact id
+
+		msg is a String with the unique id of the artifact
+		'''
+
+		if (self.displayed_artifact_id == msg.data):
+			self.displayed_artifact_id = None
 
 	def updateArtifactInQueue(self, msg):
 		'''
@@ -391,11 +402,6 @@ class ArtifactQueuePlugin(Plugin):
 				update_msg = GuiMessage()
 
 				update_msg.data = 'Artifact removed from table:'+str(msg.data)
-
-				# str(self.queue_table.item(row,0).text())+'//'+\
-				# 									   str(self.queue_table.item(row,2).text())+'//'+\
-				# 									   str(self.queue_table.item(row,3).text())
-
 				update_msg.color = update_msg.COLOR_GREEN
 				self.message_pub.publish(update_msg)
 				
@@ -470,8 +476,6 @@ class ArtifactQueuePlugin(Plugin):
 		msg.data = 'hide'
 		self.update_label_pub.publish(msg)
 
-
-
 	def displaySeconds(self, seconds):
 		'''
 		Function to convert seconds float into a min:sec string
@@ -530,11 +534,6 @@ class ArtifactQueuePlugin(Plugin):
 			self.queue_table.sortItems(2, core.Qt.DescendingOrder)
 			
 			self.queue_table.viewport().update()	
-
-		update_msg = GuiMessage()
-		update_msg.data = 'Added: '+str(msg.unique_id)
-		update_msg.color = update_msg.COLOR_GREEN
-		self.message_pub.publish(update_msg)		
 
 			
 	def shutdown_plugin(self):

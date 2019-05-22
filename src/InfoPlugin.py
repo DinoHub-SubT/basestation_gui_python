@@ -77,13 +77,14 @@ class InfoPlugin(Plugin):
 		self.info_box_widget = QWidget()
 		self.info_box_layout = qt.QGridLayout()
 
-		boldFont = gui.QFont()
-		boldFont.setBold(True)
+		bold_font = gui.QFont() 
+		bold_font.setBold(True)
+		bold_font.setPointSize(16)
 
 		self.info_label = qt.QLabel()
 		self.info_label.setText('Time: -- \t Score: -- \t Proposals Left: --')
 		self.info_label.setAlignment(Qt.AlignCenter)
-		self.info_label.setFont(boldFont)
+		self.info_label.setFont(bold_font)
 		self.info_label.setStyleSheet('border:3px solid rgb(0, 0, 0);')
 		self.info_box_layout.addWidget(self.info_label, 1, 0)
 

@@ -12,7 +12,7 @@ import rospy
 from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply, WifiDetection, \
 									   ArtifactDisplayImage, ArtifactUpdate, RadioMsg
 import copy
-from std_msgs.msg import String, UInt8
+from std_msgs.msg import String, UInt8, Bool
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -71,6 +71,7 @@ class ArtifactHandler:
 		rospy.Subscriber('/fake_artifact_imgs', WifiDetection, self.handleWifiDetection)#for fake wifi detections
 		rospy.Subscriber('/gui/update_artifact_info', ArtifactUpdate,self.updateArtifactInfo) #for updates from the manipulation panels
 		rospy.Subscriber('/real_artifact_detections', RadioMsg, self.handleRadioDetection)
+		rospy.Subscriber('/fake_artifact_detections', RadioMsg, self.handleRadioDetection) #kept around for legacy purposes
 
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.to_queue_pub = rospy.Publisher('/gui/artifact_to_queue', Artifact, queue_size = 10)
@@ -81,6 +82,7 @@ class ArtifactHandler:
 		self.update_artifact_in_queue_pub = rospy.Publisher('/gui/update_artifact_in_queue', ArtifactUpdate, queue_size=10) #ot change artifact info in the queue
 		self.remove_artifact_from_queue_pub = rospy.Publisher('/gui/remove_artifact_from_queue', String, queue_size=10)
 		self.update_label_pub = rospy.Publisher('/gui/update_art_label', String, queue_size=10)
+		self.clear_displayed_img_pub = rospy.Publisher('/gui/clear_img', Bool, queue_size=10)
 
 		
 
@@ -443,6 +445,9 @@ class ArtifactHandler:
 					remove_msg = String()
 					remove_msg.data = msg.data
 					self.remove_artifact_from_queue_pub.publish(remove_msg)
+
+					#clear the displayed image
+					self.clear_displayed_img_pub.publish(Bool(True))
 
 				self.submitted_artifacts[artifact.unique_id] = artifact
 

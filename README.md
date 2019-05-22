@@ -110,6 +110,17 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 	-Export the perspective
 	-Save it as whatever the gui.launch file calls. Probably /config/subt_test_perspective or something like that. 
 
+# Known issues / TODO
+
+* Incorporating the DARPA transform
+
+* If you close the artifact queue, that info will be out of sync with the artifact handler
+
+* Remove the FakeWifiDetections message. In there now for legacy reasons (probably not changed on the robots)
+
+* Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs
+
+* RadioMsg and WifiMsg? should be pulled out of this package and placed in another package
 
 =======
 # Troubleshooting

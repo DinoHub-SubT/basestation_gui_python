@@ -10,7 +10,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 
 import rospy
 import rospkg
-from std_msgs.msg import String, UInt8
+from std_msgs.msg import String, UInt8, Bool
 import threading
 
 from qt_gui.plugin import Plugin
@@ -68,6 +68,7 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		#setup subscribers
 		self.image_sub = rospy.Subscriber('/gui/img_to_display', ArtifactDisplayImage, self.dispImage)
 		rospy.Subscriber('/gui/update_art_label', String, self.updateArtLabel)
+		rospy.Subscriber('/gui/clear_img', Bool, self.dispBlankImg) #make the image blank again		
 
 		self.img_request_pub = rospy.Publisher('/gui/change_disp_img', UInt8, queue_size=10)
 
@@ -104,11 +105,11 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		rospack = rospkg.RosPack()
 		img_filename = rospack.get_path('basestation_gui_python')+'/src/black_img.png'
 
-		img = cv2.imread(img_filename)
-		img = cv2.resize(img,(self.artifact_img_width, self.artifact_img_length))
+		self.blank_img = cv2.imread(img_filename)
+		self.blank_img = cv2.resize(self.blank_img,(self.artifact_img_width, self.artifact_img_length))
 
-		img_height, img_width = img.shape[:2]
-		img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
+		img_height, img_width = self.blank_img.shape[:2]
+		img = gui.QImage(self.blank_img, img_width, img_height, gui.QImage.Format_RGB888)
 		img = gui.QPixmap.fromImage(img)
 		self.art_image.setPixmap(img)
 		self.art_image.mousePressEvent = self.publishImageCoord
@@ -166,8 +167,21 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		to be published, in order to possibly extract 3d info. The backend was not written
 		for this, so this function currently does nothing
 		'''
-
 		pass
+
+	def dispBlankImg(self, msg):
+		'''
+		Used to display a blank black image. Useful when we submit an artifact and 
+		this panel should be cleared to designate that we are no longer viewing that artifact
+		'''
+
+		if (msg.data == True): #basically anything can be sent. This is just a default
+			
+			#make the image blank
+			msg = ArtifactDisplayImage()
+			msg.img = self.br.cv2_to_imgmsg(self.blank_img)
+			self.dispImage(msg)
+
 	
 	def dispImage(self, msg):
 		self.disp_image_trigger.emit(msg)

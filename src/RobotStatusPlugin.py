@@ -65,7 +65,7 @@ class RobotStatusPlugin(Plugin):
 			self.robot_names.append(name)	
 
 		#define the rows of the table
-		self.status = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space', 'RSSI'] #define the status each robot will have
+		self.statuses = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space', 'RSSI'] #define the status each robot will have
 
 		self.initPanel(context) #layout plugin
 
@@ -91,8 +91,6 @@ class RobotStatusPlugin(Plugin):
 		self.robot_status_layout = qt.QGridLayout()
 
 		num_robots = len(self.robot_names) #get the number of robots
-		statuses = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space'] #define the status each robot will have
-		self.statuses = statuses
 
 		status_label = qt.QLabel()
 		status_label.setText('STATUS PANEL')
@@ -106,11 +104,11 @@ class RobotStatusPlugin(Plugin):
 		self.status_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 		self.status_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 		
-		self.status_table.setRowCount(len(statuses)) # set row count
+		self.status_table.setRowCount(len(self.statuses)) # set row count
 		self.status_table.setColumnCount(num_robots) # set column count
 
 		#make the row and column headers
-		self.status_table.setVerticalHeaderLabels(statuses) 
+		self.status_table.setVerticalHeaderLabels(self.statuses) 
 		self.status_table.setHorizontalHeaderLabels(self.robot_names) 
 
 		#add the table to the layout

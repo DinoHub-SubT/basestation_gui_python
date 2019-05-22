@@ -27,7 +27,7 @@ class FakePublisher:
 
         rospy.init_node('fake_artifact_node', anonymous=True)
 
-        self.artifact_pub = rospy.Publisher('/real_artifact_detections', RadioMsg, queue_size=10)
+        self.artifact_pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
         self.img_pub = rospy.Publisher('/fake_artifact_imgs', WifiDetection, queue_size=10)
         self.message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
 
@@ -81,7 +81,7 @@ class FakePublisher:
     def pubArtifactReport(self, update):
 
         #randomly select a radio or wifi message type
-        if (random.random() < 0.5):
+        if (random.random() < 0.2):
             msg = RadioMsg()
             msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
 
@@ -104,7 +104,7 @@ class FakePublisher:
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
 
-                if (report_id not in self.deleted_ids) and (random.random() < 0.25):
+                if (report_id not in self.deleted_ids) and (random.random() < 0.15):
                     msg.artifact_type = RadioMsg.ARTIFACT_REMOVE
                     print "radio delete:", msg.artifact_type, robot_id, report_id
 
@@ -157,7 +157,7 @@ class FakePublisher:
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
 
-                if (report_id not in self.deleted_ids) and (random.random() < 0.25):
+                if (report_id not in self.deleted_ids) and (random.random() < 0.0):
                     typ = WifiDetection.ARTIFACT_REMOVE                                        
                     print "wifi  delete:",typ, robot_id, report_id
 
