@@ -27,7 +27,7 @@ class FakePublisher:
 
         rospy.init_node('fake_artifact_node', anonymous=True)
 
-        self.artifact_pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
+        self.artifact_pub = rospy.Publisher('/real_artifact_detections', RadioMsg, queue_size=10)
         self.img_pub = rospy.Publisher('/fake_artifact_imgs', WifiDetection, queue_size=10)
         self.message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
 
@@ -277,14 +277,15 @@ class FakePublisher:
 
 
 if __name__ == '__main__':
+
     try:
         fake_publisher = FakePublisher()
-        fake_publisher.rate = rospy.Rate(0.2)# (5./3600.) #rate in hz
+        fake_publisher.rate = rospy.Rate(2.)# (5./3600.) #rate in hz
 
         while not rospy.is_shutdown() and fake_publisher.num_pubbed < fake_publisher.total_num_to_pub:
             fake_publisher.pub_msgs()
 
-            fake_publisher.rate = rospy.Rate(random.random()*5+1.)
+            # fake_publisher.rate = rospy.Rate(random.random()*5+1.)
 
             fake_publisher.rate.sleep()
 

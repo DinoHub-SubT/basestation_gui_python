@@ -65,7 +65,7 @@ class RobotStatusPlugin(Plugin):
 			self.robot_names.append(name)	
 
 		#define the rows of the table
-		self.status = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space'] #define the status each robot will have
+		self.status = ['Battery(mins)', 'Comms', 'Mobility', 'CPU', 'Disk Space', 'RSSI'] #define the status each robot will have
 
 		self.initPanel(context) #layout plugin
 

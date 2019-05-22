@@ -24,7 +24,7 @@
     <!--launch the darpa status monitor node-->
     <node name="darpaStatusMonitor" pkg="basestation_gui_python" type="darpaStatusMonitor.py" args = "$(find basestation_gui_python)/config/gui_params.yaml" output="screen" />
 
-    <!-- Node to ahndle adding/deleting/managin artifacts -->
+    <!-- Node to handle adding/deleting/managing artifacts -->
     <node pkg="basestation_gui_python" name="ArtifactHandler" type="ArtifactHandler.py" output="screen"/>
 
     <!-- Node to ahndle artifact subissions to DARPA -->

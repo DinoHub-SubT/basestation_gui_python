@@ -51,6 +51,7 @@ from cv_bridge import CvBridge
 class ArtifactImageVisualizerPlugin(Plugin):
 
 	disp_image_trigger = pyqtSignal(object) #to keep the drawing on the proper thread
+	update_art_label_trigger = pyqtSignal(object)
 
 	def __init__(self, context):
 		super(ArtifactImageVisualizerPlugin, self).__init__(context)
@@ -66,11 +67,12 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
 		#setup subscribers
 		self.image_sub = rospy.Subscriber('/gui/img_to_display', ArtifactDisplayImage, self.dispImage)
-		# rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.dispImage)
+		rospy.Subscriber('/gui/update_art_label', String, self.updateArtLabel)
 
 		self.img_request_pub = rospy.Publisher('/gui/change_disp_img', UInt8, queue_size=10)
 
 		self.disp_image_trigger.connect(self.dispImageMonitor)
+		self.update_art_label_trigger.connect(self.updateArtLabelMonitor)
 
 
 
@@ -165,15 +167,6 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		for this, so this function currently does nothing
 		'''
 
-		 # self.artifact_img_width, self.artifact_img_length
-		# x_coord = event.pos().x() / float(self.gui.artifact_img_width)
-		# y_coord = event.pos().y() / float(self.gui.artifact_img_length)
-		
-		# msg = Float32MultiArray()
-		# msg.data = [x_coord, y_coord]
-
-		# self.img_coord_pub.publish(msg)
-
 		pass
 	
 	def dispImage(self, msg):
@@ -204,6 +197,34 @@ class ArtifactImageVisualizerPlugin(Plugin):
 			image_ind = msg.image_ind + 1
 
 		self.img_displayed_label.setText('Img '+str(image_ind)+'/'+str(msg.num_images))
+
+
+	def updateArtLabel(self, msg):
+		self.update_art_label_trigger.emit(msg)
+
+	def updateArtLabelMonitor(self, msg):
+		'''
+		The art label is a label that shows over the image if the underlying artifact has changed or has
+		been deleted
+
+		msg is a string that just contains the text to display
+		'''
+
+		if (msg.data.find('elete') != -1): #the artifact has been deleted
+			self.update_art_label.setText('Artifact has been deleted!')
+			self.update_art_label.setStyleSheet("background-color: rgba(220, 0, 0, 70%)")
+			self.update_art_label.show()
+
+		elif(msg.data.find('updated') != -1): #the artifact has been modified
+			self.update_art_label.setText('Artifact has been updated. Please select it again in the queue')
+			self.update_art_label.setStyleSheet("background-color: rgba(255, 255, 0, 80%)")
+			self.update_art_label.show()
+
+
+		elif (msg.data =='hide'): #the user has done something else, remove the label from sight
+			self.update_art_label.hide()
+
+
 
 			
 	def shutdown_plugin(self):

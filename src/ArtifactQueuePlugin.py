@@ -93,6 +93,7 @@ class ArtifactQueuePlugin(Plugin):
 		self.duplicate_pub = rospy.Publisher('/gui/duplicate_artifact', String, queue_size=10)
 		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact', String, queue_size=10)
 		self.focus_on_artifact_pub = rospy.Publisher('/gui/focus_on_artifact', String, queue_size=10) #publish the artifact id we selected
+		self.update_label_pub = rospy.Publisher('/gui/update_art_label', String, queue_size=10)
 
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
 		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
@@ -378,32 +379,36 @@ class ArtifactQueuePlugin(Plugin):
 
 		if (msg.data == self.displayed_artifact_id):
 			#we're trying to delete something we're currently viewing
-			r=0 
+			art_label_msg = String()
+			art_label_msg.data = 'Artifact has been deleted!'
+			self.update_label_pub.publish(art_label_msg)
 
-		else: #we're deleting something we're not currently viewing
-			#find the artifact in the queue table
-			for row in range(self.queue_table.rowCount()):
-				print self.queue_table.item(row,5).text(), msg.data
-				if (self.queue_table.item(row,5).text() == msg.data):
-					update_msg = GuiMessage()
+		#find the artifact in the queue table
+		for row in range(self.queue_table.rowCount()):
+			# print self.queue_table.item(row,5).text(), msg.data
 
-					update_msg.data = 'Artifact removed from table:'+str(self.queue_table.item(row,0).text())+'//'+\
-														   str(self.queue_table.item(row,2).text())+'//'+\
-														   str(self.queue_table.item(row,3).text())
+			if (self.queue_table.item(row,5).text() == msg.data):
+				update_msg = GuiMessage()
 
-					update_msg.color = update_msg.COLOR_GREEN
-					self.message_pub.publish(update_msg)
-					
-					#delete it from the queue table
-					self.queue_table.removeRow(self.queue_table.item(row,0).row())
+				update_msg.data = 'Artifact removed from table:'+str(msg.data)
 
-					return
+				# str(self.queue_table.item(row,0).text())+'//'+\
+				# 									   str(self.queue_table.item(row,2).text())+'//'+\
+				# 									   str(self.queue_table.item(row,3).text())
 
-			#if we get to this point, we did not find the artifact to delete
-			update_msg = GuiMessage()
-			update_msg.data = 'Could not find artifact with proper unique_id in table. Artifact not removed from queue'
-			update_msg.color = update_msg.COLOR_RED
-			self.message_pub.publish(update_msg)
+				update_msg.color = update_msg.COLOR_GREEN
+				self.message_pub.publish(update_msg)
+				
+				#delete it from the queue table
+				self.queue_table.removeRow(self.queue_table.item(row,0).row())
+
+				return
+
+		#if we get to this point, we did not find the artifact to delete
+		update_msg = GuiMessage()
+		update_msg.data = 'Could not find artifact with unique_id '+str(msg.data)+' in table. Artifact not removed from queue'
+		update_msg.color = update_msg.COLOR_RED
+		self.message_pub.publish(update_msg)
 
 
 	def resendArtifactInfo(self):
@@ -458,6 +463,12 @@ class ArtifactQueuePlugin(Plugin):
 		msg = String()
 		msg.data = self.queue_table.item(row,5).text() 
 		self.focus_on_artifact_pub.publish(msg)
+
+		#remove the artifact update message from the image visualizer plugin
+		#if it is still visible
+		msg = String()
+		msg.data = 'hide'
+		self.update_label_pub.publish(msg)
 
 
 
@@ -518,7 +529,12 @@ class ArtifactQueuePlugin(Plugin):
 		if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
 			self.queue_table.sortItems(2, core.Qt.DescendingOrder)
 			
-			self.queue_table.viewport().update()			
+			self.queue_table.viewport().update()	
+
+		update_msg = GuiMessage()
+		update_msg.data = 'Added: '+str(msg.unique_id)
+		update_msg.color = update_msg.COLOR_GREEN
+		self.message_pub.publish(update_msg)		
 
 			
 	def shutdown_plugin(self):

@@ -9,7 +9,8 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 '''
 
 import rospy
-from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply, WifiDetection, ArtifactDisplayImage, ArtifactUpdate
+from basestation_gui_python.msg import Artifact, GuiMessage, ArtifactSubmissionReply, WifiDetection, \
+									   ArtifactDisplayImage, ArtifactUpdate, RadioMsg
 import copy
 from std_msgs.msg import String, UInt8
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
@@ -18,6 +19,7 @@ from cv_bridge import CvBridge
 import rospkg
 import yaml
 import cv2
+import time
 
 
 class ArtifactHandler:
@@ -68,6 +70,7 @@ class ArtifactHandler:
 		rospy.Subscriber('/gui/wifi_detection', WifiDetection, self.handleWifiDetection)
 		rospy.Subscriber('/fake_artifact_imgs', WifiDetection, self.handleWifiDetection)#for fake wifi detections
 		rospy.Subscriber('/gui/update_artifact_info', ArtifactUpdate,self.updateArtifactInfo) #for updates from the manipulation panels
+		rospy.Subscriber('/real_artifact_detections', RadioMsg, self.handleRadioDetection)
 
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.to_queue_pub = rospy.Publisher('/gui/artifact_to_queue', Artifact, queue_size = 10)
@@ -77,6 +80,7 @@ class ArtifactHandler:
 		self.manipulation_info_pub = rospy.Publisher('/gui/refresh_manipulation_info', Artifact, queue_size = 10)
 		self.update_artifact_in_queue_pub = rospy.Publisher('/gui/update_artifact_in_queue', ArtifactUpdate, queue_size=10) #ot change artifact info in the queue
 		self.remove_artifact_from_queue_pub = rospy.Publisher('/gui/remove_artifact_from_queue', String, queue_size=10)
+		self.update_label_pub = rospy.Publisher('/gui/update_art_label', String, queue_size=10)
 
 		
 
@@ -89,23 +93,59 @@ class ArtifactHandler:
 
 		msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
 
-		if (msg.artifact_type == WifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
-			self.archiveArtifact(String(msg_unique_id))
 
-			#remove the artifact from the queue
-			remove_msg = String()
-			remove_msg.data = msg_unique_id
-			self.remove_artifact_from_queue_pub.publish(remove_msg)
+		if (msg_unique_id in self.queued_artifacts.keys()):
+		
+			if (msg.artifact_type == WifiDetection.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+					
+				self.archiveArtifact(String(msg_unique_id))
 
-		else: 
+				#remove the artifact from the queue
+				remove_msg = String()
+				remove_msg.data = msg_unique_id
+				self.remove_artifact_from_queue_pub.publish(remove_msg)
 
-			#determine if we already have the artifact and this is an update message
-			if (msg_unique_id in self.all_artifacts.keys()):
+			else: #this is an update for an artifact we already have
 				self.updateWifiDetection(msg)
 
-			else: #this is a completely new artifact detection
-				self.generateNewArtifactWifi(msg)
+		elif (msg_unique_id not in self.all_artifacts.keys()): #this artifact has is a completely new artifact detection
+			self.generateNewArtifactWifi(msg)
 
+	def handleRadioDetection(self,msg):
+		'''
+		An artifact detection or update has come in over the radio. Generate a 
+		new artifact and save to proper dictionaries/lists, or update an existing 
+		artifact.
+		'''		
+
+		msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
+
+		#if it is an artifact report and it is not archived (i.e. still queued)
+		if (msg.message_type == RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT):
+
+			if (msg_unique_id in self.queued_artifacts.keys()):
+			
+				if (msg.artifact_type == RadioMsg.ARTIFACT_REMOVE): #we're removing an artifact not adding one
+						
+					self.archiveArtifact(String(msg_unique_id))
+
+					#remove the artifact from the queue
+					remove_msg = String()
+					remove_msg.data = msg_unique_id
+					self.remove_artifact_from_queue_pub.publish(remove_msg)
+
+				else: #this is an update for an artifact we already have
+					self.updateRadioDetection(msg)
+
+			elif (msg_unique_id not in self.all_artifacts.keys()): #this artifact has is a completely new artifact detection
+				self.generateNewArtifactRadio(msg)
+
+		elif (msg.message_type != RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT): #the message type is not and artifact report and thus not what we would expect to receive from the robot
+			update_msg = GuiMessage()
+			update_msg.data = 'We received a radio message with a message type we don\'t expect from the robot.\
+							   Message was discarded.'
+			update_msg.color = update_msg.COLOR_ORANGE
+			self.message_pub.publish(update_msg)
 
 
 
@@ -187,33 +227,42 @@ class ArtifactHandler:
 
 		artifact = self.all_artifacts[msg.unique_id]
 
+		if (msg.update_type not in [ArtifactUpdate.PROPERTY_CATEGORY, ArtifactUpdate.PROPERTY_POSE_X,\
+									ArtifactUpdate.PROPERTY_POSE_Y, ArtifactUpdate.PROPERTY_POSE_Z,\
+									ArtifactUpdate.PROPERTY_PRIORITY]):
 
-		if (msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY):
-			artifact.category = msg.category
-
-			#change the value in the artifact queue
-			self.update_artifact_in_queue_pub.publish(msg)
-
-		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_X):
-			artifact.pose[0] = msg.curr_pose.position.x
-		
-		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_Y):
-			artifact.pose[1] = msg.curr_pose.position.y
-
-		elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_Z):
-			artifact.pose[2] = msg.curr_pose.position.z
-
-		elif (msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY):
-			artifact.priority = msg.priority
-
-			#change the value in the artifact queue
-			self.update_artifact_in_queue_pub.publish(msg)
-
-		else:
 			update_msg = GuiMessage()
 			update_msg.data = 'We received an update message of unknown type. Artifact not updated'
 			update_msg.color = update_msg.COLOR_RED
 			self.message_pub.publish(update_msg)
+
+		else:
+
+			if (msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY):
+				artifact.category = msg.category
+
+				#change the value in the artifact queue
+				self.update_artifact_in_queue_pub.publish(msg)
+
+			elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_X):
+				artifact.pose[0] = msg.curr_pose.position.x
+			
+			elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_Y):
+				artifact.pose[1] = msg.curr_pose.position.y
+
+			elif (msg.update_type == ArtifactUpdate.PROPERTY_POSE_Z):
+				artifact.pose[2] = msg.curr_pose.position.z
+
+			elif (msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY):
+				artifact.priority = msg.priority
+
+				#change the value in the artifact queue
+				self.update_artifact_in_queue_pub.publish(msg)
+
+			# if (self.focused_artifact_id == msg.unique_id):
+			# 	msg = String()
+		 #        msg.data = 'Artifact has been updated. Please select it again in the queue'
+		 #        self.update_label_pub.publish(msg)
 
 
 
@@ -257,6 +306,28 @@ class ArtifactHandler:
 
 		self.bookeepAndPublishNewArtifact(artifact)
 
+	def updateRadioDetection(self, msg):
+		pass
+
+	def generateNewArtifactRadio(self, msg):
+		'''
+		Generate a new artifact which has been detected from the robot
+		and trasmitted via radio
+
+		msg is of type RadioMsg 
+		'''
+
+		#decode the type
+		artifact_category = self.artifact_categories[msg.artifact_type]
+
+		print "Generated radio detection of type: ", artifact_category
+
+		artifact = GuiArtifact(original_timestamp = msg.artifact_stamp.secs, category = artifact_category, \
+							pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z],
+							source_robot_id = msg.artifact_robot_id, artifact_report_id = msg.artifact_report_id, \
+							imgs = [], img_stamps = [], priority = self.artifact_priorities[1])
+
+		self.bookeepAndPublishNewArtifact(artifact)
 		
 
 	def bookeepAndPublishNewArtifact(self, artifact):
@@ -364,13 +435,24 @@ class ArtifactHandler:
 				self.publishSubmissionReply(proposal_return)
 
 				#remove the artifact from the book keeping
-				self.queued_artifacts.pop(artifact.unique_id) 
+				if (artifact.unique_id in self.queued_artifacts.keys()): #it may have already been removed if the artifact was deleted.
+					
+					self.queued_artifacts.pop(artifact.unique_id) 
+
+					#remove the artifact from the queue
+					remove_msg = String()
+					remove_msg.data = msg.data
+					self.remove_artifact_from_queue_pub.publish(remove_msg)
+
 				self.submitted_artifacts[artifact.unique_id] = artifact
 
-				#remove the artifact from the queue
-				remove_msg = String()
-				remove_msg.data = msg.data
-				self.remove_artifact_from_queue_pub.publish(remove_msg)
+				#remove the artifact update message from the image visualizer plugin
+				#if it is still visible
+				msg = String()
+				msg.data = 'hide'
+				self.update_label_pub.publish(msg)
+
+				
 
 
 		else: #we could not find the artifact unique_id
@@ -411,22 +493,16 @@ class ArtifactHandler:
 
 		#go find the artifact
 		artifact_to_archive = self.all_artifacts[msg.data]
-
-		update_msg = GuiMessage()
+		
 
 		if (artifact_to_archive != None):
 			self.archived_artifacts[artifact_to_archive.unique_id] = artifact_to_archive
 
 			self.queued_artifacts.pop(artifact_to_archive.unique_id) #defauilt return value is None if key not found
 
-			update_msg.data = 'Artifact archived in handler:'+str(artifact_to_archive.source_robot_id)+'//'+\
-												   str(artifact_to_archive.original_timestamp)+'//'+\
-												   str(artifact_to_archive.category)
-
-			update_msg.color = update_msg.COLOR_GREEN
-			self.message_pub.publish(update_msg)
 
 		else:
+			update_msg = GuiMessage()
 			update_msg.data = 'Artifact not removed from handler'
 			update_msg.color = update_msg.COLOR_RED
 			self.message_pub.publish(update_msg)
@@ -583,6 +659,7 @@ class GuiArtifact:
 
 
 if __name__ == '__main__':
+	time.sleep(0.5) #give the gui time to launch and setup the proper subscribers
 	rospy.init_node('artifact_handler', anonymous=True)
 	ArtifactHandler()
 	rospy.spin()
