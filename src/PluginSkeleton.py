@@ -20,28 +20,13 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
 from functools import partial
 import pdb
 import yaml
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus
@@ -66,16 +51,11 @@ class SkeletonPlugin(Plugin):
 		Initialize the panel for displaying widgets
 		'''
 
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
-
 		#define the overall widget
 		self.skeleton_box_widget = QWidget()
 		self.skeleton_box_layout = qt.QGridLayout()
+
+		context.add_widget(self.skeleton_box_widget)
 
 		skeleton_label = qt.QLabel()
 		skeleton_label.setText('Skeleton PANEL')
@@ -84,7 +64,6 @@ class SkeletonPlugin(Plugin):
 
 		#add to the overall gui
 		self.skeleton_box_widget.setLayout(self.skeleton_box_layout)
-		self.global_widget.addWidget(self.skeleton_box_widget)
 
 	
 	def skeletonFunction(self, msg):
@@ -102,5 +81,5 @@ class SkeletonPlugin(Plugin):
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
-		pass
+		self.skeleton_sub.unregister()
 		

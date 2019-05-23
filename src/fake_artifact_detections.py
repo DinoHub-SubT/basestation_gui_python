@@ -8,7 +8,7 @@ Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 '''
 import rospy
-from basestation_gui_python.msg import RadioMsg, WifiDetection, StatusPanelUpdate
+from basestation_gui_python.msg import RadioMsg, FakeWifiDetection, StatusPanelUpdate
 from std_msgs.msg import String, ColorRGBA
 import pdb
 import random
@@ -28,7 +28,7 @@ class FakePublisher:
         rospy.init_node('fake_artifact_node', anonymous=True)
 
         self.artifact_pub = rospy.Publisher('/fake_artifact_detections', RadioMsg, queue_size=10)
-        self.img_pub = rospy.Publisher('/fake_artifact_imgs', WifiDetection, queue_size=10)
+        self.img_pub = rospy.Publisher('/fake_artifact_imgs', FakeWifiDetection, queue_size=10)
         self.message_pub = rospy.Publisher('/gui_message_listener', String, queue_size=10)
 
         self.artifact_types = [4, 3, 5, 1, 2]
@@ -158,7 +158,7 @@ class FakePublisher:
                 timestamp = self.published_list[rand_ind][2]
 
                 if (report_id not in self.deleted_ids) and (random.random() < 0.0):
-                    typ = WifiDetection.ARTIFACT_REMOVE                                        
+                    typ = FakeWifiDetection.ARTIFACT_REMOVE                                        
                     print "wifi  delete:",typ, robot_id, report_id
 
                 else:
@@ -180,7 +180,7 @@ class FakePublisher:
                 self.published_list.append([msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs])
                 self.img_pub.publish(msg)
 
-            if (msg.artifact_type == WifiDetection.ARTIFACT_REMOVE):
+            if (msg.artifact_type == FakeWifiDetection.ARTIFACT_REMOVE):
                 self.deleted_ids.append(msg.artifact_report_id)
 
         # print msg.artifact_robot_id
@@ -246,7 +246,7 @@ class FakePublisher:
             image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/backpack.png'
         elif (artifact_type == 5):
             image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
-        elif (artifact_type == WifiDetection.ARTIFACT_REMOVE):
+        elif (artifact_type == FakeWifiDetection.ARTIFACT_REMOVE):
             image_filename = rospack.get_path('basestation_gui_python')+'/fake_artifact_imgs/cell_phone.png'
 
         img = cv2.imread(image_filename)
@@ -260,7 +260,7 @@ class FakePublisher:
             msg = None
 
         else:
-            msg = WifiDetection()
+            msg = FakeWifiDetection()
 
             msg.imgs = [img]*random.randint(0,4)
             msg.artifact_robot_id = artifact_robot_id

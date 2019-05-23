@@ -116,6 +116,8 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * Incorporating the DARPA transform functionality
 
+* Resend all artifact info from robot
+
 * Showing the artifact refinement button upon press
 
 * If you close the artifact queue, that info will be out of sync with the artifact handler
@@ -133,6 +135,10 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 * For a given artifact, when it receives a WiFi update with images, the artifact's detection image list is completely overwritten for every received message. Will need to coordinate with Vasu to decide best way to fix this. We should fix this to avoid bandwidth issues. 
 
 * Take out /ugv1/real_artifact_imgs hardcoded topic i the ArtifactHandler and think of some naming convention
+
+* Handling bluetooth/audio detections
+
+
 
 =======
 # Troubleshooting

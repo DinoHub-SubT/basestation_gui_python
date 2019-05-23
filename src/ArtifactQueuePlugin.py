@@ -20,28 +20,12 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
-from functools import partial
 import pdb
 import yaml
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, RadioMsg, ArtifactUpdate
@@ -82,42 +66,39 @@ class ArtifactQueuePlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
-		#setup subscribers
-		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
-		rospy.Subscriber('/gui/update_artifact_in_queue', ArtifactUpdate, self.updateArtifactInQueue) # an artifact's property has changed. just update the queue accordingly
-		rospy.Subscriber('/gui/remove_artifact_from_queue', String, self.removeArtifactFromQueue)
-		rospy.Subscriber('/gui/submit_tell_queue', String, self.artifactSubmitted)
-
-		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10)
-		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
-		self.archive_artifact_pub = rospy.Publisher('/gui/archive_artifact', String, queue_size=10)
-		self.duplicate_pub = rospy.Publisher('/gui/duplicate_artifact', String, queue_size=10)
-		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact_from_queue', String, queue_size=10)
-		self.focus_on_artifact_pub = rospy.Publisher('/gui/focus_on_artifact', String, queue_size=10) #publish the artifact id we selected
-		self.update_label_pub = rospy.Publisher('/gui/update_art_label', String, queue_size=10)
-		self.restart_manip_plugin_pub = rospy.Publisher('/gui/disable_confirm_cancel_manip_plugin', Bool, queue_size=10)
-
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
 		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
 		self.update_table_trigger.connect(self.updateQueueTableMonitor)
 		self.submit_all_artifacts_trigger.connect(self.submitAllQueuedArtifactsMonitor)
 		self.remove_artifact_fom_queue_trigger.connect(self.removeArtifactFromQueueMonitor)
 
+		#setup subscribers/publishers
+		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10) #manually generate a new artifact
+		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10) #print a message
+		self.archive_artifact_pub = rospy.Publisher('/gui/archive_artifact', String, queue_size=10) #archive a message
+		self.duplicate_pub = rospy.Publisher('/gui/duplicate_artifact', String, queue_size=10) #duplicate the message we're clicked on
+		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact_from_queue', String, queue_size=10) #submit artifacts from queue
+		self.focus_on_artifact_pub = rospy.Publisher('/gui/focus_on_artifact', String, queue_size=10) #publish the artifact id we selected
+		self.update_label_pub = rospy.Publisher('/gui/update_art_label', String, queue_size=10) #update image update panel to indicate change to artifact
+		self.restart_manip_plugin_pub = rospy.Publisher('/gui/disable_confirm_cancel_manip_plugin', Bool, queue_size=10) #disable confirm/cancel sequence in manipulation plugin
+
+		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue) #some plugin wants us to add an artifact
+		self.update_sub = rospy.Subscriber('/gui/update_artifact_in_queue', ArtifactUpdate, self.updateArtifactInQueue) # an artifact's property has changed. just update the queue accordingly
+		self.remove_sub = rospy.Subscriber('/gui/remove_artifact_from_queue', String, self.removeArtifactFromQueue) #some plugin wants us to remove a plugin
+		self.submit_from_manip_sub = rospy.Subscriber('/gui/submit_artifact_from_manip_plugin', String, self.artifactSubmitted) #the manipulation plugin has submitted an artifact, we need to keep
+																																#track of this happening
+
+
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
 		'''   
 
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout() 
-
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
-
 		#define the specific widget
 		self.queue_widget = QWidget()
 		self.queue_layout = qt.QGridLayout()
+
+		context.add_widget(self.queue_widget)
 
 		queue_label = qt.QLabel()
 		queue_label.setText('ARTIFACT QUEUE')
@@ -185,17 +166,12 @@ class ArtifactQueuePlugin(Plugin):
 
 		#add to the overall gui
 		self.queue_widget.setLayout(self.queue_layout)
-		self.global_widget.addWidget(self.queue_widget) #last 2 parameters are rowspan and columnspan
 
-	def artifactSubmitted(self, msg):
-		'''
-		An artifact was just submitted. IF its the one we were viewing, reset the displayed artifact id
+	
 
-		msg is a String with the unique id of the artifact
-		'''
-
-		if (self.displayed_artifact_id == msg.data):
-			self.displayed_artifact_id = None
+	############################################################################################
+	# Functions dealing with updating artifacts in the queue
+	############################################################################################
 
 	def updateArtifactInQueue(self, msg):
 		'''
@@ -232,11 +208,17 @@ class ArtifactQueuePlugin(Plugin):
 
 
 	def updateQueueTable(self, row, col, data):
+		'''
+		For proper threading. See function below. 
+		'''
 		self.update_table_trigger.emit(row, col, data)
 
 	def updateQueueTableMonitor(self, row, col, data):
 		'''
 		Update an element in the queue table
+
+		row, col define the coordinate of what we're updating. 
+		data is the value (string) that we need to set that cell to
 		'''
 
 		#check that threading is working properly
@@ -252,6 +234,10 @@ class ArtifactQueuePlugin(Plugin):
 			msg.data = 'Tried to update queue table with non-string value. Therefore table not updated'
 			msg.color = msg.COLOR_ORANGE
 			self.message_pub.publish(msg)
+
+	############################################################################################
+	# Functions dealing with queue button presses
+	############################################################################################
 
 
 	def manuallyAddArtifact(self):
@@ -328,6 +314,9 @@ class ArtifactQueuePlugin(Plugin):
 		return [a.row() for a in self.queue_table.selectionModel().selectedRows()]
 
 	def confirmArchiveArtifact(self):
+		'''
+		For proper threading. See function below. 
+		'''
 		self.archive_artifact_trigger.emit()
 
 	def confirmArchiveArtifactMonitor(self):
@@ -379,7 +368,39 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_archive_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 		self.queue_archive_confirm_button.setEnabled(False)
 
+	def submitAllQueuedArtifacts(self):
+		'''
+		For threading properly. See function below.
+		'''
+		self.submit_all_artifacts_trigger.emit()
+
+	def submitAllQueuedArtifactsMonitor(self):
+		'''
+		Submit all of the queued artifacts to DARPA
+		'''
+
+		#check that threading is working properly
+		if (not isinstance(threading.current_thread(), threading._MainThread)):
+			print "Drawing on the message panel not guarenteed to be on the proper thread"
+
+		msg = String()
+
+		for row in range(self.queue_table.rowCount()):
+			msg.data = self.queue_table.item(row,5).text()
+			self.artifact_submit_pub.publish(msg)
+
+		#remove all of the rows from the table
+		while (self.queue_table.rowCount() > 0):
+			self.queue_table.removeRow(0)
+
+	############################################################################################
+	# Functions adding/removing artifacts from the queue
+	############################################################################################
+
 	def removeArtifactFromQueue(self, msg):
+		'''
+		For proper threading. See function below.
+		'''
 		self.remove_artifact_fom_queue_trigger.emit(msg)
 
 	def removeArtifactFromQueueMonitor(self, msg):
@@ -421,84 +442,21 @@ class ArtifactQueuePlugin(Plugin):
 		update_msg.color = update_msg.COLOR_RED
 		self.message_pub.publish(update_msg)
 
-
-	def resendArtifactInfo(self):
-		'''
-		Send a message to the robot to re-send of the artifacts it has detected.
-		Useful if the robot goes out of comms range and then comes back in. We
-		can then retreive the artifacts it detected when out of range.
-		'''
-		pass
-
-	def submitAllQueuedArtifacts(self):
-		'''
-		Submit all of the queued artifacts to DARPA
-		'''
-		self.submit_all_artifacts_trigger.emit()
-
-	def submitAllQueuedArtifactsMonitor(self):
-		'''
-		Submit all of the queued artifacts to DARPA
-		'''
-
-		#check that threading is working properly
-		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarenteed to be on the proper thread"
-
-		msg = String()
-
-		for row in range(self.queue_table.rowCount()):
-			msg.data = self.queue_table.item(row,5).text()
-			self.artifact_submit_pub.publish(msg)
-
-		#remove all of the rows from the table
-		while (self.queue_table.rowCount() > 0):
-			self.queue_table.removeRow(0)
-
-
-	def queueClick(self, row, col):
-		'''
-		An artifact was clicked on the artifact queue
-		'''
-
-		#select the whole row. for visualization mostly
-		self.queue_table.selectRow(row)
-
-		#remove the unread indicator from the last column
-		self.updateQueueTable(row, 4, '')
-
-		#so we know what's currently being displayed
-		self.displayed_artifact_id = self.queue_table.item(row,5).text()
-
-		#publish that we have selected this artifact
-		msg = String()
-		msg.data = self.queue_table.item(row,5).text() 
-		self.focus_on_artifact_pub.publish(msg)
-
-		#remove the artifact update message from the image visualizer plugin
-		#if it is still visible
-		msg = String()
-		msg.data = 'hide'
-		self.update_label_pub.publish(msg)
-
-		#dectivate the proper buttons in the manipulation panel, we're viewing another artifact,
-		#so restart the Confirm/Cancel sequence.
-		self.restart_manip_plugin_pub.publish(Bool(True))
-
-	def displaySeconds(self, seconds):
-		'''
-		Function to convert seconds float into a min:sec string
-		'''
-		return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
 	
 	def addArtifactToQueue(self, msg):
+		'''
+		For proper threading. See function below. 
+		'''
 		self.queue_trigger.emit(msg)
 
 
 	def addArtifactToQueueMonitor(self, msg):
 		'''
 		Draw something on the gui in this function
+
+		msg is a custom Artifact message containing info about the artifact
 		'''
+
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarenteed to be on the proper thread"
@@ -542,12 +500,78 @@ class ArtifactQueuePlugin(Plugin):
 		if(self.queue_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
 			self.queue_table.sortItems(2, core.Qt.DescendingOrder)
 			
-			self.queue_table.viewport().update()	
+			self.queue_table.viewport().update()
 
-			
+
+	############################################################################################
+	# Misc. functions
+	############################################################################################	
+
+	def artifactSubmitted(self, msg):
+		'''
+		An artifact was just submitted. IF its the one we were viewing, reset the displayed artifact id
+
+		msg is a String with the unique id of the artifact
+		'''
+
+		if (self.displayed_artifact_id == msg.data):
+			self.displayed_artifact_id = None
+
+
+	def queueClick(self, row, col):
+		'''
+		An artifact was clicked on the artifact queue
+
+		row, col define the coordinates (ints) of the cells that was clicked on
+		'''
+
+		#select the whole row. for visualization mostly
+		self.queue_table.selectRow(row)
+
+		#remove the unread indicator from the last column
+		self.updateQueueTable(row, 4, '')
+
+		#so we know what's currently being displayed
+		self.displayed_artifact_id = self.queue_table.item(row,5).text()
+
+		#publish that we have selected this artifact
+		msg = String()
+		msg.data = self.queue_table.item(row,5).text() 
+		self.focus_on_artifact_pub.publish(msg)
+
+		#remove the artifact update message from the image visualizer plugin
+		#if it is still visible
+		msg = String()
+		msg.data = 'hide'
+		self.update_label_pub.publish(msg)
+
+		#dectivate the proper buttons in the manipulation panel, we're viewing another artifact,
+		#so restart the Confirm/Cancel sequence.
+		self.restart_manip_plugin_pub.publish(Bool(True))
+	
+	def displaySeconds(self, seconds):
+		'''
+		Function to convert seconds float into a min:sec string
+
+		seconds should be a float
+		'''
+		return str((int(float(seconds))/60))+':'+str(int(float(seconds)-(int(float(seconds))/60)*60))
+
+	def resendArtifactInfo(self):
+		'''
+		Send a message to the robot to re-send of the artifacts it has detected.
+		Useful if the robot goes out of comms range and then comes back in. We
+		can then retreive the artifacts it detected when out of range.
+		'''
+		pass
+
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
-		pass
+		self.submit_from_manip_sub.unregister()
+		self.queue_sub.unregister() 
+		self.update_sub.unregister()
+		self.remove_sub.unregister()
+
 
 class NumericItem(qt.QTableWidgetItem):
 	'''

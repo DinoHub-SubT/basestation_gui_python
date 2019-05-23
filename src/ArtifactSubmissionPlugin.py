@@ -20,27 +20,12 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
 from functools import partial
 import pdb
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactSubmissionReply
@@ -55,26 +40,22 @@ class ArtifactSubmissionPlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
-		#setup subscribers
-		self.submission_reply_sub = rospy.Subscriber('/gui/submission_reply', ArtifactSubmissionReply, self.submissionReply)
-
 		self.submission_reply_trigger.connect(self.submissionReplyMonitor)
+
+		#setup subscribers
+		self.submission_reply_sub = rospy.Subscriber('/gui/submission_reply', ArtifactSubmissionReply, self.submissionReply) #contains info from darpa about the artifact submission
+		
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
-		'''
-
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
+		'''		
 
 		#define the overall widget
 		self.submission_reply_widget = QWidget()
 		self.submission_reply_layout = qt.QGridLayout()
+
+		context.add_widget(self.submission_reply_widget)
 
 		submission_reply_label = qt.QLabel()
 		submission_reply_label.setText('ARTIFACT SUBMISSION INFO')
@@ -110,17 +91,22 @@ class ArtifactSubmissionPlugin(Plugin):
 
 		#add to the overall gui
 		self.submission_reply_widget.setLayout(self.submission_reply_layout)
-		self.global_widget.addWidget(self.submission_reply_widget)
 
 	
 	def submissionReply(self, msg):
+		'''
+		For proper threading. See function below.
+		'''
 		self.submission_reply_trigger.emit(msg)
 
 
 	def submissionReplyMonitor(self, msg):
 		'''
 		Populate the table with infromation about an artifact that was submitted
+
+		msg is a custom ArtifactSubmissionReply message containing info from darpa about the artifact we submitted
 		'''
+
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the submission history panel not guarented to be on the proper thread"	
@@ -205,7 +191,7 @@ class ArtifactSubmissionPlugin(Plugin):
 
 class NumericItem(qt.QTableWidgetItem):
 	'''
-	Class whic overwrites a pyqt table widget item in order to allow for better sorting (e.g. '2'<'100')
+	Class which overwrites a pyqt table widget item in order to allow for better sorting (e.g. '2'<'100')
 	'''
 	def __lt__(self, other):
 		return (self.data(core.Qt.UserRole) <\

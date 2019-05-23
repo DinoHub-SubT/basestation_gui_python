@@ -41,27 +41,23 @@ class MessagePlugin(Plugin):
 
 		self.initMessagePanel(context) #layout plugin
 
+		self.print_message_trigger.connect(self.printMessageMonitor) #to print in a thread-safe manner
+
 		#setup subscribers
 		self.message_sub = rospy.Subscriber('/gui/message_print', GuiMessage, self.printMessage) #contains message data to disp
 		self.time_sub    = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setDarpaTime) #contains darpa status information
 
-		self.print_message_trigger.connect(self.printMessageMonitor) #to print in a thread-safe manner
-
+		
 	def initMessagePanel(self, context):
 		'''
 		Initialize the panel which displays messages
 		'''
 
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
-
 		#define the overall widget
 		self.message_box_widget = QWidget()
 		self.message_box_layout = qt.QGridLayout()
+
+		context.add_widget(self.message_box_widget)
 
 		message_label = qt.QLabel()
 		message_label.setText('MESSAGE PANEL')
@@ -77,7 +73,6 @@ class MessagePlugin(Plugin):
 
 		#add to the overall gui
 		self.message_box_widget.setLayout(self.message_box_layout)
-		self.global_widget.addWidget(self.message_box_widget)
 
 	def setDarpaTime(self, msg):
 		'''
@@ -138,14 +133,14 @@ class MessagePlugin(Plugin):
 		'''
 		Function to convert seconds float into a min:sec string
 
-		seconds is a float. typically from DARPA of the elapsed time of the run
+		seconds should be a float. typically from DARPA of the elapsed time of the run
 		'''
 
 		#convert strings to floats
 		seconds = float(seconds)
 
 		seconds_int = int(seconds-(int(seconds)/60)*60)
-		
+
 		if seconds_int < 10:
 			seconds_str = '0'+str(seconds_int)
 		else:

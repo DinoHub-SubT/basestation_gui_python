@@ -22,25 +22,11 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
 
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
-from functools import partial
 import pdb
 import yaml
 from PyQt5.QtCore import pyqtSignal
@@ -69,25 +55,20 @@ class GlobalButtonsPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		#setup subscribers/publishers
-		self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size = 10)
-		self.big_red_pub = rospy.Publisher('/gui/global_estop', Bool, queue_size=10)
+		self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size = 10) #for sending estop commands to the robot
+		self.big_red_pub = rospy.Publisher('/gui/global_estop', Bool, queue_size=10) #for telling the other plugins we jsut sen estop commands
 
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
-		'''
-
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
+		'''		
 
 		#define the overall widget
 		self.global_buttons_widget = QWidget()
 		self.global_buttons_layout = qt.QVBoxLayout()
+
+		context.add_widget(self.global_buttons_widget)
 
 		button = qt.QPushButton("SOFT ESTOP ALL\n  ROBOTS")
 		button.setStyleSheet("background-color: red")
@@ -96,7 +77,6 @@ class GlobalButtonsPlugin(Plugin):
 
 		#add to the overall gui
 		self.global_buttons_widget.setLayout(self.global_buttons_layout)
-		self.global_widget.addWidget(self.global_buttons_widget)
 	
 	def processBigRed(self):
 		'''
@@ -117,10 +97,6 @@ class GlobalButtonsPlugin(Plugin):
 			#send out a message to the robot command panel indicating we just did
 			#this and the proper buttons should be pressed/un-pressed
 			self.big_red_pub.publish(Bool(True))
-
-
-
-
 
 			
 	def shutdown_plugin(self):

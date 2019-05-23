@@ -22,29 +22,14 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy, QTabWidget
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
 from functools import partial
 import pdb
 import yaml
 import numpy as np
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, GuiRobCommand, RadioMsg, NineHundredRadioMsg
@@ -90,52 +75,36 @@ class RobotCommandPlugin(Plugin):
 		self.initPanel(context) #layout plugin
 
 		self.robot_positions = [None]*len(self.robot_names)
-		self.rob_command_trigger.connect(self.robCommandUpdateMonitor)
 
 		#setup subscribers/publishers
-		self.rob_command_sub = rospy.Subscriber('/gui/rob_command_update', GuiRobCommand, self.robCommandUpdate)
-		self.waypoint_sub = rospy.Subscriber('/define_waypoint/feedback', InteractiveMarkerFeedback, self.recordWaypoint)
-		rospy.Subscriber('/gui/global_estop', Bool, self.processGlobalEstopCommand)
-
-		self.waypoint = None   
-		for i, topic in enumerate(self.robot_pos_topics):
-			rospy.Subscriber(topic, Odometry, self.saveRobotPos, (i))
-
-
-		
-
-		self.rob_command_pub = rospy.Publisher('/gui/rob_command_press', GuiRobCommand, queue_size = 10)
-		self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #queue_size arbitraily chosen
-		self.gui_message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
-		self.radio_900_pub = rospy.Publisher('/ros_to_teensy', NineHundredRadioMsg, queue_size=50) #queue_size arbitraily chosen
+		self.radio_pub = rospy.Publisher('/from_gui', RadioMsg, queue_size=50) #to push commands to the robot
+		self.gui_message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10) #to print messages
+		self.radio_900_pub = rospy.Publisher('/ros_to_teensy', NineHundredRadioMsg, queue_size=50) #
 		self.marker_orig_pos_pub = rospy.Publisher('/refinement_marker_orig_pos', MarkerArray, queue_size=50)#for displaying the original position 
 		self.highlight_robot_pub = rospy.Publisher('/highlight_robot_pub', Marker, queue_size=50)#for displaying robot position           
 		self.bluetooth_marker_pub_ugv = rospy.Publisher('/ugv/bluetooth_marker', Marker, queue_size=50) #for displaying bluetooth detections       
 		self.bluetooth_marker_pub_uav = rospy.Publisher('/uav/bluetooth_marker', Marker, queue_size=50) #for displaying bluetooth detections
-		self.define_waypoint_marker_pos_pub = rospy.Publisher('/define_waypoint_marker_pos', Point, queue_size=50)#publisher for moving the refinment marker
-		self.define_waypoint_marker_off_pub = rospy.Publisher('/define_waypoint_marker_off', Point, queue_size=50)#publisher for turning the marker off
+		self.define_waypoint_marker_pos_pub = rospy.Publisher('/define_waypoint_marker_pos', Point, queue_size=50)#publisher for moving the define waypoint marker
+		self.define_waypoint_marker_off_pub = rospy.Publisher('/define_waypoint_marker_off', Point, queue_size=50)#publisher for turning the define waypoint marker off
 
-		
+		self.waypoint_sub     =  rospy.Subscriber('/define_waypoint/feedback', InteractiveMarkerFeedback, self.recordWaypoint) #to record the interactive marker
+		self.global_estop_sub =  rospy.Subscriber('/gui/global_estop', Bool, self.processGlobalEstopCommand) #to tell when the big red button has been pressed and we
+																											 #should update this plugin accordingly
 
-		
-
-		
+		self.waypoint = None   
+		for i, topic in enumerate(self.robot_pos_topics):
+			rospy.Subscriber(topic, Odometry, self.saveRobotPos, (i)) #to save the robot positions so that we can ut the deifne waypoint interactive marker on the robot
 		
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
-		'''
-
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
+		'''		
 
 		self.control_widget = QWidget()
 		self.control_layout = qt.QGridLayout()
+
+		context.add_widget(self.control_widget)
 
 		#define the overall widget
 		control_label = qt.QLabel()
@@ -206,17 +175,16 @@ class RobotCommandPlugin(Plugin):
 		#add to the overall gui
 		self.control_layout.addWidget(self.tabs)
 		self.control_widget.setLayout(self.control_layout)
-		self.global_widget.addWidget(self.control_widget)
 
-	def saveRobotPos(self, msg, robot_ind):
-		'''
-		Save the robot position for define waypoint functionality
-		'''
-		self.robot_positions[robot_ind] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+	############################################################################################
+	# Functions for processing button presses (including aesthetic of these presses)
+	############################################################################################
 
 	def styleButton(self, button):
 		'''
 		Add properties to the button like color, etc.
+
+		button is a pyqt Button object
 		'''
 		command = button.text()
 
@@ -269,6 +237,10 @@ class RobotCommandPlugin(Plugin):
 		'''
 		Handle button colors, etc. upon pressing
 		Generate and publish a ROS command from a button press
+
+		command is the text on the button
+		robot_name is the robot name of the button we just pressed
+		button is a pyqt Button object
 		'''
 
 		#if its a button that needs confirmation, or its a confirmation button,
@@ -294,7 +266,12 @@ class RobotCommandPlugin(Plugin):
 	def processButtonStyle(self, command, robot_name, button):
 		'''
 		Handle the button color, behvior, etc. upon pressing
+
+		command is the text on the button
+		robot_name is the robot name of the button we just pressed
+		button is a pyqt Button object
 		'''
+
 		#if its an estop button, de-activate all other estop buttons
 		if ((robot_name.find('ound') != -1) and (button.text() in self.ground_estop_commands)) or\
 			 ((robot_name.find('erial') != -1) and (button.text() in self.aerial_estop_commands)):
@@ -334,11 +311,17 @@ class RobotCommandPlugin(Plugin):
 				cmd_button.setEnabled(False)
 				cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 
-						
+	############################################################################################
+	# Functions for publishing commands to the robots (crazy considering the name of this plugin)
+	############################################################################################					
 
 	def publishRobotCommand(self, command, robot_name, button):
 		'''
 		A command button has been pressed. Publish a command from the gui to the robot
+
+		command is the text on the button
+		robot_name is the robot name of the button we just pressed
+		button is a pyqt Button object
 		'''
 
 		if (command in [ "Return home", "Highlight robot", "Drop comms", "Re-send artifacts"]): #buttons are not checkable
@@ -401,6 +384,8 @@ class RobotCommandPlugin(Plugin):
 		Useful when the robot goes out of comms range and comes
 		back in, we can have the detections while out of range sent
 		back
+
+		robot_name is the name of the robot who's button has been pressed
 		'''
 
 		radio_msg = RadioMsg()
@@ -413,6 +398,10 @@ class RobotCommandPlugin(Plugin):
 	def processButtonNeedingConfirmation(self, command, robot_name, button):
 		'''
 		Enable the confirm/cancel buttons for a pending button press
+
+		command is the text on the button
+		robot_name is the robot name of the button we just pressed
+		button is a pyqt Button object
 		'''
 
 		#activate the confirm/cancel buttons for that robot
@@ -430,6 +419,11 @@ class RobotCommandPlugin(Plugin):
 	def processConfirmCancelSequence(self, command, robot_name, button, pending_info):
 		'''
 		Process a confirm or cancel on a pending button press
+
+		command is the text on the button we just pressed
+		robot_name is the robot name of the button we just pressed
+		button is a pyqt Button object we just pressed
+		pending_info is the info (command/name/button) for the command button we are trying to confirm
 		'''
 
 		[pending_command, pending_robot_name, pending_button] = pending_info
@@ -461,13 +455,13 @@ class RobotCommandPlugin(Plugin):
 		self.pending_info = None
 
 
-
-
-
 	def pubLandInComms(self, robot_name, button):
 		'''
 		Depending on if the button is pressed or not, send a 
 		message to land in comms range or back at home
+
+		robot_name is the robot name of the button we just pressed
+		button is a pyqt Button object
 		'''
 
 		radio_msg = RadioMsg()
@@ -482,35 +476,24 @@ class RobotCommandPlugin(Plugin):
 
 		self.radio_pub.publish(radio_msg)
 
-	def handleBluetooth(self, robot_name, button):
-		'''
-		Make the bluetooth marker visualizable or hidden.
-		TODO: Probably needs to be updated. Will do if 
-
-		'''
-		pass
-		
-
 	def dropComms(self, robot_name):
 		'''
-		Send out a message to drop a commas node
+		Send out a message to drop a comms node
+
+		robot_name is the robot name of the button we just pressed
 		'''
 		radio_msg = RadioMsg()
 		radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DROP_COMMS
 		radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-		self.radio_pub.publish(radio_msg)
-
-	def highlightRobot(self, robot_name):
-		'''
-		Publish an arrow pointng to the robot position
-		TODO: Maybe publish a huge arrow marker, if someone requests this functionality
-		'''
-		pass
+		self.radio_pub.publish(radio_msg)		
 
 
 	def publishEstop(self, command, robot_name):
 		'''
 		Publish an estop message after a button has been pressed
+
+		command is the text on the button
+		robot_name is the robot name of the button we just pressed
 		'''
 
 		radio_msg = RadioMsg()
@@ -561,6 +544,8 @@ class RobotCommandPlugin(Plugin):
 	def persistentDroneHardEstop(self, robot_name):
 		'''
 		Publish a hard estop every __ seconds for the drone
+
+		robot_name is the robot name of the button we just pressed
 		'''
 
 		#make sure the button has not been unchecked since the last thread call
@@ -584,6 +569,8 @@ class RobotCommandPlugin(Plugin):
 	def publishReturnHome(self, robot_name):
 		'''
 		Send out a message for the robot to return home
+
+		robot_name is the robot name of the button we just pressed
 		'''
 
 		radio_msg = RadioMsg()
@@ -591,9 +578,16 @@ class RobotCommandPlugin(Plugin):
 		radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
 		self.radio_pub.publish(radio_msg)
 
-	
+	############################################################################################
+	# Functions for handling the define waypoint interactive marker
+	############################################################################################
 
 	def publishWaypointGoal(self, robot_name):
+		'''
+		Send a waypoint to a specific robot
+
+		robot_name is the robot name of the button we just pressed
+		'''
 
 		if (self.waypoint != None):
 			radio_msg = RadioMsg()
@@ -620,13 +614,13 @@ class RobotCommandPlugin(Plugin):
 	def defineWaypoint(self, robot_name):
 		'''
 		Listen for a waypoint to be pressed in Rviz
+
+		robot_name is the robot name of the button we just pressed
 		'''
+
 		#subscriber for listening to waypoint goals
 		try:
-			# self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)
-
-			#publish the interactive marker
-				
+			#publish the interactive marker				
 			if (self.robot_positions[self.robot_names.index(robot_name)] == None):
 				msg = GuiMessage()
 				msg.data = 'Nothing appears to have been published to the robot pose topic ' +\
@@ -661,37 +655,58 @@ class RobotCommandPlugin(Plugin):
 	def recordWaypoint(self, msg):
 		'''
 		Record the movemment of the interactive marker
+
+		msg is the pose of the interactive marker for defining a waypoint
 		'''
 
 		self.waypoint = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
 
-	
-	def robCommandUpdate(self, msg):
-		self.skeleton_trigger.emit(msg)
 
-
-	def robCommandUpdateMonitor(self, msg):
-		'''
-		Draw something on the gui in this function
-		'''
-		#check that threading is working properly
-		if (not isinstance(threading.current_thread(), threading._MainThread)):
-			print "Drawing on the message panel not guarented to be on the proper thread"	
+	############################################################################################
+	# Misc. functions
+	############################################################################################
 
 	def adjustMaxTime(self, robot_name, max_time_box):
 		'''
 		Send a maxtime for the aerial vehicle to fly
+
+		robot_name is the robot name of the button we just pressed
+		max_time_box is a pyqt ComboBox object
 		'''
 		radio_msg = RadioMsg()
 		radio_msg.message_type = RadioMsg.MESSAGE_TYPE_MAX_FLIGHT_TIME
 		radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
 		radio_msg.data = str(float(max_time_box.currentText())*60)
 
-		self.radio_pub.publish(radio_msg)		
+		self.radio_pub.publish(radio_msg)
+
+	def saveRobotPos(self, msg, robot_ind):
+		'''
+		Save the robot position for define waypoint functionality
+
+		msg is the pose of the robot
+		robot_ind is the robot number
+		'''
+		self.robot_positions[robot_ind] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+
+	def highlightRobot(self, robot_name):
+		'''
+		Publish an arrow pointng to the robot position
+		TODO: Maybe publish a huge arrow marker, if someone requests this functionality
+		'''
+		pass
+
+	def handleBluetooth(self, robot_name, button):
+		'''
+		Make the bluetooth marker visualizable or hidden.
+		TODO: Probably needs to be updated. Will do if requested
+
+		'''
+		pass		
 
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
-		self.rob_command_sub.unregister()
-		self.waypoint_sub.unregister()
+		self.waypoint_sub.unregister()    
+		self.global_estop_sub.unregister()
 		

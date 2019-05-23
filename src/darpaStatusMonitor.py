@@ -5,7 +5,7 @@ A node for getting status information (time, score, remaining reports) from DARP
 Contact: Bob DeBortoli (debortor@oregonstate.edu)
 
 Copyright Carnegie Mellon University (CMU) / Oregon State University <2019>
-This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebastion or Matt).
 '''
 
 import rospy
@@ -16,14 +16,10 @@ from geometry_msgs.msg import PoseStamped, Point
 from nav_msgs.msg import Odometry
 import pdb
 from basestation_gui_python.msg import RadioMsg, NineHundredRadioMsg, DarpaStatus
-import numpy as np
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 import threading
 import time
 from visualization_msgs.msg import InteractiveMarkerFeedback, MarkerArray, Marker
-import math
-import tf
-from functools import partial
 
 class DarpaBridge:
 	def __init__(self, config_filename):

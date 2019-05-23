@@ -20,27 +20,11 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
-from functools import partial
 import pdb
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus
@@ -55,27 +39,24 @@ class InfoPlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
+		self.info_trigger.connect(self.setInfoStringMonitor)
+
 		#setup subscribers
 		self.info_string = None
-		self.info_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setInfoString)
+		self.info_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setInfoString) #for gathering info from darpa
 
-		self.info_trigger.connect(self.setInfoStringMonitor)
+		
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
 		'''
 
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
-
 		#define the overall widget
 		self.info_box_widget = QWidget()
 		self.info_box_layout = qt.QGridLayout()
+
+		context.add_widget(self.info_box_widget)
 
 		bold_font = gui.QFont() 
 		bold_font.setBold(True)
@@ -91,16 +72,22 @@ class InfoPlugin(Plugin):
 
 		#add to the overall gui
 		self.info_box_widget.setLayout(self.info_box_layout)
-		self.global_widget.addWidget(self.info_box_widget)
 
 	def setInfoString(self, msg):
+		'''
+		For proper threading. See function below.
+		'''
 		self.info_trigger.emit(msg)
 
 
 	def setInfoStringMonitor(self, msg):
 		'''
-		Draw something on the gui in this function
+		Update the information string displaying darpa information
+
+		msg is a custom DarpaStatus msg containing info about the time_elpased, score
+		and remaining reports as received from DARPA
 		'''
+
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"	
@@ -112,6 +99,8 @@ class InfoPlugin(Plugin):
 	def displaySeconds(self, seconds):
 		'''
 		Function to convert seconds float into a min:sec string
+
+		seconds should be a float. typically from DARPA of the elapsed time of the run
 		'''
 		#convert strings to floats
 		seconds = float(seconds)

@@ -20,28 +20,12 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
-from functools import partial
 import pdb
 import yaml
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactDisplayImage 
@@ -64,34 +48,28 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
 		self.br = CvBridge() #bridge from opencv to ros image messages
 
-
-		#setup subscribers
-		self.image_sub = rospy.Subscriber('/gui/img_to_display', ArtifactDisplayImage, self.dispImage)
-		rospy.Subscriber('/gui/update_art_label', String, self.updateArtLabel)
-		rospy.Subscriber('/gui/clear_img', Bool, self.dispBlankImg) #make the image blank again		
-
-		self.img_request_pub = rospy.Publisher('/gui/change_disp_img', UInt8, queue_size=10)
-
 		self.disp_image_trigger.connect(self.dispImageMonitor)
 		self.update_art_label_trigger.connect(self.updateArtLabelMonitor)
+
+		#setup subscribers/pubs	
+		self.img_request_pub = rospy.Publisher('/gui/change_disp_img', UInt8, queue_size=10)
+
+		self.image_sub = rospy.Subscriber('/gui/img_to_display', ArtifactDisplayImage, self.dispImage)
+		self.update_panel_sub = rospy.Subscriber('/gui/update_art_label', String, self.updateArtLabel)
+		self.clear_panel_sub = rospy.Subscriber('/gui/clear_img', Bool, self.dispBlankImg) #make the image blank again		
 
 
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
-		'''
-
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
+		'''		
 
 		#define the overall widget
 		self.artvis_widget = QWidget()
 		self.artvis_layout = qt.QGridLayout()
+
+		context.add_widget(self.artvis_widget)
 
 		#exapnd to fill the space vertically
 		art_label = qt.QLabel()
@@ -143,7 +121,10 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
 		#add to the overall gui
 		self.artvis_widget.setLayout(self.artvis_layout)
-		self.global_widget.addWidget(self.artvis_widget)
+
+	############################################################################################
+	# Functions for iterating over the images
+	############################################################################################
 
 	def imgBack(self):
 		'''
@@ -159,20 +140,18 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		'''
 		msg = UInt8()
 		msg.data = 0
-		self.img_request_pub.publish(msg)	
+		self.img_request_pub.publish(msg)
 
-	def publishImageCoord(self, event):
-		'''
-		At some point there was a request for image coordinate clicks
-		to be published, in order to possibly extract 3d info. The backend was not written
-		for this, so this function currently does nothing
-		'''
-		pass
-
+	############################################################################################
+	# Threaded functions for changing the image or update panel
+	############################################################################################
+	
 	def dispBlankImg(self, msg):
 		'''
 		Used to display a blank black image. Useful when we submit an artifact and 
 		this panel should be cleared to designate that we are no longer viewing that artifact
+
+		msg is a Bool which should always be true. Basically to just call this callback.
 		'''
 
 		if (msg.data == True): #basically anything can be sent. This is just a default
@@ -181,15 +160,21 @@ class ArtifactImageVisualizerPlugin(Plugin):
 			msg = ArtifactDisplayImage()
 			msg.img = self.br.cv2_to_imgmsg(self.blank_img)
 			self.dispImage(msg)
-
 	
 	def dispImage(self, msg):
+		'''
+		For threading. See function below.
+		'''
 		self.disp_image_trigger.emit(msg)
 
 	def dispImageMonitor(self, msg):
 		'''
 		Function to display image of an artifact
+
+		msg is a custom ArtifactDisplayImage which contains an image, and the number in the 
+		artifact's image list
 		'''
+
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"	
@@ -214,6 +199,10 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
 
 	def updateArtLabel(self, msg):
+		'''
+		For proper threading. See function below
+		'''
+
 		self.update_art_label_trigger.emit(msg)
 
 	def updateArtLabelMonitor(self, msg):
@@ -238,10 +227,23 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		elif (msg.data =='hide'): #the user has done something else, remove the label from sight
 			self.update_art_label.hide()
 
+	############################################################################################
+	# Misc. functions
+	############################################################################################
 
+
+	def publishImageCoord(self, event):
+		'''
+		At some point there was a request for image coordinate clicks
+		to be published, in order to possibly extract 3d info. The backend was not written
+		for this, so this function currently does nothing
+		'''
+		pass
 
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
-		pass
+		self.clear_panel_sub.unregister()
+		self.update_panel_sub.unregister()
+		self.image_sub.unregister()
 		

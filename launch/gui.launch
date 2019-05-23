@@ -27,9 +27,6 @@
     <!-- Node to handle adding/deleting/managing artifacts -->
     <node pkg="basestation_gui_python" name="ArtifactHandler" type="ArtifactHandler.py" output="screen"/>
 
-    <!-- Node to ahndle artifact subissions to DARPA -->
-    <!-- <node pkg="basestation_gui_python" name="SubmissionHandler" type="SubmissionHandler.py" output="screen"/> -->
-
    
 
 </launch>

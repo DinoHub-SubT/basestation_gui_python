@@ -19,30 +19,13 @@ import python_qt_binding.QtWidgets as qt
 import python_qt_binding.QtCore as core
 import python_qt_binding.QtGui as gui
 
-from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
-
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
 from functools import partial
 import pdb
 import yaml
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, ArtifactUpdate
@@ -79,34 +62,27 @@ class ArtifactManipulationPlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
-		#setup subscribers
-		# self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.focusOnArtifact)
-		rospy.Subscriber('/gui/refresh_manipulation_info', Artifact, self.focusOnArtifact) #the information relevant to manipulation for the artifact in focus has been changed
-		rospy.Subscriber('/gui/disable_confirm_cancel_manip_plugin', Bool, self.cancelProposal)
-
-		self.update_artifact_info_pub = rospy.Publisher('/gui/update_artifact_info', ArtifactUpdate, queue_size=10)
-		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
-		self.submit_pub = rospy.Publisher('/gui/submit_artifact_from_manip_plugin', String, queue_size=10)
-		self.submit_tell_queue = rospy.Publisher('/gui/submit_tell_queue', String, queue_size=10)
-
 		self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
+
+		#setup subscribers/publishers
+		self.update_artifact_info_pub = rospy.Publisher('/gui/update_artifact_info', ArtifactUpdate, queue_size=10) #for if we get more info from robot
+		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10) #for if we need to print a message
+		self.submit_pub = rospy.Publisher('/gui/submit_artifact_from_manip_plugin', String, queue_size=10) #to tell other plugins we submitted an artifact
+
+		self.refresh_sub = rospy.Subscriber('/gui/refresh_manipulation_info', Artifact, self.focusOnArtifact) #the information relevant to manipulation for the artifact in focus has been changed
+		self.disable_sequence_sub = rospy.Subscriber('/gui/disable_confirm_cancel_manip_plugin', Bool, self.cancelProposal) #disable sequence if something happened in another plugin		
 
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
-		'''
-
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout() 
-
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget) 
+		'''	 
 
 		# define the overall widget
 		self.artmanip_widget = QWidget()
 		self.artmanip_layout = qt.QGridLayout() 
+
+		context.add_widget(self.artmanip_widget)
 
 		boldFont = gui.QFont()
 		boldFont.setBold(True)              
@@ -226,17 +202,14 @@ class ArtifactManipulationPlugin(Plugin):
 
 		#add to the overall gui
 		self.artmanip_widget.setLayout(self.artmanip_layout)
-		self.global_widget.addWidget(self.artmanip_widget)
 
-
-
-	def processArtRefinementPress(self):
-		pass
-
+	############################################################################################
+	# Functions for updating artifact info based on gui interaction
+	############################################################################################
 
 	def updateArtifactPose(self, element):
 		'''
-		Update the artifact's pose after the linedit box contents have been changed
+		Update the artifact's pose after the line edit box contents have been changed
 
 		element defines which element i the pose we update
 			0 is x
@@ -305,10 +278,14 @@ class ArtifactManipulationPlugin(Plugin):
 			self.update_artifact_info_pub.publish(msg)
 
 
+	############################################################################################
+	# Functions for submitting an artifact
+	############################################################################################
+
 	def decideArtifact(self):
 		'''
 		If we're displaying an artifact, unlock the Confirm/Cancel buttons which will
-		evenetually allow us to submit an artifact to DARPA
+		eventually allow us to submit an artifact to DARPA
 		'''
 		if (self.artifact_id_displayed == None):
 			update_msg = GuiMessage()
@@ -343,7 +320,6 @@ class ArtifactManipulationPlugin(Plugin):
 			msg.data = self.artifact_id_displayed
 
 			self.submit_pub.publish(msg)
-			self.submit_tell_queue.publish(msg)
 
 			#reset the darpa proposal buttons
 			self.darpa_confirm_button.setEnabled(False)
@@ -372,7 +348,7 @@ class ArtifactManipulationPlugin(Plugin):
 		or when we select another artifact from the queue, these buttons
 		should de-activate
 
-		msg is a Bool, shoudl always be true
+		msg is a Bool, should always be true
 		'''
 		
 		if (msg.data == True):
@@ -383,9 +359,15 @@ class ArtifactManipulationPlugin(Plugin):
 			self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 			self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 
-
+	############################################################################################
+	# Functions for changing various widget's values based ont he artifact we just selected 
+	# from the queue
+	############################################################################################
 	
 	def focusOnArtifact(self, msg):
+		'''
+		For proper threading. See function below.
+		'''
 		self.focus_on_artifact_trigger.emit(msg)
 
 
@@ -448,10 +430,17 @@ class ArtifactManipulationPlugin(Plugin):
 		
 
 
+	############################################################################################
+	# Misc. functions
+	############################################################################################
+
+	def processArtRefinementPress(self):
+		pass
 
 
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
-		pass
+		self.refresh_sub.unregister()
+		self.disable_sequence_sub.unregister()
 		

@@ -20,27 +20,11 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
-from functools import partial
 import pdb
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, StatusPanelUpdate
@@ -69,26 +53,23 @@ class RobotStatusPlugin(Plugin):
 
 		self.initPanel(context) #layout plugin
 
-		#setup subscribers
-		self.robot_status_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.robotStatus)
-
 		self.robot_status_trigger.connect(self.robotStatusMonitor)
+
+		#setup subscribers
+		self.robot_status_sub = rospy.Subscriber('/status_panel_update', StatusPanelUpdate, self.robotStatus) #to get status updates from the robot
+
+		
 
 	def initPanel(self, context):
 		'''
 		Initialize the panel for displaying widgets
-		'''
-
-		#define the overall plugin
-		self.widget = QWidget()
-		self.global_widget = qt.QGridLayout()     
-		
-		self.widget.setLayout(self.global_widget)
-		context.add_widget(self.widget)
+		'''		
 
 		#define the overall widget
 		self.robot_status_widget = QWidget()
 		self.robot_status_layout = qt.QGridLayout()
+
+		context.add_widget(self.robot_status_widget)
 
 		num_robots = len(self.robot_names) #get the number of robots
 
@@ -116,17 +97,23 @@ class RobotStatusPlugin(Plugin):
 
 		#add to the overall guirobot_status_layout
 		self.robot_status_widget.setLayout(self.robot_status_layout)
-		self.global_widget.addWidget(self.robot_status_widget)
 
 	
 	def robotStatus(self, msg):
+		'''
+		For proper threading. See function below.
+		'''
 		self.robot_status_trigger.emit(msg)
 
 
 	def robotStatusMonitor(self, msg):
 		'''
-		Draw something on the gui in this function
+		Display some status information about the robot. Update a cell in the status table
+
+		msg is a custom StatusPanelUpdate msg containing the robot_number, status field, 
+		and status value and color
 		'''
+		
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"	
@@ -158,5 +145,5 @@ class RobotStatusPlugin(Plugin):
 			
 	def shutdown_plugin(self):
 		# TODO unregister all publishers here
-		pass
+		self.robot_status_sub.unregister()
 		
