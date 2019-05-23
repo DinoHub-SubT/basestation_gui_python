@@ -74,8 +74,8 @@ class DarpaBridge:
 		
 		msg = DarpaStatus()
 
-		msg.time_remaining = float(self.darpa_status_update['run_clock'])
-		msg.score = str(self.darpa_status_update['score'])
+		msg.time_elapsed = float(self.darpa_status_update['run_clock'])
+		msg.score = self.darpa_status_update['score']
 		msg.remaining_reports = self.darpa_status_update['remaining_reports']
 
 

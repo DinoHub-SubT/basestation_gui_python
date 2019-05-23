@@ -13,10 +13,10 @@
 	</group>
 
 	<!-- launch the interactive marker stuff -->
-	<!-- <node pkg="basestation_gui_python" name="interactiveMarkerProcessing" type="interactiveMarkerProcessing.py" args = 'basic_controls' output="screen"/>
+	<node pkg="basestation_gui_python" name="interactiveMarkerProcessing" type="interactiveMarkerProcessing.py" args = 'basic_controls' output="screen"/>
 
 	<node pkg="basestation_gui_python" name="interactiveMarkerProcessingDefineWaypoint" type="interactiveMarkerProcessing.py" args = 'define_waypoint' output="screen"/>
- -->
+
 
 	<!--launch the gui-->
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args = '--perspective-file $(find basestation_gui_python)/config/subt_test_gui.perspective' output="screen" />

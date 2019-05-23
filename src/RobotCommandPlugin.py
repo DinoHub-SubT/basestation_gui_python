@@ -621,7 +621,6 @@ class RobotCommandPlugin(Plugin):
 		'''
 		Listen for a waypoint to be pressed in Rviz
 		'''
-
 		#subscriber for listening to waypoint goals
 		try:
 			# self.waypoint_listeners[self.robot_names.index(robot_name)] = rospy.Subscriber(self.waypoint_topic, PoseStamped, self.publishWaypointGoal, robot_name)

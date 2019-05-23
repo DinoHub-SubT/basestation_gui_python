@@ -112,15 +112,27 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 # Known issues / TODO
 
-* Incorporating the DARPA transform
+* Merging in the darpa transform plugin
+
+* Incorporating the DARPA transform functionality
+
+* Showing the artifact refinement button upon press
 
 * If you close the artifact queue, that info will be out of sync with the artifact handler
+
+* The Signal/Slot triggers should be intialized in the init function? Not outside of it. 
 
 * Remove the FakeWifiDetections message. In there now for legacy reasons (probably not changed on the robots)
 
 * Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs
 
 * RadioMsg and WifiMsg? should be pulled out of this package and placed in another package
+
+* Some node that continually saves the gui state and can be loaded from a dedicated plugin (or button or tab from the top)
+
+* For a given artifact, when it receives a WiFi update with images, the artifact's detection image list is completely overwritten for every received message. Will need to coordinate with Vasu to decide best way to fix this. We should fix this to avoid bandwidth issues. 
+
+* Take out /ugv1/real_artifact_imgs hardcoded topic i the ArtifactHandler and think of some naming convention
 
 =======
 # Troubleshooting

@@ -10,7 +10,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 
 import rospy
 import rospkg
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 import threading
 
 from qt_gui.plugin import Plugin
@@ -86,15 +86,16 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_sub = rospy.Subscriber('/gui/artifact_to_queue', Artifact, self.addArtifactToQueue)
 		rospy.Subscriber('/gui/update_artifact_in_queue', ArtifactUpdate, self.updateArtifactInQueue) # an artifact's property has changed. just update the queue accordingly
 		rospy.Subscriber('/gui/remove_artifact_from_queue', String, self.removeArtifactFromQueue)
-		rospy.Subscriber('/gui/submit_artifact', String, self.artifactSubmitted)
+		rospy.Subscriber('/gui/submit_tell_queue', String, self.artifactSubmitted)
 
 		self.add_new_artifact_pub = rospy.Publisher('/gui/generate_new_artifact_manual', Artifact, queue_size = 10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
 		self.archive_artifact_pub = rospy.Publisher('/gui/archive_artifact', String, queue_size=10)
 		self.duplicate_pub = rospy.Publisher('/gui/duplicate_artifact', String, queue_size=10)
-		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact', String, queue_size=10)
+		self.artifact_submit_pub = rospy.Publisher('/gui/submit_artifact_from_queue', String, queue_size=10)
 		self.focus_on_artifact_pub = rospy.Publisher('/gui/focus_on_artifact', String, queue_size=10) #publish the artifact id we selected
 		self.update_label_pub = rospy.Publisher('/gui/update_art_label', String, queue_size=10)
+		self.restart_manip_plugin_pub = rospy.Publisher('/gui/disable_confirm_cancel_manip_plugin', Bool, queue_size=10)
 
 		self.queue_trigger.connect(self.addArtifactToQueueMonitor)
 		self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
@@ -344,7 +345,11 @@ class ArtifactQueuePlugin(Plugin):
 		handler_msg = String()
 		update_msg = GuiMessage()
 
-		for row in rows_selected:
+		for row in sorted(rows_selected, reverse=True): #needs to in reverse order so we don't try to access a row that no longer exists
+
+			#if we're archiving something we're viewing, reset the id we're viewing
+			if (self.queue_table.item(row,5).text() == self.displayed_artifact_id):
+				self.displayed_artifact_id = None 
 
 			#delete it from the ArtifactHandler book-keeping
 			handler_msg.data = self.queue_table.item(row,5).text()
@@ -475,6 +480,10 @@ class ArtifactQueuePlugin(Plugin):
 		msg = String()
 		msg.data = 'hide'
 		self.update_label_pub.publish(msg)
+
+		#dectivate the proper buttons in the manipulation panel, we're viewing another artifact,
+		#so restart the Confirm/Cancel sequence.
+		self.restart_manip_plugin_pub.publish(Bool(True))
 
 	def displaySeconds(self, seconds):
 		'''

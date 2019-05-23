@@ -105,7 +105,7 @@ class InfoPlugin(Plugin):
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"	
 
-		self.info_label.setText("Time: "+str(self.displaySeconds(msg.time_remaining))+'\t Score: '+\
+		self.info_label.setText("Time: "+str(self.displaySeconds(msg.time_elapsed))+'\t Score: '+\
 								str(msg.score)+ '\t Remaining Reports: '+\
 								str(msg.remaining_reports))
 

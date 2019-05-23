@@ -20,27 +20,11 @@ import python_qt_binding.QtGui as gui
 
 from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
 
-try:
-	from pkg_resources import parse_version
-except:
-	import re
-
-	def parse_version(s):
-		return [int(x) for x in re.sub(r'(\.0+)*$', '', s).split('.')]
-
-if QT_BINDING == 'pyside':
-	qt_binding_version = QT_BINDING_VERSION.replace('~', '-')
-	if parse_version(qt_binding_version) <= parse_version('1.1.2'):
-		raise ImportError('A PySide version newer than 1.1.0 is required.')
-
 from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor, QPixmap
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from GuiBridges import RosGuiBridge, DarpaGuiBridge
-from functools import partial
 import pdb
-from GuiEngine import GuiEngine, Artifact
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus
@@ -53,19 +37,19 @@ class MessagePlugin(Plugin):
 		super(MessagePlugin, self).__init__(context)
 		self.setObjectName('MessagePlugin')		
 
-		self.darpa_time = None
-		self.time_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setDarpaTime)
+		self.darpa_time = None	
 
 		self.initMessagePanel(context) #layout plugin
 
 		#setup subscribers
-		self.message_sub = rospy.Subscriber('/gui/message_print', GuiMessage, self.printMessage)
+		self.message_sub = rospy.Subscriber('/gui/message_print', GuiMessage, self.printMessage) #contains message data to disp
+		self.time_sub    = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.setDarpaTime) #contains darpa status information
 
-		self.print_message_trigger.connect(self.printMessageMonitor)
+		self.print_message_trigger.connect(self.printMessageMonitor) #to print in a thread-safe manner
 
 	def initMessagePanel(self, context):
 		'''
-		Initialize the panel which displays various text messages
+		Initialize the panel which displays messages
 		'''
 
 		#define the overall plugin
@@ -99,10 +83,15 @@ class MessagePlugin(Plugin):
 		'''
 		Function that saves the darpa time published from the darpa status node
 		into a local variable to be used here
+
+		msg is a custom DarpaStatus message which contains info about time/score/remaining reports
 		'''
-		self.darpa_time = msg.time_remaining
+		self.darpa_time = msg.time_elapsed
 
 	def printMessage(self, msg):
+		'''
+		For being thread-safe. See function below
+		'''
 		self.print_message_trigger.emit(msg)
 
 
@@ -110,17 +99,20 @@ class MessagePlugin(Plugin):
 		'''
 		Add message to the message box that is simply a string from
 		this application (not ROS)
+
+		msg is a custom GuiMessage msg which contains a field for text and 
+			constants for setting message color, depnding on importance of message
 		'''
 
 		#check that threading is working properly
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"		
 		
-		
 
 		if (self.darpa_time != None):
 			item = qt.QListWidgetItem('['+self.displaySeconds(self.darpa_time)+']'+msg.data)
-		else:
+		
+		else: #if we're not connect to the command post, don't display a time
 			item = qt.QListWidgetItem('[--] '+msg.data)
 
 		if msg.color == msg.COLOR_ORANGE:
@@ -140,16 +132,20 @@ class MessagePlugin(Plugin):
 		self.message_textbox.addItem(item)
 		self.message_textbox.sortItems(core.Qt.DescendingOrder)
 
-		self.message_textbox.viewport().update()
+		self.message_textbox.viewport().update() #refresh the message box
 
 	def displaySeconds(self, seconds):
 		'''
 		Function to convert seconds float into a min:sec string
+
+		seconds is a float. typically from DARPA of the elapsed time of the run
 		'''
+
 		#convert strings to floats
 		seconds = float(seconds)
 
 		seconds_int = int(seconds-(int(seconds)/60)*60)
+		
 		if seconds_int < 10:
 			seconds_str = '0'+str(seconds_int)
 		else:
@@ -158,7 +154,7 @@ class MessagePlugin(Plugin):
 		return str((int(seconds)/60))+':'+seconds_str
 			
 	def shutdown_plugin(self):
-		# TODO unregister all publishers here
+		# TODO unregister all subscribers here
 		self.message_sub.unregister()
 		self.time_sub.unregister()
 		

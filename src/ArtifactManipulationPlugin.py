@@ -11,7 +11,7 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 
 import rospy
 import rospkg
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 import threading
 
 from qt_gui.plugin import Plugin
@@ -82,10 +82,12 @@ class ArtifactManipulationPlugin(Plugin):
 		#setup subscribers
 		# self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.focusOnArtifact)
 		rospy.Subscriber('/gui/refresh_manipulation_info', Artifact, self.focusOnArtifact) #the information relevant to manipulation for the artifact in focus has been changed
+		rospy.Subscriber('/gui/disable_confirm_cancel_manip_plugin', Bool, self.cancelProposal)
 
 		self.update_artifact_info_pub = rospy.Publisher('/gui/update_artifact_info', ArtifactUpdate, queue_size=10)
 		self.message_pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
-		self.submit_pub = rospy.Publisher('/gui/submit_artifact', String, queue_size=10)
+		self.submit_pub = rospy.Publisher('/gui/submit_artifact_from_manip_plugin', String, queue_size=10)
+		self.submit_tell_queue = rospy.Publisher('/gui/submit_tell_queue', String, queue_size=10)
 
 		self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
 
@@ -217,7 +219,7 @@ class ArtifactManipulationPlugin(Plugin):
 		self.artmanip_layout.addWidget(self.darpa_confirm_button, 9, 2)
 
 		self.darpa_cancel_button = qt.QPushButton("Cancel")
-		self.darpa_cancel_button.clicked.connect(partial(self.cancelProposal))
+		self.darpa_cancel_button.clicked.connect(partial(self.cancelProposal, Bool(True)))
 		self.darpa_cancel_button.setStyleSheet("background-color:rgb(100, 100, 100)")
 		self.darpa_cancel_button.setEnabled(False)
 		self.artmanip_layout.addWidget(self.darpa_cancel_button, 9, 0)		
@@ -231,11 +233,12 @@ class ArtifactManipulationPlugin(Plugin):
 	def processArtRefinementPress(self):
 		pass
 
+
 	def updateArtifactPose(self, element):
 		'''
 		Update the artifact's pose after the linedit box contents have been changed
 
-		element defines which element i the psoe we update
+		element defines which element i the pose we update
 			0 is x
 			1 is y
 			2 is z
@@ -264,6 +267,8 @@ class ArtifactManipulationPlugin(Plugin):
 				update_msg.data = 'We received an update to artifact pose with unknown indice (should be 0, 1, or 2). Artifact not updated'
 				update_msg.color = update_msg.COLOR_RED
 				self.message_pub.publish(update_msg)
+
+				return 
 
 			self.update_artifact_info_pub.publish(msg)
 
@@ -338,6 +343,7 @@ class ArtifactManipulationPlugin(Plugin):
 			msg.data = self.artifact_id_displayed
 
 			self.submit_pub.publish(msg)
+			self.submit_tell_queue.publish(msg)
 
 			#reset the darpa proposal buttons
 			self.darpa_confirm_button.setEnabled(False)
@@ -359,18 +365,23 @@ class ArtifactManipulationPlugin(Plugin):
 			self.artifact_id_displayed = None
 
 
-	def cancelProposal(self):
+	def cancelProposal(self, msg):
 		'''
 		Cancel an artifact proposal, which simply amounts to disabling 
-		the confirm/cancel buttons
+		the confirm/cancel buttons. Can be called from a button press
+		or when we select another artifact from the queue, these buttons
+		should de-activate
+
+		msg is a Bool, shoudl always be true
 		'''
 		
-		#reset the darpa proposal buttons
-		self.darpa_confirm_button.setEnabled(False)
-		self.darpa_cancel_button.setEnabled(False)
+		if (msg.data == True):
+			#reset the darpa proposal buttons
+			self.darpa_confirm_button.setEnabled(False)
+			self.darpa_cancel_button.setEnabled(False)
 
-		self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
-		self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+			self.darpa_confirm_button.setStyleSheet("background-color:rgb(126, 126, 126)")
+			self.darpa_cancel_button.setStyleSheet("background-color:rgb(126, 126, 126)")
 
 
 	
@@ -389,7 +400,7 @@ class ArtifactManipulationPlugin(Plugin):
 			print "Drawing on the message panel not guarented to be on the proper thread"
 
 		self.artifact_id_displayed = msg.unique_id
-		
+
 		#change the original and refined positions
 		self.orig_pos_label_x.setText(str(msg.orig_pose.position.x)[:7])
 		self.orig_pos_label_y.setText(str(msg.orig_pose.position.y)[:7])
@@ -411,6 +422,30 @@ class ArtifactManipulationPlugin(Plugin):
 
 		if (category_ind >= 0):
 			self.darpa_cat_box.setCurrentIndex(category_ind)
+
+
+		#publish that stuff has changed, so the handler can keep track of stuff
+		#the normal publisher doesn't necessarily work because the artifact_id_displayed
+		#may not necessarily have been pressed
+		art_update_msg = ArtifactUpdate()
+		art_update_msg.unique_id  = self.artifact_id_displayed
+
+		art_update_msg.update_type = ArtifactUpdate.PROPERTY_POSE_X
+		art_update_msg.curr_pose.position.x = float(self.art_pos_textbox_x.text())
+		self.update_artifact_info_pub.publish(art_update_msg)
+
+		art_update_msg.update_type = ArtifactUpdate.PROPERTY_POSE_Y
+		art_update_msg.curr_pose.position.y = float(self.art_pos_textbox_y.text())
+		self.update_artifact_info_pub.publish(art_update_msg)
+
+		art_update_msg.update_type = ArtifactUpdate.PROPERTY_POSE_Z
+		art_update_msg.curr_pose.position.z = float(self.art_pos_textbox_z.text())
+		self.update_artifact_info_pub.publish(art_update_msg)
+
+		art_update_msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
+		art_update_msg.category = self.darpa_cat_box.currentText()
+		self.update_artifact_info_pub.publish(art_update_msg)
+		
 
 
 
