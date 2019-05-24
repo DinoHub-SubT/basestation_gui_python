@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 Skeleton code to make a new plugin
@@ -29,6 +29,7 @@ import pdb
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactSubmissionReply
+from gui_utils import displaySeconds
 
 class ArtifactSubmissionPlugin(Plugin):
 
@@ -36,7 +37,9 @@ class ArtifactSubmissionPlugin(Plugin):
 
 	def __init__(self, context):
 		super(ArtifactSubmissionPlugin, self).__init__(context)
-		self.setObjectName('MessagePlugin')		
+		self.setObjectName('MessagePlugin')	
+
+		self.column_headers = 	['Category', 'Time', 'x/y/z', 'Response']
 
 		self.initPanel(context) #layout plugin
 
@@ -69,7 +72,6 @@ class ArtifactSubmissionPlugin(Plugin):
 
 		self.submission_reply_layout.addWidget(self.submission_reply_table_sort_button, 1, 0)
 
-		 #make a table
 		self.submission_reply_table = qt.QTableWidget()
 
 
@@ -77,8 +79,8 @@ class ArtifactSubmissionPlugin(Plugin):
 		self.submission_reply_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 		# self.arthist_table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 
-		self.submission_reply_table.setColumnCount(4) # set column count        
-		self.submission_reply_table.setHorizontalHeaderLabels(['Category', 'Time', 'x/y/z', 'Response']) #make the column headers
+		self.submission_reply_table.setColumnCount(len(self.column_headers)) # set column count        
+		self.submission_reply_table.setHorizontalHeaderLabels(self.column_headers)
 
 		#make sortable
 		self.submission_reply_table.setSortingEnabled(True)
@@ -113,7 +115,7 @@ class ArtifactSubmissionPlugin(Plugin):
 
 		#make a table item to add 
 		try:
-			submission_time = self.displaySeconds(float(msg.submission_time_raw))
+			submission_time = displaySeconds(float(msg.submission_time_raw))
 		except:
 			submission_time = '99:99'
 
@@ -166,23 +168,6 @@ class ArtifactSubmissionPlugin(Plugin):
 		if(self.submission_reply_table_sort_button.isChecked()): #if the sort button is pressed, sort the incoming artifacts
 			self.submission_reply_table.sortItems(1, core.Qt.DescendingOrder)		
 			self.submission_reply_table.viewport().update()
-
-	
-
-	def displaySeconds(self, seconds):
-		'''
-		Function to convert seconds float into a min:sec string
-		'''
-		#convert strings to floats
-		seconds = float(seconds)
-
-		seconds_int = int(seconds-(int(seconds)/60)*60)
-		if seconds_int < 10:
-			seconds_str = '0'+str(seconds_int)
-		else:
-			seconds_str = str(seconds_int)
-
-		return str((int(seconds)/60))+':'+seconds_str		
 
 			
 	def shutdown_plugin(self):

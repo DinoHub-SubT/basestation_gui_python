@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 Plugin for buttons pertaining to robot commands
@@ -93,7 +93,7 @@ class RobotCommandPlugin(Plugin):
 
 		self.waypoint = None   
 		for i, topic in enumerate(self.robot_pos_topics):
-			rospy.Subscriber(topic, Odometry, self.saveRobotPos, (i)) #to save the robot positions so that we can ut the deifne waypoint interactive marker on the robot
+			rospy.Subscriber(topic, Odometry, self.saveRobotPos, i) #to save the robot positions so that we can ut the deifne waypoint interactive marker on the robot
 		
 
 	def initPanel(self, context):
@@ -136,7 +136,7 @@ class RobotCommandPlugin(Plugin):
 			else:
 				commands = self.ground_commands
 
-			for j, command in enumerate(commands):
+			for command in commands:
 				
 				button = qt.QPushButton(command)
 				robot_button_list.append(button)
@@ -226,7 +226,7 @@ class RobotCommandPlugin(Plugin):
 
 					#if its an estop button that is not soft estop, un-press it
 					elif ((button.text() in self.ground_estop_commands) or\
-					    (button.text() in self.aerial_estop_commands)): 
+						(button.text() in self.aerial_estop_commands)): 
 
 						button.setChecked(False)
 
@@ -277,10 +277,10 @@ class RobotCommandPlugin(Plugin):
 			 ((robot_name.find('erial') != -1) and (button.text() in self.aerial_estop_commands)):
 
 			#find the set of control buttons for this robot
-			robot_ind = -1
-			for i, name in enumerate(self.robot_names):
-				if (robot_name == name):
-					robot_ind = i
+			try:
+				robot_ind = self.robot_names.index(robot_name)
+			except ValueError as e:
+				robot_ind = -1
 
 			if (robot_ind!=-1):
 				control_buttons = self.control_buttons[robot_ind]

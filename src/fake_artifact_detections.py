@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 File which publishes fake artifact detections
@@ -55,7 +55,7 @@ class FakePublisher:
 
         #publish artifact_reports first
 
-        if (self.num_pubbed < self.total_num_to_pub * 0.1):
+        if (self.num_pubbed < self.total_num_to_pub * 0.4):
             # print "new artifact", time.time()
             self.pubArtifactReport(update = False)   
                     
@@ -285,7 +285,7 @@ if __name__ == '__main__':
         while not rospy.is_shutdown() and fake_publisher.num_pubbed < fake_publisher.total_num_to_pub:
             fake_publisher.pub_msgs()
 
-            # fake_publisher.rate = rospy.Rate(random.random()*5+1.)
+            fake_publisher.rate = rospy.Rate(random.random()*5+1.)
 
             fake_publisher.rate.sleep()
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 RQT Plugin for inspecting artifacts (looking at images, positions, etc.)
@@ -150,17 +150,17 @@ class ArtifactManipulationPlugin(Plugin):
 		self.artmanip_button_layout = qt.QHBoxLayout()
 		self.artmanip_button_list = []
 
-		art_action_label2 = qt.QLabel()
-		art_action_label2.setText('\n\nCategory')
-		art_action_label2.setFont(boldFont)
-		art_action_label2.setAlignment(Qt.AlignCenter)
-		self.artmanip_layout.addWidget(art_action_label2, 6, 0, 1, 2)
+		artifact_category_label = qt.QLabel()
+		artifact_category_label.setText('\n\nCategory')
+		artifact_category_label.setFont(boldFont)
+		artifact_category_label.setAlignment(Qt.AlignCenter)
+		self.artmanip_layout.addWidget(artifact_category_label, 6, 0, 1, 2)
 
-		art_action_label3 = qt.QLabel()
-		art_action_label3.setText('\n\nPriority')
-		art_action_label3.setFont(boldFont)
-		art_action_label3.setAlignment(Qt.AlignCenter)
-		self.artmanip_layout.addWidget(art_action_label3, 6, 2)
+		artifact_priority_label = qt.QLabel()
+		artifact_priority_label.setText('\n\nPriority')
+		artifact_priority_label.setFont(boldFont)
+		artifact_priority_label.setAlignment(Qt.AlignCenter)
+		self.artmanip_layout.addWidget(artifact_priority_label, 6, 2)
 
 		 #make the combobox for setting the artifact category
 		self.darpa_cat_box = qt.QComboBox()
@@ -384,13 +384,16 @@ class ArtifactManipulationPlugin(Plugin):
 		self.artifact_id_displayed = msg.unique_id
 
 		#change the original and refined positions
-		self.orig_pos_label_x.setText(str(msg.orig_pose.position.x)[:7])
-		self.orig_pos_label_y.setText(str(msg.orig_pose.position.y)[:7])
-		self.orig_pos_label_z.setText(str(msg.orig_pose.position.z)[:7])
 
-		self.art_pos_textbox_x.setText(str(msg.curr_pose.position.x)[:7])
-		self.art_pos_textbox_y.setText(str(msg.curr_pose.position.y)[:7])
-		self.art_pos_textbox_z.setText(str(msg.curr_pose.position.z)[:7])
+		self.orig_pos_label_x.setText(str(round(msg.orig_pose.position.x, 1)))
+		self.orig_pos_label_y.setText(str(round(msg.orig_pose.position.y, 1)))
+		self.orig_pos_label_z.setText(str(round(msg.orig_pose.position.z, 1)))
+
+
+
+		self.art_pos_textbox_x.setText(str(round(msg.curr_pose.position.x, 1)))
+		self.art_pos_textbox_y.setText(str(round(msg.curr_pose.position.y, 1)))
+		self.art_pos_textbox_z.setText(str(round(msg.curr_pose.position.z, 1)))
 
 		#change the priority
 		priority_ind = self.artifact_priority_box.findText(msg.priority, core.Qt.MatchFixedString)

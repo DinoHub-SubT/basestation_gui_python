@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 Plugin containing buttons that are relevant to the entire basestation gui.

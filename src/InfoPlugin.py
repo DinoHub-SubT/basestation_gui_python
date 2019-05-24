@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 The info panel in the gui (which displays time remaining, score, remaining reports)
@@ -28,6 +28,7 @@ import pdb
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus
+from gui_utils import displaySeconds
 
 class InfoPlugin(Plugin):
 
@@ -92,26 +93,11 @@ class InfoPlugin(Plugin):
 		if (not isinstance(threading.current_thread(), threading._MainThread)):
 			print "Drawing on the message panel not guarented to be on the proper thread"	
 
-		self.info_label.setText("Time: "+str(self.displaySeconds(msg.time_elapsed))+'\t Score: '+\
+		self.info_label.setText("Time: "+str(displaySeconds(msg.time_elapsed))+'\t Score: '+\
 								str(msg.score)+ '\t Remaining Reports: '+\
 								str(msg.remaining_reports))
 
-	def displaySeconds(self, seconds):
-		'''
-		Function to convert seconds float into a min:sec string
-
-		seconds should be a float. typically from DARPA of the elapsed time of the run
-		'''
-		#convert strings to floats
-		seconds = float(seconds)
-
-		seconds_int = int(seconds-(int(seconds)/60)*60)
-		if seconds_int < 10:
-			seconds_str = '0'+str(seconds_int)
-		else:
-			seconds_str = str(seconds_int)
-
-		return str((int(seconds)/60))+':'+seconds_str
+	
 
 			
 	def shutdown_plugin(self):

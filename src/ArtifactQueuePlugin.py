@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 Plugin for displaying the artifact queue (table of collected artifacts)
@@ -63,6 +63,8 @@ class ArtifactQueuePlugin(Plugin):
 			self.artifact_categories.append(category)
 
 		self.displayed_artifact_id = None
+
+		self.column_headers = ['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Unique ID']
 
 		self.initPanel(context) #layout plugin
 
@@ -151,8 +153,8 @@ class ArtifactQueuePlugin(Plugin):
 		#resize the cells to fill the widget 
 		self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 
-		self.queue_table.setColumnCount(6) # set column count        
-		self.queue_table.setHorizontalHeaderLabels(['Robot\nNum', 'Priority', 'Detect\nTime', '   Category   ', 'Unread', 'Unique ID']) #make the column headers
+		self.queue_table.setColumnCount(len(self.column_headers)) # set column count        
+		self.queue_table.setHorizontalHeaderLabels(self.column_headers) #make the column headers
 
 		
 		self.queue_table.setColumnHidden(5,True) #hide the unique_id    
@@ -187,7 +189,7 @@ class ArtifactQueuePlugin(Plugin):
 				break
 
 
-		if (artifact_row != None):
+		if (artifact_row is not None):
 			if (msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY):
 				self.updateQueueTable(row, 3, msg.category) 
 
@@ -390,8 +392,7 @@ class ArtifactQueuePlugin(Plugin):
 			self.artifact_submit_pub.publish(msg)
 
 		#remove all of the rows from the table
-		while (self.queue_table.rowCount() > 0):
-			self.queue_table.removeRow(0)
+		self.queue_table.setRowCount(0)
 
 	############################################################################################
 	# Functions adding/removing artifacts from the queue
@@ -491,7 +492,7 @@ class ArtifactQueuePlugin(Plugin):
 		self.queue_table.item(row, 4).setBackground(gui.QColor(0,255,0))
 
 		for i in range(self.queue_table.columnCount()): #make the cells not editable and make the text centered
-			if self.queue_table.item(row, i) != None: 
+			if self.queue_table.item(row, i) is not None: 
 				self.queue_table.item(row, i).setFlags( core.Qt.ItemIsSelectable |  core.Qt.ItemIsEnabled )
 				self.queue_table.item(row, i).setTextAlignment(Qt.AlignHCenter) 
 

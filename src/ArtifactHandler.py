@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 '''
 Functions to handle the artifacts. From detections, to creating new ones, to
 keeping track of existing artifacts to submitting artifacts to DARPA
@@ -80,26 +80,25 @@ class ArtifactHandler:
 		self.clear_displayed_img_pub = rospy.Publisher('/gui/clear_img', Bool, queue_size=10) #clear the image being displayed in the Visulizer plugin
 		self.submit_tell_queue_pub = rospy.Publisher('/gui/submit_tell_queue', String, queue_size=10) #tell the queue we submitted an artifact
 
-		self.manul_sub = rospy.Subscriber('/gui/generate_new_artifact_manual', Artifact, self.generateNewArtifactManually) #if we generated the artifact manually from the queue
-		self.focus_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.setDisplayedArtifact) #if we selected an artifact from the queue
-		self.archi_sub = rospy.Subscriber('/gui/archive_artifact', String, self.archiveArtifact) #if we archived an artifact from the queue
-		self.dupli_sub = rospy.Subscriber('/gui/duplicate_artifact', String, self.duplicateArtifact) #if we duplicated an artifact from the queue
-		self.submq_sub = rospy.Subscriber('/gui/submit_artifact_from_queue', String, self.buildArtifactSubmissionFromQueue) #if we want to submit an artifact from the queue
-		self.submm_sub = rospy.Subscriber('/gui/submit_artifact_from_manip_plugin', String, self.buildArtifactSubmissionFromManipPlugin) #if we want to submit an artifact from the manipulation panel
-		self.chang_sub = rospy.Subscriber('/gui/change_disp_img', UInt8, self.getArtifactImage) # to handle button presses iterating over artifact images
-		# self.wifid_sub = rospy.Subscriber('/gui/wifi_detection', WifiDetection, self.handleWifiDetection) #if we received a wifi detection (probably a fake one)
-		# self.fakei_sub = rospy.Subscriber('/fake_artifact_imgs', WifiDetection, self.handleWifiDetection)#for fake wifi detections
-		self.updat_sub = rospy.Subscriber('/gui/update_artifact_info', ArtifactUpdate,self.updateArtifactInfoFromGui) #for updates from the manipulation panel
-		self.reald_sub = rospy.Subscriber('/real_artifact_detections', RadioMsg, self.handleRadioDetection) #if we received a fake artifact detection (its fake because it not namespaced with robot name/number)
-		self.faked_sub = rospy.Subscriber('/fake_artifact_detections', RadioMsg, self.handleRadioDetection) #kept around for legacy purposes
-		self.darpa_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.updateDarpaInfo) #if we received information from DARPA
+		self.new_manual_artifact_sub = rospy.Subscriber('/gui/generate_new_artifact_manual', Artifact, self.generateNewArtifactManually) #if we generated the artifact manually from the queue
+		self.focus_on_artifact_sub = rospy.Subscriber('/gui/focus_on_artifact', String, self.setDisplayedArtifact) #if we selected an artifact from the queue
+		self.archive_artifact_sub = rospy.Subscriber('/gui/archive_artifact', String, self.archiveArtifact) #if we archived an artifact from the queue
+		self.duplicate_artifact_sub = rospy.Subscriber('/gui/duplicate_artifact', String, self.duplicateArtifact) #if we duplicated an artifact from the queue
+		self.submit_artifact_from_queue_sub = rospy.Subscriber('/gui/submit_artifact_from_queue', String, self.buildArtifactSubmissionFromQueue) #if we want to submit an artifact from the queue
+		self.submit_artifact_from_manip_sub = rospy.Subscriber('/gui/submit_artifact_from_manip_plugin', String, self.buildArtifactSubmissionFromManipPlugin) #if we want to submit an artifact from the manipulation panel
+		self.change_disp_img_sub = rospy.Subscriber('/gui/change_disp_img', UInt8, self.getArtifactImage) # to handle button presses iterating over artifact images
+		self.fakei_sub = rospy.Subscriber('/fake_artifact_imgs', WifiDetection, self.handleWifiDetection)#for fake wifi detections
+		self.update_artifact_sub = rospy.Subscriber('/gui/update_artifact_info', ArtifactUpdate,self.updateArtifactInfoFromGui) #for updates from the manipulation panel
+		self.real_detection_sub = rospy.Subscriber('/real_artifact_detections', RadioMsg, self.handleRadioDetection) #if we received a fake artifact detection (its fake because it not namespaced with robot name/number)
+		self.fake_detection_sub = rospy.Subscriber('/fake_artifact_detections', RadioMsg, self.handleRadioDetection) #kept around for legacy purposes
+		self.darpa_status_sub = rospy.Subscriber('/gui/darpa_status', DarpaStatus, self.updateDarpaInfo) #if we received information from DARPA
 
 		#properly namespaced detections from the robots
 		#kept in for legacy reasons. need to come up with some naming scheme
-		self.ugv1_wdetect_sub = rospy.Subscriber('/ugv1/real_artifact_imgs', FakeWifiDetection, self.handleWifiDetection) 
-		self.uav1_wdetect_sub = rospy.Subscriber('/uav1/real_artifact_imgs', FakeWifiDetection, self.handleWifiDetection) 
-		self.ugv1_rdetect_sub = rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.handleRadioDetection) 
-		self.uav1_rdetect_sub = rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.handleRadioDetection) 
+		self.ugv1_wifi_detect_sub = rospy.Subscriber('/ugv1/real_artifact_imgs', FakeWifiDetection, self.handleWifiDetection) 
+		self.uav1_wifi_detect_sub = rospy.Subscriber('/uav1/real_artifact_imgs', FakeWifiDetection, self.handleWifiDetection) 
+		self.ugv1_radio_detect_sub = rospy.Subscriber('/ugv1/real_artifact_detections', RadioMsg, self.handleRadioDetection) 
+		self.uav1_radio_detect_sub = rospy.Subscriber('/uav1/real_artifact_detections', RadioMsg, self.handleRadioDetection) 
 
 
 	##############################################################################
@@ -141,7 +140,7 @@ class ArtifactHandler:
 		new artifact and save to proper dictionaries/lists, or update an existing 
 		artifact.
 
-		msg is a custom RaidoMsg message containg info about the artifact detected
+		msg is a custom RaidoMsg message containing info about the artifact detected
 		'''		
 
 		msg_unique_id = str(msg.artifact_robot_id)+'/'+str(msg.artifact_report_id)+'/'+str(msg.artifact_stamp.secs)
@@ -306,6 +305,28 @@ class ArtifactHandler:
 	# radio detections, or manually
 	##############################################################################
 
+	def timestampsOnImgs(self, msg_imgs):
+		'''
+		Function to put timestamps on images
+
+		msg_imgs is an array of Images
+		'''
+
+		imgs = []
+		img_stamps = []
+
+		for img in msg_imgs:
+			cv_image = self.br.imgmsg_to_cv2(img)
+			cv2.putText(cv_image, "Timestamp: %f" %
+				img.header.stamp.to_sec(),
+					(5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
+					(255, 255, 255), 1)
+			imgs.append(cv_image)
+			img_stamps.append(img.header.stamp)
+
+		return imgs, img_stamps
+
+
 	def updateWifiDetection(self, msg, msg_unique_id):
 		'''
 		Updated information for an artifact we already have has 
@@ -350,21 +371,8 @@ class ArtifactHandler:
 			updated = True
 
 		if (len(msg.imgs) >0): #over-write all of the images!! probably should be fixed. 
-			#handle the images
-			imgs = []
-			img_stamps = []
 
-			for img in msg.imgs:
-				cv_image = self.br.imgmsg_to_cv2(img)
-				cv2.putText(cv_image, "Timestamp: %f" %
-					img.header.stamp.to_sec(),
-						(5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
-						(255, 255, 255), 1)
-				imgs.append(cv_image)
-				img_stamps.append(img.header.stamp)
-
-			artifact.imgs = imgs
-			artifact.img_stamps = img_stamps
+			artifact.imgs, artifact.img_stamps = self.timestampsOnImgs(msg.imgs)
 
 			updated = True
 
@@ -387,18 +395,8 @@ class ArtifactHandler:
 		#decode the type
 		artifact_category = self.artifact_categories[msg.artifact_type]#msg.category is an int using a agreed-upon convention
 
-		#handle the images
-		imgs = []
-		img_stamps = []
-
-		for img in msg.imgs:
-			cv_image = self.br.imgmsg_to_cv2(img)
-			cv2.putText(cv_image, "Timestamp: %f" %
-				img.header.stamp.to_sec(),
-					(5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
-					(255, 255, 255), 1)
-			imgs.append(cv_image)
-			img_stamps.append(img.header.stamp)
+		#put timestamps on the images and extract timestamp info
+		imgs, img_stamps = self.timestampsOnImgs(msg.imgs)
 
 		artifact = GuiArtifact(original_timestamp = msg.artifact_stamp.secs, category = artifact_category, \
 							pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z],
@@ -661,8 +659,8 @@ class ArtifactHandler:
 
 			return True
 
-		else:
-			return False
+		#if we got back nothing from DARPA, unlikely to happen...
+		return False
 
 
 	def publishSubmissionReply(self, proposal_return):
@@ -731,7 +729,7 @@ class ArtifactHandler:
 			2 means display the first image
 		'''
 
-		direction = msg.data #
+		direction = msg.data
 
 		#check for errors with request
 		update_msg = GuiMessage()
@@ -782,10 +780,9 @@ class ArtifactHandler:
 		'''
 		Publish an image to be displayed in the artifact manipulation panel
 
-		ind is the indice in the artifact's image list that the image to be displayed is (this comment could use better grammer)
+		ind is the indice in the artifact's image list that the image to be displayed is (this comment could use better grammar)
 		'''
 
-		#error checking
 		if (self.displayed_artifact_id == None):
 			update_msg.data = 'No artifact has been selected. Please select one from the queue'
 			update_msg.color = update_msg.COLOR_ORANGE

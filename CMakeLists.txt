@@ -45,18 +45,18 @@ catkin_python_setup() #uncommented for the rqt plugin
 ## Generate messages in the 'msg' folder
 add_message_files(
    FILES
-   RadioMsg.msg
-   NineHundredRadioMsg.msg
-   FakeWifiDetection.msg
-   StatusPanelUpdate.msg
-   GuiMessage.msg
-   DarpaStatus.msg
-   ArtifactSubmissionReply.msg
-   GuiRobCommand.msg
-   Artifact.msg
-   WifiDetection.msg
+   Artifact.msg   
    ArtifactDisplayImage.msg
+   ArtifactSubmissionReply.msg
    ArtifactUpdate.msg
+   DarpaStatus.msg
+   FakeWifiDetection.msg
+   GuiMessage.msg
+   GuiRobCommand.msg
+   NineHundredRadioMsg.msg
+   RadioMsg.msg
+   StatusPanelUpdate.msg
+   WifiDetection.msg
 )
 
 ## Generate services in the 'srv' folder

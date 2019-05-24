@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 Plugin to display text messages about various going-ons
@@ -28,6 +28,7 @@ import pdb
 from PyQt5.QtCore import pyqtSignal
 
 from basestation_gui_python.msg import GuiMessage, DarpaStatus
+from gui_utils import displaySeconds
 
 class MessagePlugin(Plugin):
 
@@ -105,13 +106,13 @@ class MessagePlugin(Plugin):
 		
 
 		if (self.darpa_time != None):
-			item = qt.QListWidgetItem('['+self.displaySeconds(self.darpa_time)+']'+msg.data)
+			item = qt.QListWidgetItem('['+displaySeconds(self.darpa_time)+']'+msg.data)
 		
 		else: #if we're not connect to the command post, don't display a time
 			item = qt.QListWidgetItem('[--] '+msg.data)
 
 		if msg.color == msg.COLOR_ORANGE:
-			msg_color = [242., 143, 50.]
+			msg_color = [242, 143, 50]
 		elif msg.color == msg.COLOR_RED:
 			msg_color = [250,128,114]
 		elif msg.color == msg.COLOR_GREEN:
@@ -129,24 +130,6 @@ class MessagePlugin(Plugin):
 
 		self.message_textbox.viewport().update() #refresh the message box
 
-	def displaySeconds(self, seconds):
-		'''
-		Function to convert seconds float into a min:sec string
-
-		seconds should be a float. typically from DARPA of the elapsed time of the run
-		'''
-
-		#convert strings to floats
-		seconds = float(seconds)
-
-		seconds_int = int(seconds-(int(seconds)/60)*60)
-
-		if seconds_int < 10:
-			seconds_str = '0'+str(seconds_int)
-		else:
-			seconds_str = str(seconds_int)
-
-		return str((int(seconds)/60))+':'+seconds_str
 			
 	def shutdown_plugin(self):
 		# TODO unregister all subscribers here

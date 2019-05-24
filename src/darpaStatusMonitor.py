@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 A node for getting status information (time, score, remaining reports) from DARPA
