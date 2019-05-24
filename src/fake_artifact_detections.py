@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 File which publishes fake artifact detections
@@ -55,7 +55,7 @@ class FakePublisher:
 
         #publish artifact_reports first
 
-        if (self.num_pubbed < self.total_num_to_pub * 0.1):
+        if (self.num_pubbed < self.total_num_to_pub * 0.4):
             # print "new artifact", time.time()
             self.pubArtifactReport(update = False)   
                     
@@ -81,7 +81,7 @@ class FakePublisher:
     def pubArtifactReport(self, update):
 
         #randomly select a radio or wifi message type
-        if (random.random() < 0.5):
+        if (random.random() < 0.2):
             msg = RadioMsg()
             msg.message_type =  RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
 
@@ -104,7 +104,7 @@ class FakePublisher:
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
 
-                if (report_id not in self.deleted_ids) and (random.random() < 0.25):
+                if (report_id not in self.deleted_ids) and (random.random() < 0.15):
                     msg.artifact_type = RadioMsg.ARTIFACT_REMOVE
                     print "radio delete:", msg.artifact_type, robot_id, report_id
 
@@ -157,7 +157,7 @@ class FakePublisher:
                 report_id = self.published_list[rand_ind][1]
                 timestamp = self.published_list[rand_ind][2]
 
-                if (report_id not in self.deleted_ids) and (random.random() < 0.25):
+                if (report_id not in self.deleted_ids) and (random.random() < 0.0):
                     typ = FakeWifiDetection.ARTIFACT_REMOVE                                        
                     print "wifi  delete:",typ, robot_id, report_id
 
@@ -253,6 +253,8 @@ class FakePublisher:
 
         br = CvBridge()
         img = br.cv2_to_imgmsg(img)
+        img.header.stamp.secs = timestamp
+        # print '\n\n\n\n\n\n'+str(img.header.stamp.secs)+'\n\n\n\n\n\n\n'
 
         if (artifact_report_id == None): #we need to generate some fake data
             msg = None
@@ -275,9 +277,10 @@ class FakePublisher:
 
 
 if __name__ == '__main__':
+
     try:
         fake_publisher = FakePublisher()
-        fake_publisher.rate = rospy.Rate(1.)# (5./3600.) #rate in hz
+        fake_publisher.rate = rospy.Rate(2.)# (5./3600.) #rate in hz
 
         while not rospy.is_shutdown() and fake_publisher.num_pubbed < fake_publisher.total_num_to_pub:
             fake_publisher.pub_msgs()

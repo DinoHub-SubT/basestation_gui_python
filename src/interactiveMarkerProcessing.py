@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """
 Adopted heavily from tutorial code (basic_controls.py):

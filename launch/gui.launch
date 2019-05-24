@@ -8,9 +8,9 @@
 	<arg name="simulating_artifact_detections" default="false"/>
 	<param name="simulating_artifact_detections" value= "$(arg simulating_artifact_detections)" />
 
-	<!-- <group if="$(arg simulating_artifact_detections)">
+	<group if="$(arg simulating_artifact_detections)">
 		<node pkg="basestation_gui_python" name="fake_artifact_detections" type="fake_artifact_detections.py" output="screen"/>
-	</group> -->
+	</group>
 
 	<!-- launch the interactive marker stuff -->
 	<node pkg="basestation_gui_python" name="interactiveMarkerProcessing" type="interactiveMarkerProcessing.py" args = 'basic_controls' output="screen"/>
@@ -19,7 +19,13 @@
 
 
 	<!--launch the gui-->
-    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen" />
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args = '--perspective-file $(find basestation_gui_python)/config/subt_test_gui.perspective' output="screen" />
+
+    <!--launch the darpa status monitor node-->
+    <node name="darpaStatusMonitor" pkg="basestation_gui_python" type="darpaStatusMonitor.py" args = "$(find basestation_gui_python)/config/gui_params.yaml" output="screen" />
+
+    <!-- Node to handle adding/deleting/managing artifacts -->
+    <node pkg="basestation_gui_python" name="ArtifactHandler" type="ArtifactHandler.py" output="screen"/>
 
    
 

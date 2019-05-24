@@ -2,7 +2,7 @@
 
 import sys
 
-from basestation_gui_python.Gui import BasestationGuiPlugin
+from basestation_gui_python.Gui import BasestationGuiPlugin, MessagePlugin
 from rqt_gui.main import Main
 import pdb
 

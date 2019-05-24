@@ -1,14 +1,15 @@
 #internal parameters for defining experimental parameters relevant to the gui
 experiment_params:
   robot_names: ['Ground1', 'Aerial1']
-  robot_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop comms', 'Show bluetooth', 'Return to comms', 'Confirm', 'Cancel']
-  aerial_commands: ['Hover', 'Resume/Takeoff', 'Land', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop comms', 'Show bluetooth', 'Land in comms', 'Confirm', 'Cancel']
+  robot_pos_topics: ['/ugv1/integrated_to_map', '/uav1/integrated_to_map'] #MUST BE IN SAME ORDER AS ROBOT NAMES  
+  #these commands (at least the first 4) must stay in this order
+  ground_commands: ['Pause', 'Resume', 'Soft e-stop', 'Hard e-stop', 'Define waypoint', 'Return home', 'Drop comms', 'Show bluetooth', 'Return to comms', 'Re-send artifacts', 'Confirm', 'Cancel']
+  aerial_commands: ['Hover', 'Resume/Takeoff', 'Land', 'Hard e-stop', 'Define waypoint', 'Return home', 'Land in comms', 'Re-send artifacts', 'Confirm', 'Cancel']
+  artifact_priorities: ['Low', 'Med', 'High']
+
 
 #parameters for communicating with the DARPA command post
 darpa_params:
   auth_bearer_token: ['flux230{showroom']
   scoring_uris: ['http://api/status/', 'http://api/artifact_reports/']
-  artifact_categories: ["Survivor", "Fire Extinguisher", "Cell Phone", "Backpack", "Drill"]
-  artifact_labels: [4, 3, 5, 1, 2]
-
-
+  artifact_categories: ["Backpack", "Drill", "Fire Extinguisher", "Survivor", "Cell Phone"]
