@@ -6,22 +6,24 @@ from basestation_gui_python.msg import GuiMessage
 import time
 import random
 
+
 def talker():
-    pub = rospy.Publisher('/gui/message_print', GuiMessage, queue_size=10)
-    rospy.init_node('talker', anonymous=True)
-    rate = rospy.Rate(0.1) # 10hz
+    pub = rospy.Publisher("/gui/message_print", GuiMessage, queue_size=10)
+    rospy.init_node("talker", anonymous=True)
+    rate = rospy.Rate(0.1)  # 10hz
     # msg = GuiMessage()
 
     while not rospy.is_shutdown():
         msg = GuiMessage()
-        msg.data = "hello"+str(time.time())
-        msg.color.r = random.random()*126. + 126.  
-        msg.color.g = random.random()*126. + 126.  
-        msg.color.b = random.random()*126. + 126.  
+        msg.data = "hello" + str(time.time())
+        msg.color.r = random.random() * 126.0 + 126.0
+        msg.color.g = random.random() * 126.0 + 126.0
+        msg.color.b = random.random() * 126.0 + 126.0
         pub.publish(msg)
         rate.sleep()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     try:
         talker()
     except rospy.ROSInterruptException:

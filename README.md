@@ -142,7 +142,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * Handling bluetooth/audio detections
 
-* Properly format using black? 
 * Move big red button to the command plugin
 * make constant for getArtifactImage the defines move forward, backward or define the original image
 * Don't deepcopy immutable objects in ArtifactHandler, like when I generate new GuiArtifact objects. 
@@ -162,6 +161,28 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 * In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
 * In command plugin make commands variables, so we're not doing stuff like "command in ['Resume, 'Resume/Takeoff']"
 
+=======
+# Development
+
+Basestation_gui is developed using rospy and thus requires Python2.7.  However, for
+consistency of development amongst several developers we use
+[black](https://github.com/python/black) for all formatting of Python source code which
+requires Python3.6.  Playing with different Python installations isn't fun so the
+following instructions will make it easy to format the source code:
+
+* Install Python3 and pip3 if it's not already installed:
+  `sudo apt-get install python3 python3-pip`
+* Install _black_ with Python3's pip: `pip3 install black`
+* (Optional) Ensure Python3's site-packages directory is on your path if you can't run
+  _black_ after installing (see last bullet).  Running Ubuntu you should have a _.profile_
+  file in your home directory.  In that file, somewhere at the bottom you should add the
+  line: `export PATH="$HOME/.local/lib/python3.6/site-packages:$PATH"`
+* If you modified your _.profile_ then re-source it: `source ~/.profile`
+* Now you can run _black_ on your code: `black my_python_file.py`
+
+Note that we use _black's_ defaults for formatting thus allowing for zero configuration
+and keeping things simple.  If you wish to integrate _black_ within your editor workflow
+then check out its project page from the link above for setup with your editor of choice.
 
 
 =======
