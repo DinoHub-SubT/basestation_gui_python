@@ -18,7 +18,6 @@ from basestation_gui_python.msg import (
     ArtifactDisplayImage,
     ArtifactUpdate,
     RadioMsg,
-    FakeWifiDetection,
     DarpaStatus,
 )
 import copy
@@ -147,29 +146,32 @@ class ArtifactHandler:
         self.change_disp_img_sub = rospy.Subscriber(
             "/gui/change_disp_img", UInt8, self.getArtifactImage
         )  # to handle button presses iterating over artifact images
-        self.fakei_sub = rospy.Subscriber(
-            "/fake_artifact_imgs", WifiDetection, self.handleWifiDetection
-        )  # for fake wifi detections
         self.update_artifact_sub = rospy.Subscriber(
             "/gui/update_artifact_info", ArtifactUpdate, self.updateArtifactInfoFromGui
         )  # for updates from the manipulation panel
-        self.real_detection_sub = rospy.Subscriber(
-            "/real_artifact_detections", RadioMsg, self.handleRadioDetection
-        )  # if we received a fake artifact detection (its fake because it not namespaced with robot name/number)
-        self.fake_detection_sub = rospy.Subscriber(
-            "/fake_artifact_detections", RadioMsg, self.handleRadioDetection
-        )  # kept around for legacy purposes
         self.darpa_status_sub = rospy.Subscriber(
             "/gui/darpa_status", DarpaStatus, self.updateDarpaInfo
         )  # if we received information from DARPA
+        self.real_detection_sub = rospy.Subscriber(
+            "/real_artifact_detections", RadioMsg, self.handleRadioDetection
+        )  # if we received a fake artifact detection (its fake because it not namespaced with robot name/number)
+        self.real_images_sub = rospy.Subscriber(
+            "/real_artifact_imgs", WifiDetection, self.handleWifiDetection
+        )  # if we received a fake artifact image (its fake because it not namespaced with robot name/number)
+        self.fake_detection_sub = rospy.Subscriber(
+            "/fake_artifact_detections", RadioMsg, self.handleRadioDetection
+        )  # kept around for legacy purposes
+        self.fakei_sub = rospy.Subscriber(
+            "/fake_artifact_imgs", WifiDetection, self.handleWifiDetection
+        )  # for fake wifi detections
 
         # properly namespaced detections from the robots
         # kept in for legacy reasons. need to come up with some naming scheme
         self.ugv1_wifi_detect_sub = rospy.Subscriber(
-            "/ugv1/real_artifact_imgs", FakeWifiDetection, self.handleWifiDetection
+            "/ugv1/real_artifact_imgs", WifiDetection, self.handleWifiDetection
         )
         self.uav1_wifi_detect_sub = rospy.Subscriber(
-            "/uav1/real_artifact_imgs", FakeWifiDetection, self.handleWifiDetection
+            "/uav1/real_artifact_imgs", WifiDetection, self.handleWifiDetection
         )
         self.ugv1_radio_detect_sub = rospy.Subscriber(
             "/ugv1/real_artifact_detections", RadioMsg, self.handleRadioDetection
@@ -188,7 +190,7 @@ class ArtifactHandler:
 		new artifact and save to proper dictionaries/lists, or update an existing 
 		artifact.
 
-		msg is a FakeWifiDetection message from the robot
+		msg is a WifiDetection message from the robot
 		"""
 
         msg_unique_id = (
@@ -505,7 +507,7 @@ class ArtifactHandler:
 		Generate a new artifact which has been detected from the robot
 		and trasmitted via WiFi 
 
-		msg is a FakeWifiDetection message containing info about the artifact detected
+		msg is a WifiDetection message containing info about the artifact detected
 		"""
 
         # decode the type
