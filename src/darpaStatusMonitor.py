@@ -120,3 +120,5 @@ if __name__ == "__main__":
     ros_gui_bridge = DarpaBridge(config_filename)
 
     rospy.spin()
+
+    ros_gui_bridge.shutdownHttpServer()
