@@ -128,8 +128,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * The Signal/Slot triggers should be intialized in the init function? Not outside of it. 
 
-* Remove the FakeWifiDetections message. In there now for legacy reasons (probably not changed on the robots)
-
 * Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs
 
 * RadioMsg and WifiMsg? should be pulled out of this package and placed in another package

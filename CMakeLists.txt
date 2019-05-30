@@ -50,7 +50,6 @@ add_message_files(
    ArtifactSubmissionReply.msg
    ArtifactUpdate.msg
    DarpaStatus.msg
-   FakeWifiDetection.msg
    GuiMessage.msg
    GuiRobCommand.msg
    NineHundredRadioMsg.msg
