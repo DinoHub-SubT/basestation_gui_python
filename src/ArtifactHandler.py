@@ -529,7 +529,7 @@ class ArtifactHandler:
             priority=self.artifact_priorities[1],
             bluetooth_strength=msg.bluetooth_strength,
             audio_strength=msg.audio_strength,
-            time_from_robot=self.time_elapsed,
+            time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
         )
 
         self.bookeepAndPublishNewArtifact(artifact)
@@ -611,7 +611,7 @@ class ArtifactHandler:
             priority=self.artifact_priorities[1],
             bluetooth_strength=msg.bluetooth_strength,
             audio_strength=msg.audio_strength,
-            time_from_robot=self.time_elapsed,
+            time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
         )
 
         self.bookeepAndPublishNewArtifact(artifact)
@@ -1001,6 +1001,20 @@ class ArtifactHandler:
         self.time_elapsed = msg.time_elapsed
         self.score = msg.score
         self.remaining_reports = msg.remaining_reports
+
+    def robotTimeToDarpaTime(self, robot_time):
+        """
+        Convert robot_time (in float seconds) to be aligned to DARPA time.
+
+        If the DARPA time isn't available, the original time is returned.
+        """
+
+        if self.time_elapsed == -1:
+            return robot_time
+
+        current_time = rospy.get_time()
+        time_offset = current_time - self.time_elapsed
+        return robot_time - time_offset
 
     def archiveArtifact(self, msg):
         """

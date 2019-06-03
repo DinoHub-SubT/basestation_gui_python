@@ -281,6 +281,10 @@ class ArtifactQueuePlugin(Plugin):
                 "Drawing on the message panel not guarenteed to be on the proper thread"
             )
 
+        # This seems to happen occasionally, quick hack to avoid it.
+        if self.queue_table.item(row, col) is None:
+            return
+
         if type(data) == str:
             self.queue_table.item(row, col).setText(data)
             self.queue_table.item(row, col).setBackground(
@@ -641,11 +645,8 @@ class ArtifactQueuePlugin(Plugin):
 
 		seconds should be a float
 		"""
-        return (
-            str((int(float(seconds)) / 60))
-            + ":"
-            + str(int(float(seconds) - (int(float(seconds)) / 60) * 60))
-        )
+
+        return "%d:%02d" % divmod(seconds, 60)
 
     def resendArtifactInfo(self):
         """
