@@ -10,9 +10,16 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 
 
 def displaySeconds(seconds):
-    """
-	Function to convert seconds float into a min:sec string
-
-	seconds is a float
-	"""
+    """Function to convert seconds, which should be a float, into a min:sec string."""
     return "%02d:%02d" % (seconds / 60, seconds % 60)
+
+def rgb(r, g, b):
+    return "background-color:rgb({0}, {1}, {2})".format(r, g, b)
+
+class COLORS:
+    GRAY = rgb(126, 126, 126)
+    DARK_GRAY = rgb(100, 100, 100)
+    RED = rgb(220, 0, 0)
+    GREEN = rgb(0, 220, 0)
+    BLUE = rgb(0, 100, 220)
+    ORANGE = rgb(255,130,0)

@@ -6,3 +6,7 @@ uint8 recipient_robot_id
 #int16 x
 #int16 y
 #int16 z
+
+uint8 ESTOP_RESUME=0
+uint8 ESTOP_HARD=1
+uint8 ESTOP_POSITION=2

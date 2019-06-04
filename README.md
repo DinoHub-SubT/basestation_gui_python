@@ -116,10 +116,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 # Known issues / TODO
 
-* Merging in the darpa transform plugin
-
-* Incorporating the DARPA transform functionality
-
 * Resend all artifact info from robot
 
 * Showing the artifact refinement button upon press
@@ -140,24 +136,11 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * Handling bluetooth/audio detections
 
-* Move big red button to the command plugin
 * make constant for getArtifactImage the defines move forward, backward or define the original image
 * Don't deepcopy immutable objects in ArtifactHandler, like when I generate new GuiArtifact objects. 
 * Make a new message type for change update art label message to have delete, update, hide contants, insetad of havign to decode strings. 
-* Change 
-		"exp_params = config['darpa_params']
-		
-		for name in exp_params['artifact_categories']:
-			self.artifact_categories.append(name)""
-
-	to: 
-
-	"self.artifact_categories = exp_params['artifact_categories'] + []"
-
-* Pull CSS colors into some standard place?
 
 * In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
-* In command plugin make commands variables, so we're not doing stuff like "command in ['Resume, 'Resume/Takeoff']"
 
 =======
 # Development

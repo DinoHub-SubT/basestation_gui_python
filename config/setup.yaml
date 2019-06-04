@@ -1,0 +1,78 @@
+---
+
+# The robots section specifies how to configure each robot within the GUI and how
+# it will communicate with the physical robot over the network.  Each robot is a
+# composed of multiple properties where some are required and others are optional.
+# Here is a complete robot example:
+#
+# -
+#    name: [required] Name of the robot.  Doesn't have to be unique but probably
+#          a good idea.
+#
+#    uuid: [required] Unique ID of the robot and once set it should never change.
+#          To generate a UUID open a python prompt and then:
+#              >>> import uuid
+#              >>> str(uuid.uuid4())
+#
+#    executive_id: [required] An unique integer ID that is sent in radio messages
+#                  to robots in order to execute various commands.  This ID is
+#                  assigned by the behavior executive of that particular robot.
+#
+#    has_comms: [optional] Can this robot drop comm nodes?  Influences UI.
+#
+#    is_aerial: [optional] Set to true if the robot is an aerial drone.
+#
+#    max_travel_time: [optional] Set to an integer for the max travel (flight) time
+#                     the robot is allowed to be away from comms.  If not specified
+#                     then the default is 10.
+#
+#    topic_prefix: [required] Name prefix to attach to pub/sub topics.  It would
+#                  wise to have this be unique from other robots.
+#
+#    topics: [required] A dictionary that contains various topics to publish or
+#            subscribe to in the UI.  Each topic will be prefixed by 'topic_prefix'.
+#            Topics is expected to have the following keys.
+#
+#            odometry:    Subscription for the robot's odometry when defining a waypoint.
+#            calibration: Subscription for the robot's odometry when taking a calibration point.
+#            darpa_tf:    Where to publish the DARPA transform after taking a calibration.
+robots:
+  -
+    name: Ground1
+    uuid: df0a06b4-c247-4489-9869-9dedeb2d8b67
+    executive_id: 0
+    has_comms: true
+    max_travel_time: 10
+    topic_prefix: ugv1
+    topics:
+      odometry: integrated_to_map
+      calibration: integrated_to_map
+      darpa_tf: transform
+  -
+    name: Aerial1
+    uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
+    executive_id: 1
+    is_aerial: true
+    max_travel_time: 10
+    topic_prefix: uav1
+    topics:
+      odometry: integrated_to_map
+      calibration: integrated_to_map
+      darpa_tf: transform
+
+
+darpa:
+  auth_bearer_token: 'flux230{showroom'
+  request_info_uri: 'http://api/status/'
+  scoring_uris:
+    - 'http://api/artifact_reports/'
+  artifact_categories:
+    - Backpack
+    - Drill
+    - Fire Extinguisher
+    - Survivor
+    - Cell Phone
+  artifact_priorities:
+    - Low
+    - Med
+    - High

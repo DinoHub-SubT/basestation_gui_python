@@ -1,33 +1,32 @@
 from __future__ import print_function
 
 import os
+import math
 import random
 import datetime
-import uuid
 import json
 import re
 import subprocess
 import rospkg
 import rospy
+import robots
 
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi, QtCore, QtGui, QtWidgets
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Quaternion, Point
 
 
 class Robot(object):
     """
-    Robot provides a structure for the UI to communicate with its controller.  Typically,
-    the UI will create Robot objects when the user clicks the 'Add Robot' button and the
-    view will update the controller to manipulate this structure as necessary.  Explanation
-    of the following fields:
+    Robot provides a structure for the UI to communicate with its controller and has the
+    following fields:
 
     - name
-    Self-explanatory.  Note that names do not need to be unique though it may be confusing
-    if two robots have the same name.
+    Copied from a robots.Robot.
 
     - is_aerial
-    True if the robot is an aerial (drone) robot.
+    True if the robot is an aerial (drone) robot.  Copied from a robots.Robot.
 
     - points
     Number of points saved so far.
@@ -39,7 +38,7 @@ class Robot(object):
 
     - uuid
     A random unique identifier that conforms to the UUID4 specification.  This created
-    once and should never be changed.
+    once and should never be changed.  Copied from a robots.Robot.
 
     - mean_error
     The computed mean error after calibrating the transform matrix.
@@ -47,22 +46,27 @@ class Robot(object):
     - transform:
     A 4x4 matrix that can transform CMU's Subt coordinate frame to DARPA's coordinate
     frame.  The default is the identity matrix.
+
+    - darpa_tf_pub:
+    ROS publisher of where to publish an Odometry message to the robot to utilize
+    the calibrated DARPA transform.
     """
 
-    def __init__(self, name):
-        self.name = name
-        self.is_aerial = False
+    def __init__(self, cfgRobot):
+        self.name = cfgRobot.name
+        self.is_aerial = cfgRobot.is_aerial
         self.points = []
         self.last_save = ""
-        self.uuid = uuid.uuid4()
+        self.uuid = cfgRobot.uuid
         self.mean_error = 0
         self.transform = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        self.darpa_tf_pub = None
 
     def encode_to_json(self):
         """Encode this Robot object into a dictionary that is suitable for JSON encoding."""
         d = dict()
         d["name"] = self.name
-        d["uuid"] = str(self.uuid)
+        d["uuid"] = self.uuid
         d["is_aerial"] = self.is_aerial
         d["points"] = self.points
         d["last_save"] = self.last_save
@@ -70,17 +74,18 @@ class Robot(object):
         d["transform"] = self.transform
         return d
 
-    @staticmethod
-    def decode_from_json(obj):
-        """Decode a dictionary object that was loaded from JSON and return a new Robot object."""
-        r = Robot(obj["name"])
-        r.uuid = uuid.UUID(obj["uuid"])
-        r.is_aerial = obj["is_aerial"]
-        r.points = obj["points"]
-        r.last_save = obj["last_save"]
-        r.mean_error = obj["mean_error"]
-        r.transform = obj["transform"]
-        return r
+    def decode_from_json(self, obj):
+        """
+        Decode a dictionary object that was loaded from JSON and return a new Robot object.
+
+        Note that while all Robot properties are serialized to the JSON file they are not
+        deserialized back into Robot as these properties are already derived from the
+        configuration robots.Robot.
+        """
+        self.points = obj["points"]
+        self.last_save = obj["last_save"]
+        self.mean_error = obj["mean_error"]
+        self.transform = obj["transform"]
 
 
 class Calibration(Plugin):
@@ -114,29 +119,8 @@ class Calibration(Plugin):
     def __init__(self, context):
         super(Calibration, self).__init__(context)
         self.setObjectName("Calibration")
-
-        # Load previously persisted robots.  Note that this is not robust in the sense
-        # that no I/O errors are checked for, exceptions caught, or checked that someone
-        # has tampered with the persisted JSON files in the data directory.  For a program
-        # exposed to a large number of users such protections should be put into place;
-        # however, given that the number of users for the basestation is expected to be
-        # less than five and are trained in its usage, we forego such error checking and
-        # favor simplicity in the implementation.
-        robots = []
-        root = self.robot_dir()
-        for fn in os.listdir(root):
-            if fn.endswith(".json"):
-                path = os.path.join(root, fn)
-                with open(path) as f:
-                    r = Robot.decode_from_json(json.load(f))
-                    robots.append(r)
-
-        self.view = CalibrationView(self, robots)
-        context.add_widget(self.view)
-
-        self.last_pose_ground = None
-        self.last_pose_aerial = None
         self.last_pose_total = None
+        self.last_pose = dict()
 
         def odometry_to_pose(odometry):
             return [
@@ -146,18 +130,45 @@ class Calibration(Plugin):
             ]
 
         # Subscribe callbacks
-        def on_pose_ground(msg):
-            self.last_pose_ground = odometry_to_pose(msg)
+        def make_pose_callback(robot):
+            def on_pose(msg):
+                self.last_pose[robot.uuid] = odometry_to_pose(msg)
 
-        def on_pose_aerial(msg):
-            self.last_pose_aerial = odometry_to_pose(msg)
+            return on_pose
 
         def on_pose_total(msg):
             self.last_pose_total = odometry_to_pose(msg)
 
-        rospy.Subscriber("/ugv1/integrated_to_map", Odometry, on_pose_ground)
-        rospy.Subscriber("/uav1/integrated_to_map", Odometry, on_pose_aerial)
-        rospy.Subscriber("/position", Odometry, on_pose_total)
+        self.subs = [rospy.Subscriber("/position", Odometry, on_pose_total)]
+
+        cal_robots = []
+        root = self.robot_dir()
+        config = robots.Config()
+        for cfg in config.robots:
+            robot = Robot(cfg)
+            name = robot.uuid + ".json"
+            path = os.path.join(root, name)
+            if os.path.exists(path):
+                with open(path) as f:
+                    robot.decode_from_json(json.load(f))
+            else:
+                with open(path, "w") as f:
+                    json.dump(robot.encode_to_json(), f)
+
+            topic = "/{0}/{1}".format(cfg.topic_prefix, cfg.topics["darpa_tf"])
+            robot.darpa_tf_pub = rospy.Publisher(topic, Odometry, queue_size=10)
+
+            topic = "/{0}/{1}".format(cfg.topic_prefix, cfg.topics["calibration"])
+            sub = rospy.Subscriber(topic, Odometry, make_pose_callback(robot))
+            self.subs.append(sub)
+            cal_robots.append(robot)
+
+        self.view = CalibrationView(self, cal_robots)
+        context.add_widget(self.view)
+
+    def shutdown_plugin(self):
+        for s in self.subs:
+            s.unregister()
 
     #################### private methods ####################
     def add_pose(self, robot, pose, total):
@@ -168,13 +179,12 @@ class Calibration(Plugin):
 
     def robot_dir(self):
         """Robot_dir returns the directory where Robot objects are archived."""
-        return os.path.join(
-            rospkg.RosPack().get_path("basestation_gui_python"), "data/calibration"
-        )
+        p = rospkg.RosPack().get_path("basestation_gui_python")
+        return os.path.join(p, "data/calibration")
 
     def robot_filename(self, robot):
         """Robot_filename returns the full file path of where a Robot object should be archived."""
-        return os.path.join(self.robot_dir(), str(robot.uuid) + ".json")
+        return os.path.join(self.robot_dir(), robot.uuid + ".json")
 
     def persist(self, robot):
         """Persist archives _robot_ as json to the path specificed by robot_filename."""
@@ -183,33 +193,19 @@ class Calibration(Plugin):
             json.dump(robot.encode_to_json(), f)
 
     #################### CalibrationView interface methods ####################
-    def new_robot(self, robot):
-        self.persist(robot)
-
     def name_changed(self, robot):
         self.persist(robot)
 
     def on_save(self, robot):
-        have_ground = self.last_pose_ground != None
-        have_aerial = self.last_pose_aerial != None
+        have_pose = self.last_pose.has_key(robot.uuid)
         have_total = self.last_pose_total != None
-        if robot.is_aerial:
-            if have_aerial and have_total:
-                return self.add_pose(robot, self.last_pose_aerial, self.last_pose_total)
-            elif have_aerial:
-                return "Have not received total pose.  No point saved."
-            else:
-                return "Have not received aerial pose.  No point saved."
+        if have_pose and have_total:
+            p = self.last_pose.get(robot.uuid)
+            return self.add_pose(robot, p, self.last_pose_total)
+        elif have_pose:
+            return "Have not received total pose.  No point saved."
         else:
-            if have_ground and have_total:
-                return self.add_pose(robot, self.last_pose_ground, self.last_pose_total)
-            elif have_ground:
-                return "Have not received total pose.  No point saved."
-            else:
-                return "Have not received ground pose.  No point saved."
-
-    def on_delete(self, robot):
-        os.remove(self.robot_filename(robot))
+            return "Have not received robot pose.  No point saved."
 
     def on_reset(self, robot):
         robot.points = []
@@ -221,10 +217,8 @@ class Calibration(Plugin):
         RPKG = rospkg.RosPack()
         ECAL = "entrance_calib"
         if ECAL not in RPKG.list():
-            m = "The ROS '{0}' package was not found in the package list.  Ensure that it is installed and sourced.".format(
-                ECAL
-            )
-            return (True, m)
+            m = "The ROS '{0}' package was not found in the package list.  Ensure that it is installed and sourced."
+            return (True, m.format(ECAL))
         if len(robot.points) < 3:
             # This error was from reading the calibration code and we perform it here in
             # order to get a fast and clear error message to the user.  The drawback is
@@ -336,6 +330,21 @@ class Calibration(Plugin):
         robot.transform[2] = r2
         robot.mean_error = mean_error
         self.persist(robot)
+
+        # The robot accepts transform as a combination of the translation
+        # vector and a quaternion for the rotation.
+        pt = Point(r0[3], r1[3], r2[3])
+        qw = math.sqrt(1.0 + r0[0] + r1[1] + r2[2]) / 2.0
+        qx = (r2[1] - r1[2]) / (4.0 * qw)
+        qy = (r0[2] - r2[0]) / (4.0 * qw)
+        qz = (r1[0] - r0[1]) / (4.0 * qw)
+        qt = Quaternion(qx, qy, qz, qw)
+        tf = Odometry()
+
+        tf.pose.pose.position = pt
+        tf.pose.pose.orientation = qt
+        robot.darpa_tf_pub.publish(tf)
+
         return (False, robot)
 
 
@@ -344,10 +353,9 @@ NAME_COL = 0
 AERIAL_COL = 1
 POINT_COL = 2
 SAVE_COL = 3
-DELETE_COL = 4
-RESET_COL = 5
-TRANS_COL = 6
-TIME_COL = 7
+RESET_COL = 4
+TRANS_COL = 5
+TIME_COL = 6
 
 
 def confirm(title, message):
@@ -369,10 +377,6 @@ class CalibrationView(QtWidgets.QWidget):
     be uploaded to DARPA.  The controller, the second argument to the constructor
     is expected to have the following interface:
 
-    - def new_robot(robot):
-    Called whenever the user adds a new robot to the UI.  A default Robot object
-    is created with a randomly assigned name.
-
     - def name_changed(robot):
     The user at any time may change the name of the robot in the table.  When this
     occurs an object of type Robot is passed to this function and the name property
@@ -384,12 +388,6 @@ class CalibrationView(QtWidgets.QWidget):
     point to the robot's points list, update the last_save field, and return the updated
     robot object.  If an error occurs then a string indicating the error message should
     be returned which will cause an informational dialog to be presented to the user.
-
-    - def on_delete(robot):
-    The user may delete a robot at any time from the table.  They will be first
-    presented with a confirmation dialog and if responding yes the robot in questions
-    will be passed to the function.  There is no response required from the controller
-    as the robot will also be removed from the table.
 
     - def on_reset(robot):
     Whenever the user presses the save button its number of points in the Robot object is
@@ -424,37 +422,16 @@ class CalibrationView(QtWidgets.QWidget):
         loadUi(ui, self, {})
         self.controller = controller
         self.setObjectName("CalibrationView")
-        self.add_robot_button.clicked[bool].connect(self.add_robot_clicked)
         self.robot_table.itemChanged[QtWidgets.QTableWidgetItem].connect(
             self.name_changed
         )
         self.robot_table.setColumnWidth(AERIAL_COL, 60)
         self.robot_table.setColumnWidth(POINT_COL, 60)
         self.robot_table.setColumnWidth(SAVE_COL, 60)
-        self.robot_table.setColumnWidth(DELETE_COL, 65)
         self.robot_table.setColumnWidth(RESET_COL, 60)
         self.robot_table.setColumnWidth(TRANS_COL, 85)
         for r in robots:
             self.add_robot(r)
-
-    def add_robot_clicked(self):
-        n = random.choice(
-            [
-                "Rocket",
-                "Gamora",
-                "Peter",
-                "Drax",
-                "Groot",
-                "Nebula",
-                "Mantis",
-                "Yondu",
-                "Taserface",
-                "Thanos",
-            ]
-        )
-        r = Robot(n)
-        self.add_robot(r)
-        self.controller.new_robot(r)
 
     def add_robot(self, robot):
         tab = self.robot_table
@@ -492,15 +469,6 @@ class CalibrationView(QtWidgets.QWidget):
             if answer == QtWidgets.QMessageBox.Yes:
                 reset()
 
-        def on_delete():
-            answer = confirm(
-                "Remove Robot", "Really delete the robot " + item.robot.name + "?"
-            )
-            if answer == QtWidgets.QMessageBox.Yes:
-                row = self.robot_table.row(item)
-                self.robot_table.removeRow(row)
-                self.controller.on_delete(item.robot)
-
         def on_calibrate():
             (has_err, result) = self.controller.on_calibrate(item.robot)
             if has_err:
@@ -527,14 +495,8 @@ class CalibrationView(QtWidgets.QWidget):
                 msg += row.format(M[3][0], M[3][1], M[3][2], M[3][3])
                 mbox(None, "Calibration Complete", msg)
 
-        def on_aerial_checked(checked):
-            if checked == 0:
-                item.robot.is_aerial = False
-            else:
-                item.robot.is_aerial = True
-            reset()
-
-        checkbox.stateChanged[int].connect(on_aerial_checked)
+        checkbox.setChecked(robot.is_aerial)
+        checkbox.setEnabled(False)
         tab.insertRow(row)
         tab.setItem(row, NAME_COL, item)
         tab.setItem(row, POINT_COL, points)
@@ -544,11 +506,6 @@ class CalibrationView(QtWidgets.QWidget):
             row,
             SAVE_COL,
             self.make_btn("stock_save", "Save pose from station", on_save),
-        )
-        tab.setCellWidget(
-            row,
-            DELETE_COL,
-            self.make_btn("stock_delete", "Delete this robot", on_delete),
         )
         tab.setCellWidget(
             row,

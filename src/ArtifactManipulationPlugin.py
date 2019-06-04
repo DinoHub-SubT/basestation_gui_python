@@ -8,69 +8,43 @@ Contact: Bob DeBortoli (debortor@oregonstate.edu)
 Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebastion or Matt).
 """
-from __future__ import print_function
-
 import rospy
-import rospkg
-from std_msgs.msg import String, Bool
 import threading
-
-from qt_gui.plugin import Plugin
-import python_qt_binding.QtWidgets as qt
-import python_qt_binding.QtCore as core
-import python_qt_binding.QtGui as gui
-
-from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
-from python_qt_binding.QtGui import QColor, QPixmap
-from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+import robots
 
 from functools import partial
-import pdb
-import yaml
+from gui_utils import COLORS
+
+import python_qt_binding.QtWidgets as qt
+import python_qt_binding.QtGui as gui
+
+from qt_gui.plugin import Plugin
+from python_qt_binding.QtCore import Qt
+from python_qt_binding.QtWidgets import QWidget
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage, DarpaStatus, Artifact, ArtifactUpdate
+from basestation_gui_python.msg import GuiMessage, Artifact, ArtifactUpdate
+from std_msgs.msg import String, Bool
 
 
 class ArtifactManipulationPlugin(Plugin):
-
-    focus_on_artifact_trigger = pyqtSignal(
-        object
-    )  # to keep the drawing on the proper thread
+    # to keep the drawing on the proper thread
+    focus_on_artifact_trigger = pyqtSignal(object)
 
     def __init__(self, context):
         super(ArtifactManipulationPlugin, self).__init__(context)
         self.setObjectName("ArtifactManipulationPlugin")
 
-        # get the artifact categories and priorities
-        rospack = rospkg.RosPack()
-        config_filename = (
-            rospack.get_path("basestation_gui_python") + "/config/gui_params.yaml"
-        )
-        config = yaml.load(open(config_filename, "r").read())
-
-        self.artifact_categories, self.artifact_priorities = [], []
-
-        exp_params = config["darpa_params"]
-
-        for name in exp_params["artifact_categories"]:
-            self.artifact_categories.append(name)
-
-        gui_params = config["experiment_params"]
-
-        for name in gui_params["artifact_priorities"]:
-            self.artifact_priorities.append(name)
-
+        config = robots.Config()
+        self.artifact_categories = config.darpa.artifact_categories
+        self.artifact_priorities = config.darpa.artifact_priorities
         self.artifact_id_displayed = None
-
         # if we're also simulating the darpa command post
         self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
 
-        self.initPanel(context)  # layout plugin
-
+        self.initPanel(context)
         self.focus_on_artifact_trigger.connect(self.focusOnArtifactMonitor)
 
-        # setup subscribers/publishers
         self.update_artifact_info_pub = rospy.Publisher(
             "/gui/update_artifact_info", ArtifactUpdate, queue_size=10
         )  # for if we get more info from robot
@@ -89,11 +63,7 @@ class ArtifactManipulationPlugin(Plugin):
         )  # disable sequence if something happened in another plugin
 
     def initPanel(self, context):
-        """
-		Initialize the panel for displaying widgets
-		"""
-
-        # define the overall widget
+        """Initialize the panel for displaying widgets."""
         self.artmanip_widget = QWidget()
         self.artmanip_layout = qt.QGridLayout()
 
@@ -210,12 +180,12 @@ class ArtifactManipulationPlugin(Plugin):
 
         self.darpa_button = qt.QPushButton("To DARPA")
         self.darpa_button.clicked.connect(partial(self.decideArtifact))
-        self.darpa_button.setStyleSheet("background-color:rgb(255,130,0)")
+        self.darpa_button.setStyleSheet(COLORS.ORANGE)
         self.artmanip_layout.addWidget(self.darpa_button, 8, 0, 1, 3)
 
         self.darpa_confirm_button = qt.QPushButton("Confirm")
         self.darpa_confirm_button.clicked.connect(partial(self.proposeArtifact))
-        self.darpa_confirm_button.setStyleSheet("background-color:rgb(100, 100, 100)")
+        self.darpa_confirm_button.setStyleSheet(COLORS.DARK_GRAY)
         self.darpa_confirm_button.setEnabled(False)
         self.artmanip_layout.addWidget(self.darpa_confirm_button, 9, 2)
 
@@ -223,7 +193,7 @@ class ArtifactManipulationPlugin(Plugin):
         self.darpa_cancel_button.clicked.connect(
             partial(self.cancelProposal, Bool(True))
         )
-        self.darpa_cancel_button.setStyleSheet("background-color:rgb(100, 100, 100)")
+        self.darpa_cancel_button.setStyleSheet(COLORS.DARK_GRAY)
         self.darpa_cancel_button.setEnabled(False)
         self.artmanip_layout.addWidget(self.darpa_cancel_button, 9, 0)
 
@@ -236,69 +206,49 @@ class ArtifactManipulationPlugin(Plugin):
 
     def updateArtifactPose(self, element):
         """
-		Update the artifact's pose after the line edit box contents have been changed
+        Update the artifact's pose after the line edit box contents have been changed
 
-		element defines which element i the pose we update
-			0 is x
-			1 is y
-			2 is z
-		"""
-
+        element defines which element i the pose we update
+                0 is x
+                1 is y
+                2 is z
+        """
         if self.artifact_id_displayed != None:  # we're actually displaying an artifact
-
             msg = ArtifactUpdate()
-
             msg.unique_id = self.artifact_id_displayed
-
             if element == 0:
                 msg.update_type = ArtifactUpdate.PROPERTY_POSE_X
                 msg.curr_pose.position.x = float(self.art_pos_textbox_x.text())
-
             elif element == 1:
                 msg.update_type = ArtifactUpdate.PROPERTY_POSE_Y
                 msg.curr_pose.position.y = float(self.art_pos_textbox_y.text())
-
             elif element == 2:
                 msg.update_type = ArtifactUpdate.PROPERTY_POSE_Z
                 msg.curr_pose.position.z = float(self.art_pos_textbox_z.text())
-
             else:
                 update_msg = GuiMessage()
                 update_msg.data = "We received an update to artifact pose with unknown indice (should be 0, 1, or 2). Artifact not updated"
                 update_msg.color = update_msg.COLOR_RED
                 self.message_pub.publish(update_msg)
-
                 return
-
             self.update_artifact_info_pub.publish(msg)
 
     def updateArtifactCat(self):
-        """
-		Change the artifact category after the combox box has been changed
-		"""
-
+        """Change the artifact category after the combox box has been changed."""
         if self.artifact_id_displayed != None:  # we're actually displaying an artifact
-
             msg = ArtifactUpdate()
-
             msg.unique_id = self.artifact_id_displayed
             msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
             msg.category = self.darpa_cat_box.currentText()
-
             self.update_artifact_info_pub.publish(msg)
 
     def updateArtifactPriority(self):
-        """
-		Change the artifact priority after the combo box has been changed
-		"""
+        """Change the artifact priority after the combo box has been changed."""
         if self.artifact_id_displayed != None:  # we're actually displaying an artifact
-
             msg = ArtifactUpdate()
-
             msg.unique_id = self.artifact_id_displayed
             msg.update_type = ArtifactUpdate.PROPERTY_PRIORITY
             msg.priority = self.artifact_priority_box.currentText()
-
             self.update_artifact_info_pub.publish(msg)
 
     ############################################################################################
@@ -307,9 +257,9 @@ class ArtifactManipulationPlugin(Plugin):
 
     def decideArtifact(self):
         """
-		If we're displaying an artifact, unlock the Confirm/Cancel buttons which will
-		eventually allow us to submit an artifact to DARPA
-		"""
+        If we're displaying an artifact, unlock the Confirm/Cancel buttons which will
+        eventually allow us to submit an artifact to DARPA.
+        """
         if self.artifact_id_displayed == None:
             update_msg = GuiMessage()
             update_msg.data = (
@@ -317,17 +267,13 @@ class ArtifactManipulationPlugin(Plugin):
             )
             update_msg.color = update_msg.COLOR_ORANGE
             self.message_pub.publish(update_msg)
-
         elif self.connect_to_command_post:
-
             # enable the confirm and cancel buttons
             self.darpa_confirm_button.setEnabled(True)
             self.darpa_cancel_button.setEnabled(True)
-
             # color the buttons appropriately
-            self.darpa_confirm_button.setStyleSheet("background-color:rgb(0,220,0)")
-            self.darpa_cancel_button.setStyleSheet("background-color:rgb(220,0,0)")
-
+            self.darpa_confirm_button.setStyleSheet(COLORS.GREEN)
+            self.darpa_cancel_button.setStyleSheet(COLORS.RED)
         else:
             update_msg = GuiMessage()
             update_msg.data = (
@@ -337,27 +283,17 @@ class ArtifactManipulationPlugin(Plugin):
             self.message_pub.publish(update_msg)
 
     def proposeArtifact(self):
-        """
-		Propose an artifact to DARPA 
-		"""
-
+        """Propose an artifact to DARPA."""
         if self.artifact_id_displayed != None:
-
             msg = String()
             msg.data = self.artifact_id_displayed
-
             self.submit_pub.publish(msg)
 
             # reset the darpa proposal buttons
             self.darpa_confirm_button.setEnabled(False)
             self.darpa_cancel_button.setEnabled(False)
-
-            self.darpa_confirm_button.setStyleSheet(
-                "background-color:rgb(126, 126, 126)"
-            )
-            self.darpa_cancel_button.setStyleSheet(
-                "background-color:rgb(126, 126, 126)"
-            )
+            self.darpa_confirm_button.setStyleSheet(COLORS.GRAY)
+            self.darpa_cancel_button.setStyleSheet(COLORS.GRAY)
 
             # clear the various boxes
             self.orig_pos_label_x.setText("")
@@ -373,25 +309,19 @@ class ArtifactManipulationPlugin(Plugin):
 
     def cancelProposal(self, msg):
         """
-		Cancel an artifact proposal, which simply amounts to disabling 
-		the confirm/cancel buttons. Can be called from a button press
-		or when we select another artifact from the queue, these buttons
-		should de-activate
+        Cancel an artifact proposal, which simply amounts to disabling
+        the confirm/cancel buttons. Can be called from a button press
+        or when we select another artifact from the queue, these buttons
+        should de-activate
 
-		msg is a Bool, should always be true
-		"""
-
+        msg is a Bool, should always be true
+        """
         if msg.data == True:
             # reset the darpa proposal buttons
             self.darpa_confirm_button.setEnabled(False)
             self.darpa_cancel_button.setEnabled(False)
-
-            self.darpa_confirm_button.setStyleSheet(
-                "background-color:rgb(126, 126, 126)"
-            )
-            self.darpa_cancel_button.setStyleSheet(
-                "background-color:rgb(126, 126, 126)"
-            )
+            self.darpa_confirm_button.setStyleSheet(COLORS.GRAY)
+            self.darpa_cancel_button.setStyleSheet(COLORS.GRAY)
 
     ############################################################################################
     # Functions for changing various widget's values based ont he artifact we just selected
@@ -399,27 +329,21 @@ class ArtifactManipulationPlugin(Plugin):
     ############################################################################################
 
     def focusOnArtifact(self, msg):
-        """
-		For proper threading. See function below.
-		"""
+        """For proper threading. See function below."""
         self.focus_on_artifact_trigger.emit(msg)
 
     def focusOnArtifactMonitor(self, msg):
         """
-		Update the information displayed for manipulating re artifact (position, category, etc.)
+        Update the information displayed for manipulating re artifact (position, category, etc.)
 
-		msg is custom msg type Artifact
-		"""
-        # check that threading is working properly
+        msg is custom msg type Artifact
+        """
         if not isinstance(threading.current_thread(), threading._MainThread):
-            print(
-                "Drawing on the message panel not guarented to be on the proper thread"
-            )
+            rospy.logerr("[Artifact Manipulation] Not rendering on main thread.")
 
         self.artifact_id_displayed = msg.unique_id
 
         # change the original and refined positions
-
         self.orig_pos_label_x.setText(str(round(msg.orig_pose.position.x, 1)))
         self.orig_pos_label_y.setText(str(round(msg.orig_pose.position.y, 1)))
         self.orig_pos_label_z.setText(str(round(msg.orig_pose.position.z, 1)))
@@ -430,41 +354,39 @@ class ArtifactManipulationPlugin(Plugin):
 
         # change the priority
         priority_ind = self.artifact_priority_box.findText(
-            msg.priority, core.Qt.MatchFixedString
+            msg.priority, Qt.MatchFixedString
         )
-
         if priority_ind >= 0:
             self.artifact_priority_box.setCurrentIndex(priority_ind)
 
         # change the category
         category_ind = self.darpa_cat_box.findText(
-            msg.category, core.Qt.MatchFixedString
+            msg.category, Qt.MatchFixedString
         )
-
         if category_ind >= 0:
             self.darpa_cat_box.setCurrentIndex(category_ind)
 
         # publish that stuff has changed, so the handler can keep track of stuff
         # the normal publisher doesn't necessarily work because the artifact_id_displayed
         # may not necessarily have been pressed
-        art_update_msg = ArtifactUpdate()
-        art_update_msg.unique_id = self.artifact_id_displayed
+        au = ArtifactUpdate()
+        au.unique_id = self.artifact_id_displayed
 
-        art_update_msg.update_type = ArtifactUpdate.PROPERTY_POSE_X
-        art_update_msg.curr_pose.position.x = float(self.art_pos_textbox_x.text())
-        self.update_artifact_info_pub.publish(art_update_msg)
+        au.update_type = ArtifactUpdate.PROPERTY_POSE_X
+        au.curr_pose.position.x = float(self.art_pos_textbox_x.text())
+        self.update_artifact_info_pub.publish(au)
 
-        art_update_msg.update_type = ArtifactUpdate.PROPERTY_POSE_Y
-        art_update_msg.curr_pose.position.y = float(self.art_pos_textbox_y.text())
-        self.update_artifact_info_pub.publish(art_update_msg)
+        au.update_type = ArtifactUpdate.PROPERTY_POSE_Y
+        au.curr_pose.position.y = float(self.art_pos_textbox_y.text())
+        self.update_artifact_info_pub.publish(au)
 
-        art_update_msg.update_type = ArtifactUpdate.PROPERTY_POSE_Z
-        art_update_msg.curr_pose.position.z = float(self.art_pos_textbox_z.text())
-        self.update_artifact_info_pub.publish(art_update_msg)
+        au.update_type = ArtifactUpdate.PROPERTY_POSE_Z
+        au.curr_pose.position.z = float(self.art_pos_textbox_z.text())
+        self.update_artifact_info_pub.publish(au)
 
-        art_update_msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
-        art_update_msg.category = self.darpa_cat_box.currentText()
-        self.update_artifact_info_pub.publish(art_update_msg)
+        au.update_type = ArtifactUpdate.PROPERTY_CATEGORY
+        au.category = self.darpa_cat_box.currentText()
+        self.update_artifact_info_pub.publish(au)
 
     ############################################################################################
     # Misc. functions
@@ -474,6 +396,5 @@ class ArtifactManipulationPlugin(Plugin):
         pass
 
     def shutdown_plugin(self):
-        # TODO unregister all publishers here
         self.refresh_sub.unregister()
         self.disable_sequence_sub.unregister()
