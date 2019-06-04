@@ -8,6 +8,7 @@ uint8 PROPERTY_PRIORITY = 1
 uint8 PROPERTY_POSE_X = 2
 uint8 PROPERTY_POSE_Y = 3
 uint8 PROPERTY_POSE_Z = 4
+uint8 PROPERTY_UNREAD = 5
 
 string category
 geometry_msgs/Pose curr_pose

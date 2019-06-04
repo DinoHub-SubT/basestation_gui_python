@@ -42,7 +42,7 @@ class ArtifactQueuePlugin(Plugin):
 
     queue_trigger = pyqtSignal(object)  # to keep the drawing on the proper thread
     archive_artifact_trigger = pyqtSignal()
-    update_table_trigger = pyqtSignal(object, object, object)
+    update_table_trigger = pyqtSignal(object)
     submit_all_artifacts_trigger = pyqtSignal()
     remove_artifact_fom_queue_trigger = pyqtSignal(object)
 
@@ -76,12 +76,17 @@ class ArtifactQueuePlugin(Plugin):
 
         self.column_headers = [
             "Robot\nNum",
-            "Priority",
             "Detect\nTime",
             "   Category   ",
             "Unread",
             "Unique ID",
         ]
+
+        self.col_robot_num = 0
+        self.col_time = 1
+        self.col_category = 2
+        self.col_unread = 3
+        self.col_unique_id = 4
 
         self.initPanel(context)  # layout plugin
 
@@ -123,7 +128,7 @@ class ArtifactQueuePlugin(Plugin):
             "/gui/artifact_to_queue", Artifact, self.addArtifactToQueue
         )  # some plugin wants us to add an artifact
         self.update_sub = rospy.Subscriber(
-            "/gui/update_artifact_in_queue", ArtifactUpdate, self.updateArtifactInQueue
+            "/gui/update_artifact_in_queue", ArtifactUpdate, self.updateQueueTable
         )  # an artifact's property has changed. just update the queue accordingly
         self.remove_sub = rospy.Subscriber(
             "/gui/remove_artifact_from_queue", String, self.removeArtifactFromQueue
@@ -213,7 +218,7 @@ class ArtifactQueuePlugin(Plugin):
             self.column_headers
         )  # make the column headers
 
-        self.queue_table.setColumnHidden(5, True)  # hide the unique_id
+        self.queue_table.setColumnHidden(self.col_unique_id, True)  # hide the unique_id
         self.queue_table.setSortingEnabled(True)  # make sortable
 
         # add click listener
@@ -229,50 +234,17 @@ class ArtifactQueuePlugin(Plugin):
     # Functions dealing with updating artifacts in the queue
     ############################################################################################
 
-    def updateArtifactInQueue(self, msg):
-        """
-		Find the element in the table we need to updsate. 
-
-		msg is of type ArtifactUpdate containing the info to be changed
-		"""
-
-        artifact_row = None
-        for row in range(self.queue_table.rowCount()):
-            if self.queue_table.item(row, 5).text() == msg.unique_id:
-                artifact_row = row
-                break
-
-        if artifact_row is not None:
-            if msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY:
-                self.updateQueueTable(row, 3, msg.category)
-
-            elif msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY:
-                self.updateQueueTable(row, 1, msg.priority)
-
-            else:
-                update_msg = GuiMessage()
-                update_msg.data = "We received an update message of unknown type or of type pose. Artifact queue not updated"
-                update_msg.color = update_msg.COLOR_RED
-                self.message_pub.publish(update_msg)
-
-        else:  # we never found an artifact with the same id in the queue
-            update_msg = GuiMessage()
-            update_msg.data = "Could not find artifact with proper unique_id in table. Artifact not updated in queue"
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
-
-    def updateQueueTable(self, row, col, data):
+    def updateQueueTable(self, msg):
         """
 		For proper threading. See function below. 
 		"""
-        self.update_table_trigger.emit(row, col, data)
+        self.update_table_trigger.emit(msg)
 
-    def updateQueueTableMonitor(self, row, col, data):
+    def updateQueueTableMonitor(self, msg):
         """
 		Update an element in the queue table
 
-		row, col define the coordinate of what we're updating. 
-		data is the value (string) that we need to set that cell to
+		msg is of type ArtifactUpdate containing the info to be changed
 		"""
 
         # check that threading is working properly
@@ -281,11 +253,59 @@ class ArtifactQueuePlugin(Plugin):
                 "Drawing on the message panel not guarenteed to be on the proper thread"
             )
 
-        if type(data) == str:
+        # find the artifact row
+        row = None
+        for potential_row in range(self.queue_table.rowCount()):
+            if (
+                self.queue_table.item(potential_row, self.col_unique_id).text()
+                == msg.unique_id
+            ):
+                row = potential_row
+                break
+
+        if row is None:
+            update_msg = GuiMessage()
+            update_msg.data = "Could not find artifact with proper unique_id in table. Artifact not updated in queue"
+            update_msg.color = update_msg.COLOR_RED
+            self.message_pub.publish(update_msg)
+
+            return
+
+        # determine the column to update and the data to update it with
+        if msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY:
+            col, data = self.col_category, msg.category
+
+        # elif msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY:
+        #     col, data = 1, msg.priority
+
+        elif msg.update_type == ArtifactUpdate.PROPERTY_UNREAD:
+            col, data = self.col_unread, ""
+
+        else:
+            update_msg = GuiMessage()
+            update_msg.data = "We received an update message of unknown type or of type pose. Artifact queue not updated"
+            update_msg.color = update_msg.COLOR_RED
+            self.message_pub.publish(update_msg)
+            return
+
+        # actually go and change the appropriate cell in the table
+        if (
+            row > self.queue_table.rowCount() or col > self.queue_table.columnCount()
+        ) and type(data) == str:
+
+            update_msg = GuiMessage()
+            update_msg.data = "Something got misaligned in the artifact queue table and we are trying to update a cell that no longer exists. Artifact queue not updated."
+            update_msg.color = update_msg.COLOR_RED
+            self.message_pub.publish(update_msg)
+            return
+
+        elif type(data) == str:
+
             self.queue_table.item(row, col).setText(data)
+
             self.queue_table.item(row, col).setBackground(
                 gui.QColor(255, 255, 255)
-            )  # to rem0ve the green background if its the unread element
+            )  # to remove the green background if its the unread element
 
         else:
             msg = GuiMessage()
@@ -330,7 +350,7 @@ class ArtifactQueuePlugin(Plugin):
         else:
             msg = String()
             for row in rows_selected:
-                msg.data = self.queue_table.item(row, 5).text()
+                msg.data = self.queue_table.item(row, self.col_unique_id).text()
                 self.duplicate_pub.publish(msg)
 
     def archiveArtifact(self):
@@ -400,16 +420,19 @@ class ArtifactQueuePlugin(Plugin):
         ):  # needs to in reverse order so we don't try to access a row that no longer exists
 
             # if we're archiving something we're viewing, reset the id we're viewing
-            if self.queue_table.item(row, 5).text() == self.displayed_artifact_id:
+            if (
+                self.queue_table.item(row, self.col_unique_id).text()
+                == self.displayed_artifact_id
+            ):
                 self.displayed_artifact_id = None
 
             # delete it from the ArtifactHandler book-keeping
-            handler_msg.data = self.queue_table.item(row, 5).text()
+            handler_msg.data = self.queue_table.item(row, self.col_unique_id).text()
             self.archive_artifact_pub.publish(handler_msg)  # only send the unique ID
 
             # delete it from the queue table
             msg = String()
-            msg.data = self.queue_table.item(row, 5).text()
+            msg.data = self.queue_table.item(row, self.col_unique_id).text()
             self.removeArtifactFromQueue(msg)
 
             # reset the confirm/cancel buttons
@@ -458,7 +481,7 @@ class ArtifactQueuePlugin(Plugin):
         msg = String()
 
         for row in range(self.queue_table.rowCount()):
-            msg.data = self.queue_table.item(row, 5).text()
+            msg.data = self.queue_table.item(row, self.col_unique_id).text()
             self.artifact_submit_pub.publish(msg)
 
         # remove all of the rows from the table
@@ -495,9 +518,8 @@ class ArtifactQueuePlugin(Plugin):
 
         # find the artifact in the queue table
         for row in range(self.queue_table.rowCount()):
-            # print self.queue_table.item(row,5).text(), msg.data
 
-            if self.queue_table.item(row, 5).text() == msg.data:
+            if self.queue_table.item(row, self.col_unique_id).text() == msg.data:
                 update_msg = GuiMessage()
 
                 update_msg.data = "Artifact removed from table:" + str(msg.data)
@@ -505,7 +527,9 @@ class ArtifactQueuePlugin(Plugin):
                 self.message_pub.publish(update_msg)
 
                 # delete it from the queue table
-                self.queue_table.removeRow(self.queue_table.item(row, 0).row())
+                self.queue_table.removeRow(
+                    self.queue_table.item(row, self.col_unique_id).row()
+                )
 
                 return
 
@@ -546,18 +570,16 @@ class ArtifactQueuePlugin(Plugin):
         # generate the display time
         disp_time = self.displaySeconds(msg.time_from_robot)
 
-        row_data = [
-            msg.source_robot_id,
-            msg.priority,
-            disp_time,
-            msg.category,
-            "!",
-            msg.unique_id,
-        ]
+        row_data = ["--"] * self.queue_table.columnCount()
+        row_data[self.col_robot_num] = msg.source_robot_id
+        row_data[self.col_time] = disp_time
+        row_data[self.col_category] = msg.category
+        row_data[self.col_unread] = "!"
+        row_data[self.col_unique_id] = msg.unique_id
 
         for col, val in enumerate(row_data):
 
-            if col == 2:
+            if col == self.col_time:
                 colon = disp_time.find(":")
                 val = float(disp_time[:colon]) * 60 + float(disp_time[colon + 1 :])
                 item = NumericItem(str(disp_time))
@@ -570,7 +592,7 @@ class ArtifactQueuePlugin(Plugin):
             self.queue_table.setItem(row, col, item)
 
         # color the unread green
-        self.queue_table.item(row, 4).setBackground(gui.QColor(0, 255, 0))
+        self.queue_table.item(row, self.col_unread).setBackground(gui.QColor(0, 255, 0))
 
         for i in range(
             self.queue_table.columnCount()
@@ -614,15 +636,14 @@ class ArtifactQueuePlugin(Plugin):
         # select the whole row. for visualization mostly
         self.queue_table.selectRow(row)
 
-        # remove the unread indicator from the last column
-        self.updateQueueTable(row, 4, "")
-
         # so we know what's currently being displayed
-        self.displayed_artifact_id = self.queue_table.item(row, 5).text()
+        self.displayed_artifact_id = self.queue_table.item(
+            row, self.col_unique_id
+        ).text()
 
         # publish that we have selected this artifact
         msg = String()
-        msg.data = self.queue_table.item(row, 5).text()
+        msg.data = self.displayed_artifact_id
         self.focus_on_artifact_pub.publish(msg)
 
         # remove the artifact update message from the image visualizer plugin
@@ -634,6 +655,12 @@ class ArtifactQueuePlugin(Plugin):
         # dectivate the proper buttons in the manipulation panel, we're viewing another artifact,
         # so restart the Confirm/Cancel sequence.
         self.restart_manip_plugin_pub.publish(Bool(True))
+
+        # remove the unread indicator from the last column
+        msg = ArtifactUpdate()
+        msg.unique_id = self.displayed_artifact_id
+        msg.update_type = ArtifactUpdate.PROPERTY_UNREAD
+        self.updateQueueTable(msg)
 
     def displaySeconds(self, seconds):
         """
@@ -659,8 +686,8 @@ class ArtifactQueuePlugin(Plugin):
         # TODO unregister all publishers here
         self.submit_from_manip_sub.unregister()
         self.queue_sub.unregister()
-        self.update_sub.unregister()
         self.remove_sub.unregister()
+        self.update_sub.unregister()
 
 
 class NumericItem(qt.QTableWidgetItem):

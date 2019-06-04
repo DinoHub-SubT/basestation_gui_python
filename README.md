@@ -116,48 +116,48 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 # Known issues / TODO
 
-* Merging in the darpa transform plugin
+* (D+V+B) Take out /ugv1/real_artifact_imgs hardcoded topic in the ArtifactHandler and think of some naming convention. More generally, defining a naming convention for topic types w.r.t. artifact detection. 
 
-* Incorporating the DARPA transform functionality
+* (D) Saving/loading of gui from CSV. In case the gui crashes, we want to be able to load from a saved .csv or something like that. Either load from button press or tab on top 
 
-* Resend all artifact info from robot
+* (B) Fix NoneType issue in artifact queue
 
-* Showing the artifact refinement button upon press
+* (B) Inherit from the base class?
 
-* If you close the artifact queue, that info will be out of sync with the artifact handler
+* (D) Integrating of darpa transform into gui
 
-* The Signal/Slot triggers should be intialized in the init function? Not outside of it. 
+* (B) Clean up branches on basestation_gui_python package
 
-* Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs
+* (B) Make constant for getArtifactImage the defines move forward, backward or define the original image
 
-* RadioMsg and WifiMsg? should be pulled out of this package and placed in another package
+* (B) Make a new message type for change update art label message to have delete, update, hide constants, insetad of havign to decode strings. 
 
-* Some node that continually saves the gui state and can be loaded from a dedicated plugin (or button or tab from the top)
+* (D) Move big red button to the command plugin
 
-* For a given artifact, when it receives a WiFi update with images, the artifact's detection image list is completely overwritten for every received message. Will need to coordinate with Vasu to decide best way to fix this. We should fix this to avoid bandwidth issues. 
+* (D+V) For a given artifact, when it receives a WiFi update with images, the artifact's detection image list is completely overwritten for every received message. Will need to coordinate with Vasu to decide best way to fix this. We should fix this to avoid bandwidth issues.
 
-* Take out /ugv1/real_artifact_imgs hardcoded topic i the ArtifactHandler and think of some naming convention
+* (D) Convert functionality for artifact refinement marker from old gui to modularized gui
 
-* Handling bluetooth/audio detections
+* (D) Artifacts, upon pressing "submit" are deleted from the queue. This could be a problem if, for example, the artifact tries to be submitted and the connection to the command post breaks. This artifact is then effectively "lost". It sits in the ArtifactHandler archived. It might be best to only delete from the table once the confirmation from darpa comes back? If the unique_id is still persisitent. Otherwise some other solution. 
 
-* Move big red button to the command plugin
-* make constant for getArtifactImage the defines move forward, backward or define the original image
-* Don't deepcopy immutable objects in ArtifactHandler, like when I generate new GuiArtifact objects. 
-* Make a new message type for change update art label message to have delete, update, hide contants, insetad of havign to decode strings. 
-* Change 
-		"exp_params = config['darpa_params']
-		
-		for name in exp_params['artifact_categories']:
-			self.artifact_categories.append(name)""
+** This is, depending on how you look at it, an effect of a bigger problem: if you close the artifact queue, that info will be out of sync with the artifact handler. some way to refresh with artifacthandler info? Either by button press or maybe automatically at 1Hz or so
 
-	to: 
+* (D) Pull out radio and wifi messages into some other more lightweight and ubiquitous package in order to all them to have the messag without installing the entire basestation package
 
-	"self.artifact_categories = exp_params['artifact_categories'] + []"
+* (D+V) Handling bluetooth/audio detections
 
-* Pull CSS colors into some standard place?
+* (D+B) Completely remove artifact priority functionality from the gui (right now lines displaying this information are just commented out)
 
-* In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
-* In command plugin make commands variables, so we're not doing stuff like "command in ['Resume, 'Resume/Takeoff']"
+* (Unassigned) The Signal/Slot triggers should be intialized in the init function? Not outside of it. 
+
+* (Unassigned) Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs 
+
+* (Unassigned) Don't deepcopy immutable objects in ArtifactHandler, like when new GuiArtifact objects are generated. 
+
+* (Unassigned) Pull CSS colors into some standard place?
+
+* (Unassigned) In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
+
 
 =======
 # Development

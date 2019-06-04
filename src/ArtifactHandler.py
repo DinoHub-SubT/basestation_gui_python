@@ -29,15 +29,19 @@ import rospkg
 import yaml
 import cv2
 import time
+from base_py import BaseNode
 
 
-class ArtifactHandler:
+class ArtifactHandler(BaseNode):
     """
 	Class that keeps track of artifacts and contains utility functions
 	to make new ones, delete artifacts, etc.
 	"""
 
     def __init__(self):
+        super(ArtifactHandler, self).__init__("ArtifactHandler")
+
+    def initialize(self):
         self.all_artifacts = {}  # dictionary of artifacts, indexed by unique_id
         self.queued_artifacts = {}  # dictionary of artifacts currently in the queue
         self.displayed_artifact_id = (
@@ -180,8 +184,10 @@ class ArtifactHandler:
             "/uav1/real_artifact_detections", RadioMsg, self.handleRadioDetection
         )
 
+        return True
+
     ##############################################################################
-    # Functions to handle detections fromt he robots over wifi or radio
+    # Functions to handle detections from the robots over wifi or radio
     ##############################################################################
 
     def handleWifiDetection(self, msg):
@@ -388,8 +394,8 @@ class ArtifactHandler:
         else:
 
             if msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY:
-                artifact.category = msg.category
 
+                artifact.category = msg.category
                 self.displayed_category = artifact.category
 
                 # change the value in the artifact queue
@@ -1046,6 +1052,12 @@ class ArtifactHandler:
         # add the artifact to the queue
         self.to_queue_pub.publish(ros_msg)
 
+    def execute(self):
+        return True
+
+    def shutdown(self):
+        rospy.loginfo("ArtifactHandler shutting down")
+
 
 class GuiArtifact:
     """
@@ -1097,6 +1109,9 @@ class GuiArtifact:
 
 if __name__ == "__main__":
     time.sleep(0.5)  # give the gui time to launch and setup the proper subscribers
-    rospy.init_node("artifact_handler", anonymous=True)
-    ArtifactHandler()
-    rospy.spin()
+    # rospy.init_node("artifact_handler", anonymous=True)
+    # ArtifactHandler()
+    # rospy.spin()
+
+    node = ArtifactHandler()
+    node.run()
