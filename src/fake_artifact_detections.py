@@ -68,7 +68,7 @@ class FakePublisher:
 
         # publish artifact_reports first
 
-        if self.num_pubbed < self.total_num_to_pub * 0.4:
+        if self.num_pubbed < self.total_num_to_pub * 0.2:
             # print "new artifact", time.time()
             self.pubArtifactReport(update=False)
 

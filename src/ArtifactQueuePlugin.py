@@ -22,7 +22,12 @@ from PyQt5.QtCore import pyqtSignal
 
 from gui_utils import displaySeconds, COLORS
 from std_msgs.msg import String, Bool
-from basestation_gui_python.msg import GuiMessage, Artifact, ArtifactUpdate
+from basestation_gui_python.msg import (
+    GuiMessage,
+    Artifact,
+    ArtifactUpdate,
+    ArtifactVisualizerUpdate,
+)
 
 
 class ArtifactQueuePlugin(Plugin):
@@ -51,7 +56,7 @@ class ArtifactQueuePlugin(Plugin):
         self.col_unread = 3
         self.col_unique_id = 4
 
-        self.initPanel(context)  
+        self.initPanel(context)
 
         self.queue_trigger.connect(self.addArtifactToQueueMonitor)
         self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
@@ -81,7 +86,7 @@ class ArtifactQueuePlugin(Plugin):
             "/gui/focus_on_artifact", String, queue_size=10
         )  # publish the artifact id we selected
         self.update_label_pub = rospy.Publisher(
-            "/gui/update_art_label", String, queue_size=10
+            "/gui/update_art_label", ArtifactVisualizerUpdate, queue_size=10
         )  # update image update panel to indicate change to artifact
         self.restart_manip_plugin_pub = rospy.Publisher(
             "/gui/disable_confirm_cancel_manip_plugin", Bool, queue_size=10
@@ -394,13 +399,13 @@ class ArtifactQueuePlugin(Plugin):
 
         if msg.data == self.displayed_artifact_id:
             # We're trying to delete something we're currently viewing.
-            m = String()
-            m.data = "Artifact deleted"
+            m = ArtifactVisualizerUpdate()
+            m.data = ArtifactVisualizerUpdate.DELETE
             self.update_label_pub.publish(m)
         # Find the artifact in the queue table for removal.
         for row in range(self.queue_table.rowCount()):
             if self.queue_table.item(row, self.col_unique_id).text() == msg.data:
-                
+
                 m = GuiMessage()
                 m.data = "Artifact removed:" + str(msg.data)
                 m.color = m.COLOR_GREEN
@@ -505,8 +510,8 @@ class ArtifactQueuePlugin(Plugin):
 
         # remove the artifact update message from the image visualizer plugin
         # if it is still visible
-        msg = String()
-        msg.data = "hide"
+        msg = ArtifactVisualizerUpdate()
+        msg.data = ArtifactVisualizerUpdate.HIDE
         self.update_label_pub.publish(msg)
 
         # dectivate the proper buttons in the manipulation panel, we're viewing another artifact,
@@ -518,7 +523,6 @@ class ArtifactQueuePlugin(Plugin):
         msg.unique_id = self.displayed_artifact_id
         msg.update_type = ArtifactUpdate.PROPERTY_UNREAD
         self.updateQueueTable(msg)
-
 
     def shutdown_plugin(self):
         self.submit_from_manip_sub.unregister()

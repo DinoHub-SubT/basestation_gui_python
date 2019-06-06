@@ -15,9 +15,15 @@ import robots
 from basestation_gui_python.msg import DarpaStatus
 from darpa_command_post.TeamClient import TeamClient
 
+from base_py import BaseNode
 
-class DarpaBridge:
+
+class DarpaBridge(BaseNode):
     def __init__(self):
+        super(DarpaBridge, self).__init__("DarpaBridge")
+
+    def initialize(self):
+
         darpa = robots.Config().darpa
 
         self.auth_bearer_token = darpa.auth_bearer_token
@@ -41,6 +47,8 @@ class DarpaBridge:
                 "/gui/darpa_status", DarpaStatus, queue_size=10
             )
 
+        return True
+
     def getStatus(self):
         """
 	Function that calls the http code to get the status and published to appropriate ros topic
@@ -63,10 +71,17 @@ class DarpaBridge:
         self.get_status_thread.cancel()
         self.http_client.exit()
 
+    def execute(self):
+        return True
+
+    def shutdown(self):
+        self.shutdownHttpServer()
+        rospy.loginfo("DarpaBridge node shutting down")
+
 
 if __name__ == "__main__":
-    rospy.init_node("darpa_status_node", anonymous=True)
-    ros_gui_bridge = DarpaBridge()
-    rospy.spin()
+    # rospy.init_node("darpa_status_node", anonymous=True)
+    node = DarpaBridge()
+    node.run()
 
-    ros_gui_bridge.shutdownHttpServer()
+    # ros_gui_bridge.shutdownHttpServer()

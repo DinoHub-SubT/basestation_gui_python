@@ -363,9 +363,7 @@ class ArtifactManipulationPlugin(Plugin):
         #     self.artifact_priority_box.setCurrentIndex(priority_ind)
 
         # change the category
-        category_ind = self.artifact_cat_box.findText(
-            msg.category, Qt.MatchFixedString
-        )
+        category_ind = self.artifact_cat_box.findText(msg.category, Qt.MatchFixedString)
 
         if category_ind >= 0:
             self.artifact_cat_box.setCurrentIndex(category_ind)

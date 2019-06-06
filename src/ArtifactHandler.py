@@ -28,9 +28,10 @@ from basestation_gui_python.msg import (
     ArtifactUpdate,
     RadioMsg,
     DarpaStatus,
+    RetreiveArtifactImage,
+    ArtifactVisualizerUpdate,
 )
 from base_py import BaseNode
-
 
 
 class ArtifactHandler(BaseNode):
@@ -45,9 +46,15 @@ class ArtifactHandler(BaseNode):
     def initialize(self):
         self.all_artifacts = {}  # dictionary of artifacts, indexed by unique_id
         self.queued_artifacts = {}  # dictionary of artifacts currently in the queue
-        self.displayed_artifact_id = None  # artifact being displayed in the manipulator plugin
-        self.img_ind_displayed = 0  # the index of the image to display for the artifact focused on
-        self.img_displayed = 0  # artifact image index in the set of images to be displayed
+        self.displayed_artifact_id = (
+            None
+        )  # artifact being displayed in the manipulator plugin
+        self.img_ind_displayed = (
+            0
+        )  # the index of the image to display for the artifact focused on
+        self.img_displayed = (
+            0
+        )  # artifact image index in the set of images to be displayed
         self.archived_artifacts = (
             {}
         )  # dictionary ofartifacts deleted from queue but we may want to keep around
@@ -97,7 +104,7 @@ class ArtifactHandler(BaseNode):
             "/gui/remove_artifact_from_queue", String, queue_size=10
         )  # remove an artifatc from the queue
         self.update_label_pub = rospy.Publisher(
-            "/gui/update_art_label", String, queue_size=10
+            "/gui/update_art_label", ArtifactVisualizerUpdate, queue_size=10
         )  # send an update to the Visualizer plugin
         self.clear_displayed_img_pub = rospy.Publisher(
             "/gui/clear_img", Bool, queue_size=10
@@ -131,7 +138,7 @@ class ArtifactHandler(BaseNode):
             self.buildArtifactSubmissionFromManipPlugin,
         )  # if we want to submit an artifact from the manipulation panel
         self.change_disp_img_sub = rospy.Subscriber(
-            "/gui/change_disp_img", UInt8, self.getArtifactImage
+            "/gui/change_disp_img", RetreiveArtifactImage, self.getArtifactImage
         )  # to handle button presses iterating over artifact images
         self.update_artifact_sub = rospy.Subscriber(
             "/gui/update_artifact_info", ArtifactUpdate, self.updateArtifactInfoFromGui
@@ -330,7 +337,6 @@ class ArtifactHandler(BaseNode):
         else:
             if msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY:
 
-                
                 artifact.category = msg.category
                 self.displayed_category = artifact.category
                 # change the value in the artifact queue
@@ -423,8 +429,8 @@ class ArtifactHandler(BaseNode):
         if updated and msg_unique_id == self.displayed_artifact_id:
             # if we updated the artifact being displayed,
             # send a message to the image visualization panel to re-select the artifact from the queue
-            update_msg = String()
-            update_msg.data = "updated"
+            update_msg = ArtifactVisualizerUpdate()
+            update_msg.data = ArtifactVisualizerUpdate.UPDATE
             self.update_label_pub.publish(update_msg)
 
     def generateNewArtifactWifi(self, msg):
@@ -498,8 +504,8 @@ class ArtifactHandler(BaseNode):
             if updated and msg_unique_id == self.displayed_artifact_id:
                 # if we updated the artifact being displayed,
                 # send a message to the image visualization panel to re-select the artifact from the queue
-                update_msg = String()
-                update_msg.data = "updated"
+                update_msg = ArtifactVisualizerUpdate()
+                update_msg.data = ArtifactVisualizerUpdate.UPDATE
                 self.update_label_pub.publish(update_msg)
 
     def generateNewArtifactRadio(self, msg):
@@ -688,8 +694,8 @@ class ArtifactHandler(BaseNode):
 
             # remove the artifact update message from the image visualizer plugin
             # if it is still visible
-            update_msg = String()
-            update_msg.data = "hide"
+            update_msg = ArtifactVisualizerUpdate()
+            update_msg.data = ArtifactVisualizerUpdate.HIDE
             self.update_label_pub.publish(update_msg)
 
             # nothing is being displayed, so reset bookeeping
@@ -764,15 +770,17 @@ class ArtifactHandler(BaseNode):
         Get another artifact image to show.
 
         msg.data defines whethere we go forward in the set or backward
-                0 means go forward
-                1 means go backward
-                2 means display the first image
         """
         direction = msg.data
         # check for errors with request
         update_msg = GuiMessage()
 
-        if direction not in [0, 1, 2]:
+        if direction not in [
+            RetreiveArtifactImage.DIRECTION_FORWARD,
+            RetreiveArtifactImage.DIRECTION_BACKWARD,
+            RetreiveArtifactImage.DISPLAY_FIRST,
+        ]:
+
             update_msg.data = "Somehow a wrong direction was sent. Image not changed."
             update_msg.color = update_msg.COLOR_RED
             self.message_pub.publish(update_msg)
@@ -787,9 +795,10 @@ class ArtifactHandler(BaseNode):
 
         # display a black image because this artifact has no images
         img_count = len(self.all_artifacts[self.displayed_artifact_id].imgs)
+
         if img_count == 0:
             self.publishImgToDisplay(-1)
-        elif direction == 0:
+        elif direction == RetreiveArtifactImage.DIRECTION_FORWARD:
             if self.img_ind_displayed < img_count - 1:
                 # we have some runway to go forward in the sequence
                 self.img_ind_displayed += 1
@@ -797,16 +806,18 @@ class ArtifactHandler(BaseNode):
                 # we can't go forward anymore, loop back around
                 self.img_ind_displayed = 0
             self.publishImgToDisplay(self.img_ind_displayed)
-        elif direction == 1:
+
+        elif direction == RetreiveArtifactImage.DIRECTION_BACKWARD:
             if self.img_ind_displayed > 0:
                 # we have some runway to go backward in the sequence
                 self.img_ind_displayed -= 1
             else:
-                # we're already at the beginning on thre sequence, loop back around
-                self.img_ind_displayed = img_count
+                # we're already at the beginning on the sequence, loop back around
+                self.img_ind_displayed = img_count - 1
             self.publishImgToDisplay(self.img_ind_displayed)
+
         # display the first image
-        elif direction == 2 and img_count > 0:
+        elif direction == RetreiveArtifactImage.DISPLAY_FIRST and img_count > 0:
             self.publishImgToDisplay(0)
 
     def publishImgToDisplay(self, ind):
@@ -880,6 +891,14 @@ class ArtifactHandler(BaseNode):
             self.archived_artifacts[artifact_to_archive.unique_id] = artifact_to_archive
             # default return value is None if key not found
             self.queued_artifacts.pop(artifact_to_archive.unique_id)
+
+            # if the artifact has images displayed, we want to send a message syaing its been deleted
+            if artifact_to_archive.unique_id == self.displayed_artifact_id:
+
+                update_msg = ArtifactVisualizerUpdate()
+                update_msg.data = ArtifactVisualizerUpdate.DELETE
+                self.update_label_pub.publish(update_msg)
+
         else:
             update_msg = GuiMessage()
             update_msg.data = "Artifact not removed from handler"
