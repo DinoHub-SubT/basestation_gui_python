@@ -5,7 +5,7 @@
       "keys": {
         "running-plugins": {
           "type": "repr",
-          "repr": "{u'basestation_gui_python/ArtifactManipulationPlugin': [1], u'basestation_gui_python/GlobalButtonsPlugin': [1], u'basestation_gui_python/ArtifactQueuePlugin': [1], u'basestation_gui_python/RobotCommandPlugin': [1], u'basestation_gui_python/MessagePlugin': [2], u'basestation_gui_python/ArtifactImageVisualizerPlugin': [1], u'basestation_gui_python/InfoPlugin': [1], u'basestation_gui_python/ArtifactSubmissionPlugin': [1], u'basestation_gui_python/RobotStatusPlugin': [1]}"
+          "repr": "{u'basestation_gui_python/ArtifactManipulationPlugin': [1], u'basestation_gui_python/ArtifactQueuePlugin': [1], u'basestation_gui_python/RobotCommandPlugin': [1], u'basestation_gui_python/MessagePlugin': [2], u'basestation_gui_python/ArtifactImageVisualizerPlugin': [1], u'basestation_gui_python/InfoPlugin': [1], u'basestation_gui_python/ArtifactSubmissionPlugin': [1], u'basestation_gui_python/RobotStatusPlugin': [1]}"
         }
       },
       "groups": {
@@ -166,28 +166,6 @@
                 "config_filename": {
                   "type": "repr",
                   "repr": "u'/home/bob/basestation_ws/src/basestation_gui_python/config/gui_params.yaml'"
-                }
-              },
-              "groups": {}
-            }
-          }
-        },
-        "plugin__basestation_gui_python__GlobalButtonsPlugin__1": {
-          "keys": {},
-          "groups": {
-            "dock_widget__": {
-              "keys": {
-                "dockable": {
-                  "type": "repr",
-                  "repr": "True"
-                },
-                "parent": {
-                  "type": "repr",
-                  "repr": "None"
-                },
-                "dock_widget_title": {
-                  "type": "repr",
-                  "repr": "u''"
                 }
               },
               "groups": {}

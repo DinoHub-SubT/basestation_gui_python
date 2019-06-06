@@ -61,11 +61,6 @@
        </column>
        <column>
         <property name="text">
-         <string>Remove</string>
-        </property>
-       </column>
-       <column>
-        <property name="text">
          <string>Reset</string>
         </property>
        </column>
@@ -80,30 +75,6 @@
         </property>
        </column>
       </widget>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="inner_layout">
-       <item>
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item>
-        <widget class="QPushButton" name="add_robot_button">
-         <property name="text">
-          <string>Add Robot</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
      </item>
     </layout>
    </item>

@@ -1,789 +1,592 @@
 #!/usr/bin/env python
 
 """
-Plugin for buttons pertaining to robot commands
-Contact: Bob DeBortoli (debortor@oregonstate.edu)
+Plugin for buttons pertaining to robot commands.
 
-Copyright Carnegie Mellon University / Oregon State University <2019>
-This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebastion or Matt).
+Contact: Bob DeBortoli (debortor@oregonstate.edu)
+Copyright 2019: Carnegie Mellon University / Oregon State University
+
+This code is proprietary to the CMU SubT challenge. Do not share or distribute without
+express permission of a project lead (Sebastion or Matt).
 """
 
 import rospy
 import rospkg
-from std_msgs.msg import String, Bool
-from geometry_msgs.msg import PoseStamped, Point
-from nav_msgs.msg import Odometry
 import threading
+import robots
+
+import python_qt_binding.QtWidgets as qt
 
 from qt_gui.plugin import Plugin
-import python_qt_binding.QtWidgets as qt
-import python_qt_binding.QtCore as core
-import python_qt_binding.QtGui as gui
-
-from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
-
-from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
-from python_qt_binding.QtGui import QColor, QPixmap
+from PyQt5.QtCore import pyqtSignal
+from python_qt_binding.QtCore import Qt
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy, QTabWidget
 
-from functools import partial
-import pdb
-import yaml
-import numpy as np
-from PyQt5.QtCore import pyqtSignal
+from basestation_gui_python.msg import GuiMessage, RadioMsg, NineHundredRadioMsg
+from geometry_msgs.msg import Point
+from nav_msgs.msg import Odometry
+from visualization_msgs.msg import InteractiveMarkerFeedback
 
-from basestation_gui_python.msg import (
-    GuiMessage,
-    DarpaStatus,
-    GuiRobCommand,
-    RadioMsg,
-    NineHundredRadioMsg,
-)
-from visualization_msgs.msg import InteractiveMarkerFeedback, MarkerArray, Marker
+from gui_utils import COLORS
+
+################################################################################
+#
+#    Helper functions for publishing radio messages.
+#
+################################################################################
+
+
+def radio900(pub, what, exec_id):
+    r9 = NineHundredRadioMsg()
+    r9.message_type = what
+    r9.recipient_robot_id = exec_id
+    pub.publish(r9)
+
+
+def radio(pub, msg_type, what, exec_id):
+    rm = RadioMsg()
+    rm.data = what
+    rm.recipient_robot_id = exec_id
+    rm.message_type = msg_type
+    pub.publish(rm)
+
+
+def radioStop(pub, what, exec_id):
+    radio(pub, RadioMsg.MESSAGE_TYPE_ESTOP, what, exec_id)
+
+
+################################################################################
+#
+#    Plugin for building tabbed panel containing buttons to command the
+#    various robots.
+#
+################################################################################
 
 
 class RobotCommandPlugin(Plugin):
-
     rob_command_trigger = pyqtSignal(object)  # to keep the drawing on the proper thread
 
     def __init__(self, context):
         super(RobotCommandPlugin, self).__init__(context)
         self.setObjectName("RobotCommandPlugin")
+        self.config = robots.Config()
+        self.timer_buttons = []
+        self.positions = dict()
+        self.waypoints = dict()
+        self.waypt_robot = None
 
-        # get the number of robots
-        rospack = rospkg.RosPack()
-        config_filename = (
-            rospack.get_path("basestation_gui_python") + "/config/gui_params.yaml"
-        )
-        config = yaml.load(open(config_filename, "r").read())
+        def pub(to, what, size):
+            return rospy.Publisher(to, what, queue_size=size)
 
-        self.robot_names, self.ground_commands, self.aerial_commands, self.robot_pos_topics = (
-            [],
-            [],
-            [],
-            [],
-        )
-
-        exp_params = config["experiment_params"]
-
-        for name in exp_params["robot_names"]:
-            self.robot_names.append(name)
-
-        for name in exp_params["ground_commands"]:
-            self.ground_commands.append(name)
-
-        for name in exp_params["aerial_commands"]:
-            self.aerial_commands.append(name)
-
-        for name in exp_params["robot_pos_topics"]:
-            self.robot_pos_topics.append(name)
-
-        # robot names should be unique
-        if len(np.unique(self.robot_names)) != len(self.robot_names):
-            raise ValueError("Not all of the robot names are unique!")
-
-        # denote e-stop commands
-        self.ground_estop_commands = self.ground_commands[:4]
-        self.aerial_estop_commands = self.aerial_commands[:4]
-
-        self.initPanel(context)  # layout plugin
-
-        self.robot_positions = [None] * len(self.robot_names)
-
-        # setup subscribers/publishers
-        self.radio_pub = rospy.Publisher(
-            "/from_gui", RadioMsg, queue_size=50
-        )  # to push commands to the robot
-        self.gui_message_pub = rospy.Publisher(
-            "/gui/message_print", GuiMessage, queue_size=10
-        )  # to print messages
-        self.radio_900_pub = rospy.Publisher(
-            "/ros_to_teensy", NineHundredRadioMsg, queue_size=50
-        )  #
-        self.marker_orig_pos_pub = rospy.Publisher(
-            "/refinement_marker_orig_pos", MarkerArray, queue_size=50
-        )  # for displaying the original position
-        self.highlight_robot_pub = rospy.Publisher(
-            "/highlight_robot_pub", Marker, queue_size=50
-        )  # for displaying robot position
-        self.bluetooth_marker_pub_ugv = rospy.Publisher(
-            "/ugv/bluetooth_marker", Marker, queue_size=50
-        )  # for displaying bluetooth detections
-        self.bluetooth_marker_pub_uav = rospy.Publisher(
-            "/uav/bluetooth_marker", Marker, queue_size=50
-        )  # for displaying bluetooth detections
-        self.define_waypoint_marker_pos_pub = rospy.Publisher(
-            "/define_waypoint_marker_pos", Point, queue_size=50
-        )  # publisher for moving the define waypoint marker
-        self.define_waypoint_marker_off_pub = rospy.Publisher(
-            "/define_waypoint_marker_off", Point, queue_size=50
-        )  # publisher for turning the define waypoint marker off
-
-        self.waypoint_sub = rospy.Subscriber(
-            "/define_waypoint/feedback", InteractiveMarkerFeedback, self.recordWaypoint
-        )  # to record the interactive marker
-        self.global_estop_sub = rospy.Subscriber(
-            "/gui/global_estop", Bool, self.processGlobalEstopCommand
-        )  # to tell when the big red button has been pressed and we
-        # should update this plugin accordingly
-
-        self.waypoint = None
-        for i, topic in enumerate(self.robot_pos_topics):
+        self.radio_pub = pub("/from_gui", RadioMsg, 50)
+        self.radio_900_pub = pub("/ros_to_teensy", NineHundredRadioMsg, 50)
+        self.gui_message_pub = pub("/gui/message_print", GuiMessage, 10)
+        self.waypoint_marker_on_pub = pub("/define_waypoint_marker_pos", Point, 50)
+        self.waypoint_marker_off_pub = pub("/define_waypoint_marker_off", Point, 50)
+        self.subs = [
             rospy.Subscriber(
-                topic, Odometry, self.saveRobotPos, i
-            )  # to save the robot positions so that we can ut the deifne waypoint interactive marker on the robot
+                "/define_waypoint/feedback", InteractiveMarkerFeedback, self.onWaypoint
+            )
+        ]
+        for r in self.config.robots:
+            t = "/{0}/{1}".format(r.topic_prefix, r.topics["odometry"])
+            self.subs.append(rospy.Subscriber(t, Odometry, self.onOdometry, r))
+        context.add_widget(self.createPanel())
 
-    def initPanel(self, context):
+    def shutdown_plugin(self):
+        for s in self.subs:
+            s.unregister()
+        for b in self.timer_buttons:
+            b.uncheck()
+
+    def publishWaypoint(self, robot):
+        """Callback to publish a waypoint for the robot to move to."""
+        if self.waypoints.has_key(robot.uuid):
+            w = self.waypoints[robot.uuid]
+            d = "{0},{1},{2}".format(w[0], w[1], w[2])
+            m = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
+            radio(self.radio_pub, m, d, robot.executive_id)
+            # Publish an invalid point to turn off the interactive marker in Rviz.
+            self.waypoint_marker_off_pub.publish(Point(-1, -1, -1))
+            self.waypt_robot = None
+        else:
+            m = GuiMessage()
+            m.data = "No waypoint received from RViz."
+            m.color = m.COLOR_GRAY
+            self.gui_message_pub.publish(m)
+
+    def moveWaypoint(self, robot):
+        """Callback to have RViz place an interactive marker to define a waypoint."""
+        if self.positions.has_key(robot.uuid):
+            p = self.positions.get(robot.uuid)
+            self.waypt_robot = robot
+            self.waypoint_marker_on_pub.publish(Point(p[0], p[1], p[2]))
+            return False
+        else:
+            m = GuiMessage()
+            m.data = "No odometry received for {0}.  Check topic.".format(robot.name)
+            m.color = m.COLOR_GRAY
+            self.gui_message_pub.publish(m)
+            return True
+
+    def onWaypoint(self, msg):
         """
-		Initialize the panel for displaying widgets
-		"""
+	Record the movemment of the interactive marker from RViz where 'msg' is the pose
+	of the interactive marker for defining a waypoint.
+        """
+        if self.waypt_robot == None:
+            return
+        p = msg.pose.position
+        self.waypoints[self.waypt_robot.uuid] = [p.x, p.y, p.z]
 
-        self.control_widget = QWidget()
-        self.control_layout = qt.QGridLayout()
+    def onOdometry(self, odom, robot):
+        """Store the robot's position in order to publish waypoint."""
+        p = odom.pose.pose.position
+        self.positions[robot.uuid] = [p.x, p.y, p.z]
 
-        context.add_widget(self.control_widget)
+    def createPanel(self):
+        widget = QWidget()
+        layout = qt.QGridLayout()
+        tabs = QTabWidget()
+        label = qt.QLabel()
+        rad = self.radio_pub
+        rad900 = self.radio_900_pub
+        waypt_links = []
+        stoppers = []
 
-        # define the overall widget
-        control_label = qt.QLabel()
-        control_label.setText("CONTROL PANEL")
-        control_label.setAlignment(Qt.AlignCenter)
-        self.control_layout.addWidget(control_label)
+        label.setText("CONTROL PANEL")
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+        layout.addWidget(tabs)
+        widget.setLayout(layout)
 
-        # define the tab widget which the other widgets will go in
-        self.tabs = QTabWidget()
+        def make_adjuster(combo_box, exec_id):
+            def fn():
+                m = RadioMsg.MESSAGE_TYPE_MAX_FLIGHT_TIME
+                d = str(float(combo_box.currentText()) * 60)
+                radio(self.radio_pub, m, d, exec_id)
 
-        # define the number of commands in a single column
-        num_in_col = 7
-        self.control_buttons = []
+            return fn
 
-        # establish the sub-panel for each robot
-        for robot_num, robot_name in enumerate(self.robot_names):
+        MAX_ROWS = 5
+        for robot in self.config.robots:
+            row, col = 0, 0
+            exec_id = robot.executive_id
+            grid = qt.QGridLayout()
+            tab = QWidget()
+            buttons = []
+            confirm = ConfirmButton("Confirm", COLORS.GREEN)
+            cancel = ConfirmButton("Cancel", COLORS.RED)
+            waypt = DefineWaypointButton(robot, self.moveWaypoint, self.publishWaypoint)
+            blue = ShowBluetoothButton()
+            goHome = ReturnHomeButton(exec_id, rad)
+            resend = RadioButton(
+                "Re-send Artifacts",
+                exec_id,
+                rad,
+                RadioMsg.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS,
+            )
 
-            # define the layout and group for a single robot
-            robot_layout = qt.QGridLayout()
-            robot_tab = QWidget()
-            robot_button_list = []
+            for w in waypt_links:
+                w.link([waypt])
+                waypt.link([w])
+            waypt_links.append(waypt)
 
-            # add the robot commands
-            row, col = 0, 0  # the row and column to put the buttons
+            tab.setLayout(grid)
+            tabs.addTab(tab, robot.name)
 
-            # command dependent on type of robot
-            if robot_name.find("erial") != -1:
-                commands = self.aerial_commands
+            if robot.is_aerial:
+                hover = HoverButton(exec_id, rad)
+                takeoff = TakeoffButton(exec_id, rad, rad900)
+                hard = AerialHardEStopButton(confirm, cancel, exec_id, rad, rad900)
+                land = LandButton(confirm, cancel, exec_id, rad)
+                toComms = ExploreButton("Land in Comms", exec_id, rad)
+
+                stoppers.append(land)
+                self.timer_buttons.append(hard)
+                hover.link([takeoff, hard, land, goHome])
+                takeoff.link([hover, hard, land, goHome])
+                hard.link([hover, takeoff, land, goHome])
+                land.link([hover, takeoff, hard, goHome])
+                goHome.link([hover, takeoff, land, hard])
+
+                commands = [
+                    hover,
+                    takeoff,
+                    land,
+                    hard,
+                    waypt,
+                    goHome,
+                    toComms,
+                    resend,
+                    confirm,
+                    cancel,
+                ]
             else:
-                commands = self.ground_commands
+                commands = []
+                resume = ResumeButton(exec_id, rad, rad900)
+                soft = SoftEStopButton(exec_id, rad)
+                hard = HardEStopButton(confirm, cancel, exec_id, rad, rad900)
+                toComms = ExploreButton("Return to Comms", exec_id, rad)
 
-            for command in commands:
+                stoppers.append(soft)
+                resume.link([soft, hard, goHome])
+                soft.link([resume, hard, goHome])
+                hard.link([resume, soft, goHome])
+                goHome.link([resume, soft, hard])
 
-                button = qt.QPushButton(command)
-                robot_button_list.append(button)
+                commands.extend([resume, soft, hard, waypt, goHome])
+                if robot.has_comms:
+                    mt = RadioMsg.MESSAGE_TYPE_DROP_COMMS
+                    commands.append(RadioButton("Drop Comms", exec_id, rad, mt))
+                commands.extend([blue, toComms, resend, confirm, cancel])
 
-                self.styleButton(button)  # color, click properties, etc.
-
-                # upon press, do something in ROS
-                button.clicked.connect(
-                    partial(self.processRobotCommandPress, command, robot_name, button)
-                )
-
-                robot_layout.addWidget(button, row, col)
-
-                # if we have filled this column, move to the next
-                if row == (num_in_col - 1):
+            for c in commands:
+                buttons.append(c)
+                grid.addWidget(c, row, col)
+                if row == MAX_ROWS:
                     row = 0
                     col += 1
                 else:
                     row += 1
 
-            # add a combobox to set the max run time for the vehicle
-            max_time_list = np.arange(0.0, 10.5, 0.5).tolist()
-            max_time_box = qt.QComboBox()
+            max_time = (2 * robot.max_travel_time) + 1
+            times = [str(n / 2.0) for n in range(0, max_time)]
+            box = qt.QComboBox()
+            for speed in times:
+                box.addItem(speed)
+            box.currentTextChanged.connect(make_adjuster(box, exec_id))
+            grid.addWidget(box, row, col)
 
-            for speed in max_time_list:
-                max_time_box.addItem(str(speed))
+        def stopAll():
+            for s in stoppers:
+                s.forceStop()
 
-            max_time_box.currentTextChanged.connect(
-                partial(self.adjustMaxTime, robot_name, max_time_box)
-            )
+        all_stop = qt.QPushButton("Soft E-Stop All")
+        all_stop.setStyleSheet(COLORS.RED)
+        all_stop.clicked.connect(stopAll)
+        layout.addWidget(all_stop)
 
-            robot_layout.addWidget(max_time_box, row, col)
+        return widget
 
-            # add buttons in robot panel
-            self.control_buttons.append(robot_button_list)
 
-            robot_tab.setLayout(robot_layout)
-            self.tabs.addTab(robot_tab, robot_name)
+################################################################################
+#
+#    Command buttons that execute individual robot commands when clicked.
+#
+################################################################################
 
-        # add to the overall gui
-        self.control_layout.addWidget(self.tabs)
-        self.control_widget.setLayout(self.control_layout)
 
-    ############################################################################################
-    # Functions for processing button presses (including aesthetic of these presses)
-    ############################################################################################
+class RadioButton(qt.QPushButton):
+    """
+    RadioButton is a simple fire and forget button that sends a RadioMsg when clicked.
+    """
 
-    def styleButton(self, button):
+    def __init__(self, text, exec_id, radio_pub, msg_type):
+        super(RadioButton, self).__init__(text)
+
+        def onClick():
+            radio(radio_pub, msg_type, "", exec_id)
+
+        self.setStyleSheet("QPushButton:pressed {" + COLORS.GREEN + "}")
+        self.clicked.connect(onClick)
+
+
+class ConfirmButton(qt.QPushButton):
+    """
+    ConfirmButton is special purpose button to implement "Confirm/Cancel" buttons for
+    other actions that need confirmation.  A ConfirmButton can be activated and
+    de-activated (i.e. enabled/disabled).  When activated a callback can be set that
+    will be called if the user clicks this button.
+    """
+
+    def __init__(self, text, color):
+        super(ConfirmButton, self).__init__(text)
+        self.setEnabled(False)
+        self.setStyleSheet(COLORS.GRAY)
+        self.color = color
+        self.callback = None
+        self.clicked.connect(self.execute)
+
+    def execute(self):
+        if self.callback != None:
+            self.callback()
+
+    def activate(self, callback):
+        self.callback = callback
+        self.setEnabled(True)
+        self.setStyleSheet(self.color)
+
+    def deactivate(self):
+        self.callback = None
+        self.setEnabled(False)
+        self.setStyleSheet(COLORS.GRAY)
+
+
+class LinkableButton(qt.QPushButton):
+    """
+    LinkableButton overrides a regular QT button that allows other buttons to be linked
+    to this one.  When the linked button is pushed it will deactivate all other linked
+    button by setting the checked property to false.
+    """
+
+    def __init__(self, text):
+        super(LinkableButton, self).__init__(text)
+        self.linked = []
+        self.setCheckable(True)
+        self.setStyleSheet("QPushButton:checked {" + COLORS.RED + "}")
+        self.clicked.connect(self.onClick)
+
+    def onClick(self, isChecked):
+        if not isChecked:
+            self.uncheck()
+            return
+        self.updateLinks()
+        self.execute()
+
+    def updateLinks(self):
+        for btn in self.linked:
+            btn.setChecked(False)
+            btn.updateLink()
+
+    def link(self, buttons):
         """
-		Add properties to the button like color, etc.
-
-		button is a pyqt Button object
-		"""
-        command = button.text()
-
-        if command in ["Resume", "Resume/Takeoff"]:
-            button.setCheckable(
-                True
-            )  # a button pressed will stay pressed, until unclicked
-            button.setStyleSheet(
-                "QPushButton:checked { background-color: green }"
-            )  # a button stays green when its in a clicked state
-
-        elif command in ["Confirm", "Cancel"]:
-            button.setStyleSheet("background-color:rgb(126, 126, 126)")
-            button.setEnabled(False)
-
-        elif command in ["Return home", "Drop comms", "Re-send artifacts"]:
-            button.setStyleSheet(
-                "QPushButton:pressed { background-color: green }"
-            )  # a button stays red when its in a clicked state
-
-        else:
-            button.setCheckable(
-                True
-            )  # a button pressed will stay pressed, until unclicked
-            button.setStyleSheet(
-                "QPushButton:checked { background-color: red }"
-            )  # a button stays red when its in a clicked state
-
-    def processGlobalEstopCommand(self, msg):
+        Link other checkable buttons that will be un-checked when this button is
+        activated.
         """
-		The big red button (a global estop button) has just been pressed.
-		The commands have already been sent via radio. We now just need to
-		press/un-press the proper estop buttons
+        self.linked.extend(buttons)
 
-		msg is just a boolean indicating whether we should do this or not
-		its always True
-		"""
-
-        if msg.data == True:
-            for robot_buttons in self.control_buttons:
-                for button in robot_buttons:
-
-                    # check to see if a soft-estop button. if so, press it
-                    if (button.text() == self.ground_estop_commands[2]) or (
-                        button.text() == self.aerial_estop_commands[2]
-                    ):
-
-                        button.setChecked(True)
-
-                    # if its an estop button that is not soft estop, un-press it
-                    elif (button.text() in self.ground_estop_commands) or (
-                        button.text() in self.aerial_estop_commands
-                    ):
-
-                        button.setChecked(False)
-
-    def processRobotCommandPress(self, command, robot_name, button):
+    def uncheck(self):
         """
-		Handle button colors, etc. upon pressing
-		Generate and publish a ROS command from a button press
-
-		command is the text on the button
-		robot_name is the robot name of the button we just pressed
-		button is a pyqt Button object
-		"""
-
-        # if its a button that needs confirmation, or its a confirmation button,
-        # follow a different procedure
-        # if its a button that needs confirmation, get that confirmation
-        if button.isChecked() and (
-            (command == "Hard e-stop")
-            or (robot_name.find("erial") != -1 and command == "Land")
-        ):
-
-            self.processButtonNeedingConfirmation(command, robot_name, button)
-            self.pending_info = [command, robot_name, button]
-
-        # we have just confirmed or cancelled a previous button press
-        elif command in ["Cancel", "Confirm"]:
-            self.processConfirmCancelSequence(
-                command, robot_name, button, self.pending_info
-            )
-
-        # if its a normal button
-        else:
-            self.processButtonStyle(command, robot_name, button)
-            self.publishRobotCommand(command, robot_name, button)
-
-    def processButtonStyle(self, command, robot_name, button):
+        Allow derived classes to execute custom logic when the button is unchecked.
         """
-		Handle the button color, behvior, etc. upon pressing
-
-		command is the text on the button
-		robot_name is the robot name of the button we just pressed
-		button is a pyqt Button object
-		"""
-
-        # if its an estop button, de-activate all other estop buttons
-        if (
-            (robot_name.find("ound") != -1)
-            and (button.text() in self.ground_estop_commands)
-        ) or (
-            (robot_name.find("erial") != -1)
-            and (button.text() in self.aerial_estop_commands)
-        ):
-
-            # find the set of control buttons for this robot
-            try:
-                robot_ind = self.robot_names.index(robot_name)
-            except ValueError as e:
-                robot_ind = -1
-
-            if robot_ind != -1:
-                control_buttons = self.control_buttons[robot_ind]
-
-                for cmd_button in control_buttons:
-                    if cmd_button != button:
-                        cmd_button.setChecked(False)
-
-        # change the text for the return button
-        if (robot_name.find("ound") != -1) and button.text() == "Return to comms":
-            button.setText("Explore forever")
-
-        elif (robot_name.find("ound") != -1) and button.text() == "Explore forever":
-            button.setText("Return to comms")
-
-        if (robot_name.find("erial") != -1) and button.text() == "Land in comms":
-            button.setText("Explore forever")
-
-        elif (robot_name.find("erial") != -1) and button.text() == "Explore forever":
-            button.setText("Land in comms")
-
-        # de-activate any confirmation buttons that are left over from previous button presses
-        cmd_buttons = self.control_buttons[self.robot_names.index(robot_name)]
-
-        for cmd_button in cmd_buttons:
-            # de-activate the confirm/cancel buttons for that robot
-            if cmd_button.text() in ["Confirm", "Cancel"]:
-                cmd_button.setEnabled(False)
-                cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
-
-    ############################################################################################
-    # Functions for publishing commands to the robots (crazy considering the name of this plugin)
-    ############################################################################################
-
-    def publishRobotCommand(self, command, robot_name, button):
-        """
-		A command button has been pressed. Publish a command from the gui to the robot
-
-		command is the text on the button
-		robot_name is the robot name of the button we just pressed
-		button is a pyqt Button object
-		"""
-
-        if command in [
-            "Return home",
-            "Highlight robot",
-            "Drop comms",
-            "Re-send artifacts",
-        ]:  # buttons are not checkable
-            if command == "Return home":
-                self.publishReturnHome(robot_name)
-            elif command == "Highlight robot":
-                self.highlightRobot(robot_name)
-            elif command == "Drop comms":
-                self.dropComms(robot_name)
-            elif command == "Re-send artifacts":
-                self.resendArtifacts(robot_name)
-            else:
-                msg = GuiMessage()
-                msg.data = "WARNING: Button pressed does not have a function call associated with it!"
-                msg.color = msg.COLOR_ORANGE
-                self.gui_message_pub.publish(msg)
-
-        elif not button.isChecked():  # it has just be un-clicked
-
-            if command == "Define waypoint":
-                # find the robot name index and unsubscribe it
-                try:
-                    self.publishWaypointGoal(robot_name)
-                except ValueError:
-                    msg = GuiMessage()
-                    msg.data = "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been disabled!!"
-                    msg.color = msg.COLOR_RED
-                    self.gui_message_pub.publish(msg)
-
-            elif command == "Show bluetooth":
-                self.handleBluetooth(robot_name, button)
-
-            elif command in ["Return to comms", "Land in comms"]:
-                self.pubLandInComms(robot_name, button)
-
-        else:  # the button has just been pressed
-            if (
-                (robot_name.find("ound") != -1)
-                and (button.text() in self.ground_estop_commands)
-            ) or (
-                (robot_name.find("erial") != -1)
-                and (button.text() in self.aerial_estop_commands)
-            ):
-
-                self.publishEstop(command, robot_name)
-
-            elif command == "Define waypoint":
-                self.defineWaypoint(robot_name)
-
-            elif command == "Show bluetooth":
-                self.handleBluetooth(robot_name, button)
-
-            elif command in ["Return to comms", "Land in comms"]:
-                self.pubLandInComms(robot_name, button)
-
-            else:
-                msg = GuiMessage()
-                msg.data = "WARNING: Button pressed does not have a function call associated with it!"
-                msg.color = msg.COLOR_ORANGE
-                self.gui_message_pub.publish(msg)
-
-    def resendArtifacts(self, robot_name):
-        """
-		Re-send all fo the artifact detections from the robot.
-		Useful when the robot goes out of comms range and comes
-		back in, we can have the detections while out of range sent
-		back
-
-		robot_name is the name of the robot who's button has been pressed
-		"""
-
-        radio_msg = RadioMsg()
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
-
-        self.radio_pub.publish(radio_msg)
-
-    def processButtonNeedingConfirmation(self, command, robot_name, button):
-        """
-		Enable the confirm/cancel buttons for a pending button press
-
-		command is the text on the button
-		robot_name is the robot name of the button we just pressed
-		button is a pyqt Button object
-		"""
-
-        # activate the confirm/cancel buttons for that robot
-        cmd_buttons = self.control_buttons[self.robot_names.index(robot_name)]
-
-        for cmd_button in cmd_buttons:
-            if cmd_button.text() == "Confirm":
-                cmd_button.setEnabled(True)
-                cmd_button.setStyleSheet("background-color:rgb(0, 220, 0)")
-
-            elif cmd_button.text() == "Cancel":
-                cmd_button.setEnabled(True)
-                cmd_button.setStyleSheet("background-color:rgb(220, 0, 0)")
-
-    def processConfirmCancelSequence(self, command, robot_name, button, pending_info):
-        """
-		Process a confirm or cancel on a pending button press
-
-		command is the text on the button we just pressed
-		robot_name is the robot name of the button we just pressed
-		button is a pyqt Button object we just pressed
-		pending_info is the info (command/name/button) for the command button we are trying to confirm
-		"""
-
-        [pending_command, pending_robot_name, pending_button] = pending_info
-
-        if command == "Confirm":
-            self.processButtonStyle(pending_command, pending_robot_name, pending_button)
-            self.publishRobotCommand(
-                pending_command, pending_robot_name, pending_button
-            )
-
-        elif command == "Cancel":
-            # de-activate any confirmation buttons that are left over from previous button presses
-            cmd_buttons = self.control_buttons[self.robot_names.index(robot_name)]
-
-            for cmd_button in cmd_buttons:
-                # de-activate the confirm/cancel buttons for that robot
-                if cmd_button.text() in ["Confirm", "Cancel"]:
-                    cmd_button.setEnabled(False)
-                    cmd_button.setStyleSheet("background-color:rgb(126, 126, 126)")
-
-            # de-activate the pending button press
-            pending_button.setChecked(False)
-
-        else:
-            msg = GuiMessage()
-            msg.data = "Something went wrong with confirm/cancel sequence"
-            msg.color = msg.COLOR_RED
-            self.gui_message_pub.publish(msg)
-
-        self.pending_info = None
-
-    def pubLandInComms(self, robot_name, button):
-        """
-		Depending on if the button is pressed or not, send a 
-		message to land in comms range or back at home
-
-		robot_name is the robot name of the button we just pressed
-		button is a pyqt Button object
-		"""
-
-        radio_msg = RadioMsg()
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_LANDING_BEHAVIOR
-
-        if button.isChecked():
-            radio_msg.data = RadioMsg.LAND_IN_COMMS
-
-        else:
-            radio_msg.data = RadioMsg.LAND_AT_HOME
-
-        self.radio_pub.publish(radio_msg)
-
-    def dropComms(self, robot_name):
-        """
-		Send out a message to drop a comms node
-
-		robot_name is the robot name of the button we just pressed
-		"""
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DROP_COMMS
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        self.radio_pub.publish(radio_msg)
-
-    def publishEstop(self, command, robot_name):
-        """
-		Publish an estop message after a button has been pressed
-
-		command is the text on the button
-		robot_name is the robot name of the button we just pressed
-		"""
-
-        radio_msg = RadioMsg()
-        send_900 = bool(False)
-        radio_900_msg = NineHundredRadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_900_msg.recipient_robot_id = self.robot_names.index(robot_name)
-
-        if robot_name.find("erial") != -1:
-            estop_commands = self.aerial_estop_commands
-
-        else:
-            estop_commands = self.ground_estop_commands
-
-        if command == estop_commands[1]:
-            radio_msg.data = RadioMsg.ESTOP_RESUME
-            radio_900_msg.message_type = 0
-            send_900 = True
-
-        elif command == estop_commands[0]:
-            radio_msg.data = RadioMsg.ESTOP_PAUSE
-
-        elif command == estop_commands[2]:
-            radio_msg.data = RadioMsg.ESTOP_SOFT
-
-        elif command == estop_commands[3]:
-            radio_msg.data = RadioMsg.ESTOP_HARD
-            radio_900_msg.message_type = 1
-            send_900 = True
-
-            # make the estop persistent for the drone
-            if robot_name.find("erial") != -1:
-                self.drone_hard_estop_thread = threading.Timer(
-                    2.0, partial(self.persistentDroneHardEstop, robot_name)
-                )
-                self.drone_hard_estop_thread.start()
-
-        else:
-            msg = GuiMessage()
-            msg.data = "WARNING: The pressed button does not correspond to an estop command the Bridge knows about"
-            msg.color = msg.COLOR_ORANGE
-            self.gui_message_pub.publish(msg)
-
-        if send_900:
-            self.radio_900_pub.publish(radio_900_msg)
-
-        self.radio_pub.publish(radio_msg)
-
-    def persistentDroneHardEstop(self, robot_name):
-        """
-		Publish a hard estop every __ seconds for the drone
-
-		robot_name is the robot name of the button we just pressed
-		"""
-
-        # make sure the button has not been unchecked since the last thread call
-        for cmd_button in self.control_buttons[self.robot_names.index(robot_name)]:
-            if (cmd_button.text() == "Hard e-stop") and (cmd_button.isChecked()):
-
-                radio_900_msg = NineHundredRadioMsg()
-                radio_900_msg.message_type = 1
-                radio_900_msg.recipient_robot_id = self.robot_names.index(robot_name)
-                self.radio_900_pub.publish(radio_900_msg)
-
-                radio_msg = RadioMsg()
-                radio_msg.message_type = RadioMsg.MESSAGE_TYPE_ESTOP
-                radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-                radio_msg.data = RadioMsg.ESTOP_HARD
-                self.radio_pub.publish(radio_msg)
-
-                self.drone_hard_estop_thread = threading.Timer(
-                    2.0, partial(self.persistentDroneHardEstop, self.robot_names[1])
-                )
-                self.drone_hard_estop_thread.start()
-
-    def publishReturnHome(self, robot_name):
-        """
-		Send out a message for the robot to return home
-
-		robot_name is the robot name of the button we just pressed
-		"""
-
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_RETURN_HOME
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        self.radio_pub.publish(radio_msg)
-
-    ############################################################################################
-    # Functions for handling the define waypoint interactive marker
-    ############################################################################################
-
-    def publishWaypointGoal(self, robot_name):
-        """
-		Send a waypoint to a specific robot
-
-		robot_name is the robot name of the button we just pressed
-		"""
-
-        if self.waypoint != None:
-            radio_msg = RadioMsg()
-            radio_msg.message_type = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
-            radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-            radio_msg.data = (
-                str(self.waypoint[0])
-                + ","
-                + str(self.waypoint[1])
-                + ","
-                + str(self.waypoint[2])
-            )
-
-            self.radio_pub.publish(radio_msg)
-
-        else:
-            msg = GuiMessage()
-            msg.data = "Waypoint never set. Message never published. Please move the interactive marker in RViz."
-            msg.color = msg.COLOR_GRAY
-            self.gui_message_pub.publish(msg)
-
-        # publish a bogus message to put something on this topic to turn off the refinment marker
-        pose = Point(-1, -1, -1)
-        self.define_waypoint_marker_off_pub.publish(pose)
-
-    def defineWaypoint(self, robot_name):
-        """
-		Listen for a waypoint to be pressed in Rviz
-
-		robot_name is the robot name of the button we just pressed
-		"""
-
-        # subscriber for listening to waypoint goals
-        try:
-            # publish the interactive marker
-            if self.robot_positions[self.robot_names.index(robot_name)] == None:
-                msg = GuiMessage()
-                msg.data = (
-                    "Nothing appears to have been published to the robot pose topic "
-                    + self.robot_pos_topics[self.robot_names.index(robot_name)]
-                )
-
-                msg.color = msg.COLOR_GRAY
-                self.gui_message_pub.publish(msg)
-
-                # deselect the waypoint button
-                for cmd_button in self.control_buttons[
-                    self.robot_names.index(robot_name)
-                ]:
-                    if (cmd_button.text() == "Define waypoint") and (
-                        cmd_button.isChecked()
-                    ):
-                        cmd_button.setChecked(False)
-
-            else:
-                # reset the initial waypoint
-                self.waypoint = None
-
-                pose = Point(
-                    self.robot_positions[self.robot_names.index(robot_name)][0],
-                    self.robot_positions[self.robot_names.index(robot_name)][1],
-                    self.robot_positions[self.robot_names.index(robot_name)][2],
-                )  # put robot pose in here
-
-                self.define_waypoint_marker_pos_pub.publish(pose)
-
-        except ValueError:
-            msg = GuiMessage()
-            msg.data = "Something went wrong registering robot names and the subscriber listening to waypoint definitions may not have been enabled!!"
-            msg.color = msg.COLOR_GRAY
-            self.gui_message_pub.publish(msg)
-
-    def recordWaypoint(self, msg):
-        """
-		Record the movemment of the interactive marker
-
-		msg is the pose of the interactive marker for defining a waypoint
-		"""
-
-        self.waypoint = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
-
-    ############################################################################################
-    # Misc. functions
-    ############################################################################################
-
-    def adjustMaxTime(self, robot_name, max_time_box):
-        """
-		Send a maxtime for the aerial vehicle to fly
-
-		robot_name is the robot name of the button we just pressed
-		max_time_box is a pyqt ComboBox object
-		"""
-        radio_msg = RadioMsg()
-        radio_msg.message_type = RadioMsg.MESSAGE_TYPE_MAX_FLIGHT_TIME
-        radio_msg.recipient_robot_id = self.robot_names.index(robot_name)
-        radio_msg.data = str(float(max_time_box.currentText()) * 60)
-
-        self.radio_pub.publish(radio_msg)
-
-    def saveRobotPos(self, msg, robot_ind):
-        """
-		Save the robot position for define waypoint functionality
-
-		msg is the pose of the robot
-		robot_ind is the robot number
-		"""
-        self.robot_positions[robot_ind] = [
-            msg.pose.pose.position.x,
-            msg.pose.pose.position.y,
-            msg.pose.pose.position.z,
-        ]
-
-    def highlightRobot(self, robot_name):
-        """
-		Publish an arrow pointng to the robot position
-		TODO: Maybe publish a huge arrow marker, if someone requests this functionality
-		"""
         pass
 
-    def handleBluetooth(self, robot_name, button):
-        """
-		Make the bluetooth marker visualizable or hidden.
-		TODO: Probably needs to be updated. Will do if requested
-
-		"""
+    def updateLink(self):
+        """Notify derived classes that one of their linked buttons has been checked."""
         pass
 
-    def shutdown_plugin(self):
-        # TODO unregister all publishers here
-        self.waypoint_sub.unregister()
-        self.global_estop_sub.unregister()
+    def execute(self):
+        """
+        Execute needs to be implemented by derived classes to execute custom behavior
+        for when the button is checked.
+        """
+        raise NotImplementedError()
+
+
+class LinkableConfirmButton(LinkableButton):
+    """
+    LinkableConfirmButton is like a LinkableButton but uses confirm and cancel buttons
+    before calling execute on its derived class.
+    """
+
+    def __init__(self, text, confirm, cancel):
+        super(LinkableConfirmButton, self).__init__(text)
+        self.confirm = confirm
+        self.cancel = cancel
+
+    def onClick(self, isChecked):
+        if not isChecked:
+            self.uncheck()
+            return
+        self.activate()
+
+    def activate(self):
+        self.confirm.activate(self.onConfirm)
+        self.cancel.activate(self.onCancel)
+
+    def deactivate(self):
+        self.confirm.deactivate()
+        self.cancel.deactivate()
+
+    def onCancel(self):
+        self.deactivate()
+        self.setChecked(False)
+
+    def onConfirm(self):
+        self.deactivate()
+        self.updateLinks()
+        self.execute()
+
+
+class ResumeButton(LinkableButton):
+    def __init__(self, exec_id, radio_pub, radio900_pub):
+        super(ResumeButton, self).__init__("Resume")
+        self.exec_id = exec_id
+        self.radio = radio_pub
+        self.radio900 = radio900_pub
+        self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+
+    def execute(self):
+        radio900(self.radio900, NineHundredRadioMsg.ESTOP_RESUME, self.exec_id)
+        radioStop(self.radio, RadioMsg.ESTOP_RESUME, self.exec_id)
+
+
+class TakeoffButton(LinkableButton):
+    def __init__(self, exec_id, radio_pub, radio900_pub):
+        super(TakeoffButton, self).__init__("Resume/Takeoff")
+        self.exec_id = exec_id
+        self.radio = radio_pub
+        self.radio900 = radio900_pub
+        self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+
+    def execute(self):
+        radio900(self.radio900, NineHundredRadioMsg.ESTOP_RESUME, self.exec_id)
+        radioStop(self.radio, RadioMsg.ESTOP_RESUME, self.exec_id)
+
+
+class SoftEStopButton(LinkableButton):
+    def __init__(self, exec_id, radio_pub):
+        super(SoftEStopButton, self).__init__("Soft E-Stop")
+        self.exec_id = exec_id
+        self.radio = radio_pub
+
+    def execute(self):
+        radioStop(self.radio, RadioMsg.ESTOP_SOFT, self.exec_id)
+
+    # Allows programmatical way to activate this button from a mega E-Stop button.
+    def forceStop(self):
+        self.updateLinks()
+        self.setChecked(True)
+        self.execute()
+
+
+class LandButton(LinkableConfirmButton):
+    def __init__(self, confirm, cancel, exec_id, radio_pub):
+        super(LandButton, self).__init__("Land", confirm, cancel)
+        self.exec_id = exec_id
+        self.radio = radio_pub
+
+    def execute(self):
+        radioStop(self.radio, RadioMsg.ESTOP_SOFT, self.exec_id)
+
+    # Allows programmatical way to activate this button from a mega E-Stop button.
+    def forceStop(self):
+        self.updateLinks()
+        self.setChecked(True)
+        self.execute()
+
+
+class HardEStopButton(LinkableConfirmButton):
+    def __init__(self, confirm, cancel, exec_id, radio_pub, radio900_pub):
+        super(HardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
+        self.exec_id = exec_id
+        self.radio = radio_pub
+        self.radio900 = radio900_pub
+
+    def execute(self):
+        radio900(self.radio900, 1, self.exec_id)
+        radioStop(self.radio, RadioMsg.ESTOP_HARD, self.exec_id)
+
+
+class AerialHardEStopButton(LinkableConfirmButton):
+    def __init__(self, confirm, cancel, exec_id, radio_pub, radio900_pub):
+        super(AerialHardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
+        self.exec_id = exec_id
+        self.radio = radio_pub
+        self.radio900 = radio900_pub
+        # Not started but initialized to avoid checking for None in uncheck.
+        self.timer = threading.Timer(1, self.execute)
+
+    def uncheck(self):
+        self.timer.cancel()
+
+    def execute(self):
+        self.timer.cancel()
+        radio900(self.radio900, 1, self.exec_id)
+        radioStop(self.radio, RadioMsg.ESTOP_HARD, self.exec_id)
+        SECOND = 1
+        self.timer = threading.Timer(2 * SECOND, self.execute)
+        self.timer.start()
+
+
+class HoverButton(LinkableButton):
+    def __init__(self, exec_id, radio_pub):
+        super(HoverButton, self).__init__("Hover")
+        self.exec_id = exec_id
+        self.radio = radio_pub
+
+    def execute(self):
+        radioStop(self.radio, RadioMsg.ESTOP_PAUSE, self.exec_id)
+
+
+class ReturnHomeButton(LinkableButton):
+    def __init__(self, exec_id, radio_pub):
+        super(ReturnHomeButton, self).__init__("Return Home")
+        self.exec_id = exec_id
+        self.radio = radio_pub
+        self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+
+    def execute(self):
+        radio(self.radio, RadioMsg.MESSAGE_TYPE_RETURN_HOME, "", self.exec_id)
+
+
+class ExploreButton(LinkableButton):
+    def __init__(self, text, exec_id, radio_pub):
+        super(ExploreButton, self).__init__(text)
+        self.text = text
+        self.exec_id = exec_id
+        self.radio = radio_pub
+        self.msg_type = RadioMsg.MESSAGE_TYPE_LANDING_BEHAVIOR
+
+    def uncheck(self):
+        self.setText(self.text)
+        radio(self.radio, self.msg_type, RadioMsg.LAND_AT_HOME, self.exec_id)
+
+    def execute(self):
+        self.setText("Explore")
+        radio(self.radio, self.msg_type, RadioMsg.LAND_IN_COMMS, self.exec_id)
+
+
+class DefineWaypointButton(LinkableButton):
+    """
+    DefineWaypointButton, unlike the other button commands, needs help from its
+    owner to actually move a waypoint in RViz and publish it when complete.
+    This button takes callbacks, 'moveWaypoint' and 'publishWaypoint', to perform
+    the actual heavy lifting of manipulating a waypoint.  This design decision
+    was to avoid pulling in subcription callbacks that need to manipulate internal
+    state of defining actual waypoint data for individual robots.
+
+    The 'moveWaypoint' callback should return True if an error occurred.  This allows
+    the button to display its error form to allow the user to investigate the cause.
+
+    It is important that each DefineWaypointButton for every robot should be linked
+    together incase the user begins to define a waypoint for one robot and then changes
+    their mind and decides to define a waypoint for another.  Since only one marker can
+    be displayed in RViz at a time we would like to reset every other waypoint button
+    when this occurs.
+    """
+
+    def __init__(self, robot, moveWaypoint, publishWaypoint):
+        super(DefineWaypointButton, self).__init__("Define Waypoint")
+        self.robot = robot
+        self.moveWaypoint = moveWaypoint
+        self.publishWaypoint = publishWaypoint
+        self.has_error = False
+
+    def updateLink(self):
+        self.setText("Define Waypoint")
+
+    def uncheck(self):
+        self.setText("Define Waypoint")
+        if self.has_error == False:
+            self.publishWaypoint(self.robot)
+
+    def execute(self):
+        self.setText("Move RViz Marker")
+        self.setStyleSheet("QPushButton:checked {" + COLORS.BLUE + "}")
+        self.has_error = self.moveWaypoint(self.robot)
+        if self.has_error:
+            self.setText("Waypoint Error")
+            self.setStyleSheet("QPushButton:checked {" + COLORS.RED + "}")
+
+
+class ShowBluetoothButton(qt.QPushButton):
+    def __init__(self):
+        super(ShowBluetoothButton, self).__init__("Show Bluetooth")
+        self.setStyleSheet("QPushButton:pressed {" + COLORS.RED + "}")
+        self.clicked.connect(self.onClick)
+
+    def onClick(self):
+        # The original implementation didn't do anything with this command.
+        pass

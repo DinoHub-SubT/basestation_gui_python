@@ -116,11 +116,15 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 # Known issues / TODO
 
+<<<<<<< HEAD
 * (D+V+B) Take out /ugv1/real_artifact_imgs hardcoded topic in the ArtifactHandler and think of some naming convention. More generally, defining a naming convention for topic types w.r.t. artifact detection. 
 
 * (D) Saving/loading of gui from CSV. In case the gui crashes, we want to be able to load from a saved .csv or something like that. Either load from button press or tab on top 
 
 * (B) Fix NoneType issue in artifact queue
+=======
+* Resend all artifact info from robot
+>>>>>>> master
 
 * (B) Inherit from the base class?
 
@@ -140,6 +144,7 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (D) Artifacts, upon pressing "submit" are deleted from the queue. This could be a problem if, for example, the artifact tries to be submitted and the connection to the command post breaks. This artifact is then effectively "lost". It sits in the ArtifactHandler archived. It might be best to only delete from the table once the confirmation from darpa comes back? If the unique_id is still persisitent. Otherwise some other solution. 
 
+<<<<<<< HEAD
 ** This is, depending on how you look at it, an effect of a bigger problem: if you close the artifact queue, that info will be out of sync with the artifact handler. some way to refresh with artifacthandler info? Either by button press or maybe automatically at 1Hz or so
 
 * (D) Pull out radio and wifi messages into some other more lightweight and ubiquitous package in order to all them to have the messag without installing the entire basestation package
@@ -158,6 +163,13 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (Unassigned) In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
 
+=======
+* make constant for getArtifactImage the defines move forward, backward or define the original image
+* Don't deepcopy immutable objects in ArtifactHandler, like when I generate new GuiArtifact objects. 
+* Make a new message type for change update art label message to have delete, update, hide contants, insetad of havign to decode strings. 
+
+* In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
+>>>>>>> master
 
 =======
 # Development

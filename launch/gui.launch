@@ -1,4 +1,6 @@
 <launch>
+    <!-- Setup YAML file which specifies robot and DARPA info. -->
+    <param name="gui_setup" value="setup.yaml"/>
 
 	<!-- set arguement for if we're going to simulate the command post or not -->
 	<arg name="connect_to_command_post" default="false"/>
@@ -22,7 +24,7 @@
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args = '--perspective-file $(find basestation_gui_python)/config/subt_test_gui.perspective' output="screen" />
 
     <!--launch the darpa status monitor node-->
-    <node name="darpaStatusMonitor" pkg="basestation_gui_python" type="darpaStatusMonitor.py" args = "$(find basestation_gui_python)/config/gui_params.yaml" output="screen" />
+    <node name="darpaStatusMonitor" pkg="basestation_gui_python" type="darpaStatusMonitor.py" output="screen" />
 
     <!-- Node to handle adding/deleting/managing artifacts -->
     <node pkg="basestation_gui_python" name="ArtifactHandler" type="ArtifactHandler.py" output="screen">
@@ -32,3 +34,4 @@
    
 
 </launch>
+
