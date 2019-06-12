@@ -29,7 +29,13 @@ import pdb
 import yaml
 from PyQt5.QtCore import pyqtSignal
 
-from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactDisplayImage
+from basestation_gui_python.msg import (
+    GuiMessage,
+    DarpaStatus,
+    ArtifactDisplayImage,
+    RetreiveArtifactImage,
+    ArtifactVisualizerUpdate,
+)
 import cv2
 from cv_bridge import CvBridge
 
@@ -55,14 +61,14 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
         # setup subscribers/pubs
         self.img_request_pub = rospy.Publisher(
-            "/gui/change_disp_img", UInt8, queue_size=10
+            "/gui/change_disp_img", RetreiveArtifactImage, queue_size=10
         )
 
         self.image_sub = rospy.Subscriber(
             "/gui/img_to_display", ArtifactDisplayImage, self.dispImage
         )
         self.update_panel_sub = rospy.Subscriber(
-            "/gui/update_art_label", String, self.updateArtLabel
+            "/gui/update_art_label", ArtifactVisualizerUpdate, self.updateArtLabel
         )
         self.clear_panel_sub = rospy.Subscriber(
             "/gui/clear_img", Bool, self.dispBlankImg
@@ -144,16 +150,16 @@ class ArtifactImageVisualizerPlugin(Plugin):
         """
 		Get the previous image in the sequence
 		"""
-        msg = UInt8()
-        msg.data = 1
+        msg = RetreiveArtifactImage()
+        msg.data = RetreiveArtifactImage.DIRECTION_BACKWARD
         self.img_request_pub.publish(msg)
 
     def imgForward(self):
         """
 		Get the next image in the sequence
 		"""
-        msg = UInt8()
-        msg.data = 0
+        msg = RetreiveArtifactImage()
+        msg.data = RetreiveArtifactImage.DIRECTION_FORWARD
         self.img_request_pub.publish(msg)
 
     ############################################################################################
@@ -230,14 +236,15 @@ class ArtifactImageVisualizerPlugin(Plugin):
 		msg is a string that just contains the text to display
 		"""
 
-        if msg.data.find("elete") != -1:  # the artifact has been deleted
+        if msg.data == ArtifactVisualizerUpdate.DELETE:  # the artifact has been deleted
             self.update_art_label.setText("Artifact has been deleted!")
             self.update_art_label.setStyleSheet(
                 "background-color: rgba(220, 0, 0, 70%)"
             )
             self.update_art_label.show()
 
-        elif msg.data.find("updated") != -1:  # the artifact has been modified
+        # the artifact has been modified
+        elif msg.data == ArtifactVisualizerUpdate.UPDATE:
             self.update_art_label.setText(
                 "Artifact has been updated. Please select it again in the queue"
             )
@@ -246,9 +253,8 @@ class ArtifactImageVisualizerPlugin(Plugin):
             )
             self.update_art_label.show()
 
-        elif (
-            msg.data == "hide"
-        ):  # the user has done something else, remove the label from sight
+        # the user has done something else, remove the label from sight
+        elif msg.data == ArtifactVisualizerUpdate.HIDE:
             self.update_art_label.hide()
 
     ############################################################################################

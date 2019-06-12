@@ -140,7 +140,7 @@ class ArtifactManipulationPlugin(Plugin):
         self.art_refinement_button.clicked.connect(self.processArtRefinementPress)
         self.artmanip_layout.addWidget(self.art_refinement_button, 5, 0, 1, 3)
 
-        # add in a few buttons at the bottom to do various things
+        # add in a few buttons at the bottom to change category/priority
         self.artmanip_button_layout = qt.QHBoxLayout()
         self.artmanip_button_list = []
 
@@ -148,35 +148,17 @@ class ArtifactManipulationPlugin(Plugin):
         artifact_category_label.setText("\n\nCategory")
         artifact_category_label.setFont(boldFont)
         artifact_category_label.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(artifact_category_label, 6, 0, 1, 2)
-
-        artifact_priority_label = qt.QLabel()
-        artifact_priority_label.setText("\n\nPriority")
-        artifact_priority_label.setFont(boldFont)
-        artifact_priority_label.setAlignment(Qt.AlignCenter)
-        self.artmanip_layout.addWidget(artifact_priority_label, 6, 2)
+        self.artmanip_layout.addWidget(artifact_category_label, 6, 0, 1, 3)
 
         # make the combobox for setting the artifact category
-        self.darpa_cat_box = qt.QComboBox()
+        self.artifact_cat_box = qt.QComboBox()
 
         for category in self.artifact_categories:
-            self.darpa_cat_box.addItem(category)
+            self.artifact_cat_box.addItem(category)
 
-        self.darpa_cat_box.currentTextChanged.connect(self.updateArtifactCat)
+        self.artifact_cat_box.currentTextChanged.connect(self.updateArtifactCat)
 
-        self.artmanip_layout.addWidget(self.darpa_cat_box, 7, 0, 1, 2)
-
-        # make the combobox for setting the artifact priority
-        self.artifact_priority_box = qt.QComboBox()
-
-        self.artifact_priority_box.addItem("High")
-        self.artifact_priority_box.addItem("Med")
-        self.artifact_priority_box.addItem("Low")
-
-        self.artifact_priority_box.currentTextChanged.connect(
-            self.updateArtifactPriority
-        )
-        self.artmanip_layout.addWidget(self.artifact_priority_box, 7, 2)
+        self.artmanip_layout.addWidget(self.artifact_cat_box, 7, 0, 1, 3)
 
         self.darpa_button = qt.QPushButton("To DARPA")
         self.darpa_button.clicked.connect(partial(self.decideArtifact))
@@ -239,7 +221,8 @@ class ArtifactManipulationPlugin(Plugin):
             msg = ArtifactUpdate()
             msg.unique_id = self.artifact_id_displayed
             msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
-            msg.category = self.darpa_cat_box.currentText()
+            msg.category = self.artifact_cat_box.currentText()
+
             self.update_artifact_info_pub.publish(msg)
 
     def updateArtifactPriority(self):
@@ -248,7 +231,7 @@ class ArtifactManipulationPlugin(Plugin):
             msg = ArtifactUpdate()
             msg.unique_id = self.artifact_id_displayed
             msg.update_type = ArtifactUpdate.PROPERTY_PRIORITY
-            msg.priority = self.artifact_priority_box.currentText()
+
             self.update_artifact_info_pub.publish(msg)
 
     ############################################################################################
@@ -352,19 +335,11 @@ class ArtifactManipulationPlugin(Plugin):
         self.art_pos_textbox_y.setText(str(round(msg.curr_pose.position.y, 1)))
         self.art_pos_textbox_z.setText(str(round(msg.curr_pose.position.z, 1)))
 
-        # change the priority
-        priority_ind = self.artifact_priority_box.findText(
-            msg.priority, Qt.MatchFixedString
-        )
-        if priority_ind >= 0:
-            self.artifact_priority_box.setCurrentIndex(priority_ind)
-
         # change the category
-        category_ind = self.darpa_cat_box.findText(
-            msg.category, Qt.MatchFixedString
-        )
+        category_ind = self.artifact_cat_box.findText(msg.category, Qt.MatchFixedString)
+
         if category_ind >= 0:
-            self.darpa_cat_box.setCurrentIndex(category_ind)
+            self.artifact_cat_box.setCurrentIndex(category_ind)
 
         # publish that stuff has changed, so the handler can keep track of stuff
         # the normal publisher doesn't necessarily work because the artifact_id_displayed
@@ -385,7 +360,7 @@ class ArtifactManipulationPlugin(Plugin):
         self.update_artifact_info_pub.publish(au)
 
         au.update_type = ArtifactUpdate.PROPERTY_CATEGORY
-        au.category = self.darpa_cat_box.currentText()
+        au.category = self.artifact_cat_box.currentText()
         self.update_artifact_info_pub.publish(au)
 
     ############################################################################################

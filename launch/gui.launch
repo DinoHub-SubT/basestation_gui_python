@@ -15,17 +15,27 @@
 	</group>
 
 	<!-- launch the interactive marker stuff -->
-	<node pkg="basestation_gui_python" name="interactiveMarkerProcessing" type="interactiveMarkerProcessing.py" args = 'basic_controls' output="screen"/>
+	<node pkg="basestation_gui_python" name="interactiveMarkerProcessing" type="interactiveMarkerProcessing.py" args = 'basic_controls' output="screen">
+    </node>
 
-	<node pkg="basestation_gui_python" name="interactiveMarkerProcessingDefineWaypoint" type="interactiveMarkerProcessing.py" args = 'define_waypoint' output="screen"/>
+	<node pkg="basestation_gui_python" name="interactiveMarkerProcessingDefineWaypoint" type="interactiveMarkerProcessing.py" args = 'define_waypoint' output="screen">
+    </node>
 
 
 	<!--launch the gui-->
     <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" args = '--perspective-file $(find basestation_gui_python)/config/subt_test_gui.perspective' output="screen" />
 
     <!--launch the darpa status monitor node-->
-    <node name="darpaStatusMonitor" pkg="basestation_gui_python" type="darpaStatusMonitor.py" output="screen" />
+    <node name="darpaStatusMonitor" pkg="basestation_gui_python" type="darpaStatusMonitor.py" output="screen">
+    	<param name="execute_target" type="double" value="3." />
+    </node>
 
     <!-- Node to handle adding/deleting/managing artifacts -->
-    <node pkg="basestation_gui_python" name="ArtifactHandler" type="ArtifactHandler.py" output="screen"/>
+    <node pkg="basestation_gui_python" name="ArtifactHandler" type="ArtifactHandler.py" output="screen">
+    	<param name="execute_target" type="double" value="20." />
+    </node>
+
+   
+
 </launch>
+

@@ -70,8 +70,8 @@ class Config(object):
                 continue
             robot.is_aerial = option(r, "is_aerial")
             robot.has_comms = option(r, "has_comms")
-            if r.has_key('max_travel_time'):
-                robot.max_travel_time = int(r.get('max_travel_time'))
+            if r.has_key("max_travel_time"):
+                robot.max_travel_time = int(r.get("max_travel_time"))
             self.robots.append(robot)
 
         darpa = config["darpa"]

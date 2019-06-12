@@ -56,6 +56,8 @@ add_message_files(
    RadioMsg.msg
    StatusPanelUpdate.msg
    WifiDetection.msg
+   RetreiveArtifactImage.msg
+   ArtifactVisualizerUpdate.msg
 )
 
 ## Generate services in the 'srv' folder
