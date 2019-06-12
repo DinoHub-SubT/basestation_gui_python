@@ -175,22 +175,20 @@ class ArtifactQueuePlugin(Plugin):
 
     def updateQueueTable(self, msg):
         """
-		For proper threading. See function below. 
-		"""
+        For proper threading. See function below. 
+        """
         self.update_table_trigger.emit(msg)
 
     def updateQueueTableMonitor(self, msg):
         """
-		Update an element in the queue table
+        Update an element in the queue table
 
-		msg is of type ArtifactUpdate containing the info to be changed
-		"""
+        msg is of type ArtifactUpdate containing the info to be changed
+        """
 
         # check that threading is working properly
         if not isinstance(threading.current_thread(), threading._MainThread):
-            print(
-                "Drawing on the message panel not guarenteed to be on the proper thread"
-            )
+            rospy.logerr("[Artifact Queue] Not rendering on main thread.")
 
         # find the artifact row
         row = None
@@ -327,25 +325,24 @@ class ArtifactQueuePlugin(Plugin):
         if not isinstance(threading.current_thread(), threading._MainThread):
             rospy.logerr("[Artifact Queue] Not rendering on main thread.")
 
-        # Needs to in reverse order so we don't try to access a row that no longer
+        # Needs to happen in reverse order so we don't try to access a row that no longer
         # exists.
         rows_selected = self.getSelectedRowIndices()
         for row in sorted(rows_selected, reverse=True):
+            artifact_uid = self.queue_table.item(row, self.col_unique_id).text()
+
             # if we're archiving something we're viewing, reset the id we're viewing
-            if (
-                self.queue_table.item(row, self.col_unique_id).text()
-                == self.displayed_artifact_id
-            ):
+            if artifact_uid == self.displayed_artifact_id:
                 self.displayed_artifact_id = None
 
             # delete it from the ArtifactHandler book-keeping
             handler_msg = String()
-            handler_msg.data = self.queue_table.item(row, self.col_unique_id).text()
+            handler_msg.data = artifact_uid
             self.archive_artifact_pub.publish(handler_msg)  # only send the unique ID
 
             # delete it from the queue table
             msg = String()
-            msg.data = self.queue_table.item(row, self.col_unique_id).text()
+            msg.data = artifact_uid
             self.removeArtifactFromQueue(msg)
 
             # reset the confirm/cancel buttons
@@ -417,7 +414,7 @@ class ArtifactQueuePlugin(Plugin):
         # If we get to this point, we did not find the artifact to delete.
         m = GuiMessage()
         m.data = "Artifact(ID {0}) not found and not removed.".format(msg.data)
-        m.color = update_msg.COLOR_RED
+        m.color = m.COLOR_RED
         self.message_pub.publish(m)
 
     def addArtifactToQueue(self, msg):

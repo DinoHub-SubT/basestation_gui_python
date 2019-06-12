@@ -80,8 +80,5 @@ class DarpaBridge(BaseNode):
 
 
 if __name__ == "__main__":
-    # rospy.init_node("darpa_status_node", anonymous=True)
     node = DarpaBridge()
     node.run()
-
-    # ros_gui_bridge.shutdownHttpServer()

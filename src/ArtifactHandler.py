@@ -44,20 +44,17 @@ class ArtifactHandler(BaseNode):
         super(ArtifactHandler, self).__init__("ArtifactHandler")
 
     def initialize(self):
-        self.all_artifacts = {}  # dictionary of artifacts, indexed by unique_id
-        self.queued_artifacts = {}  # dictionary of artifacts currently in the queue
-        self.displayed_artifact_id = (
-            None
-        )  # artifact being displayed in the manipulator plugin
-        self.img_ind_displayed = (
-            0
-        )  # the index of the image to display for the artifact focused on
-        self.img_displayed = (
-            0
-        )  # artifact image index in the set of images to be displayed
-        self.archived_artifacts = (
-            {}
-        )  # dictionary ofartifacts deleted from queue but we may want to keep around
+        # dictionary of artifacts, indexed by unique_id
+        self.all_artifacts = {}
+        # dictionary of artifacts currently in the queue
+        self.queued_artifacts = {}
+        # artifact being displayed in the manipulator plugin
+        self.displayed_artifact_id = None
+        # the index of the image to display for the artifact focused on
+        self.img_ind_displayed = 0
+        # artifact image index in the set of images to be displayed
+        self.img_displayed = 0
+        # dictionary ofartifacts deleted from queue but we may want to keep aroun
 
         # (future gui development needed to actually use this info)
         self.archived_artifacts = {}
@@ -775,16 +772,6 @@ class ArtifactHandler(BaseNode):
         # check for errors with request
         update_msg = GuiMessage()
 
-        if direction not in [
-            RetreiveArtifactImage.DIRECTION_FORWARD,
-            RetreiveArtifactImage.DIRECTION_BACKWARD,
-            RetreiveArtifactImage.DISPLAY_FIRST,
-        ]:
-
-            update_msg.data = "Somehow a wrong direction was sent. Image not changed."
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
-
         if self.displayed_artifact_id == None:
             update_msg.data = (
                 "No artifact has been selected. Please select one from the queue"
@@ -819,6 +806,11 @@ class ArtifactHandler(BaseNode):
         # display the first image
         elif direction == RetreiveArtifactImage.DISPLAY_FIRST and img_count > 0:
             self.publishImgToDisplay(0)
+
+        else:
+            update_msg.data = "Somehow a wrong direction was sent. Image not changed."
+            update_msg.color = update_msg.COLOR_RED
+            self.message_pub.publish(update_msg)
 
     def publishImgToDisplay(self, ind):
         """
@@ -983,9 +975,6 @@ class GuiArtifact:
 
 if __name__ == "__main__":
     time.sleep(0.5)  # give the gui time to launch and setup the proper subscribers
-    # rospy.init_node("artifact_handler", anonymous=True)
-    # ArtifactHandler()
-    # rospy.spin()
 
     node = ArtifactHandler()
     node.run()

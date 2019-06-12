@@ -128,14 +128,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (B) Clean up branches on basestation_gui_python package
 
-* (B-Done) Make constant for getArtifactImage the defines move forward, backward or define the original image
-
-* (B-Done) Make a new message type for change update art label message to have delete, update, hide constants, insetad of havign to decode strings. 
-
-* (D) Move big red button to the command plugin
-
-* (D+V) For a given artifact, when it receives a WiFi update with images, the artifact's detection image list is completely overwritten for every received message. Will need to coordinate with Vasu to decide best way to fix this. We should fix this to avoid bandwidth issues.
-
 * (D) Convert functionality for artifact refinement marker from old gui to modularized gui
 
 * (D) Artifacts, upon pressing "submit" are deleted from the queue. This could be a problem if, for example, the artifact tries to be submitted and the connection to the command post breaks. This artifact is then effectively "lost". It sits in the ArtifactHandler archived. It might be best to only delete from the table once the confirmation from darpa comes back? If the unique_id is still persisitent. Otherwise some other solution. 
@@ -153,8 +145,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 * (Unassigned) Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs 
 
 * (Unassigned) Don't deepcopy immutable objects in ArtifactHandler, like when new GuiArtifact objects are generated. 
-
-* (Unassigned) Pull CSS colors into some standard place?
 
 * (Unassigned) In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
 

@@ -243,9 +243,8 @@ class ArtifactImageVisualizerPlugin(Plugin):
             )
             self.update_art_label.show()
 
-        elif (
-            msg.data == ArtifactVisualizerUpdate.UPDATE
-        ):  # the artifact has been modified
+        # the artifact has been modified
+        elif msg.data == ArtifactVisualizerUpdate.UPDATE:
             self.update_art_label.setText(
                 "Artifact has been updated. Please select it again in the queue"
             )
@@ -254,9 +253,8 @@ class ArtifactImageVisualizerPlugin(Plugin):
             )
             self.update_art_label.show()
 
-        elif (
-            msg.data == ArtifactVisualizerUpdate.HIDE
-        ):  # the user has done something else, remove the label from sight
+        # the user has done something else, remove the label from sight
+        elif msg.data == ArtifactVisualizerUpdate.HIDE:
             self.update_art_label.hide()
 
     ############################################################################################
