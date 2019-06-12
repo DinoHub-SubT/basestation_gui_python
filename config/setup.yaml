@@ -33,9 +33,11 @@
 #            subscribe to in the UI.  Each topic will be prefixed by 'topic_prefix'.
 #            Topics is expected to have the following keys.
 #
-#            odometry:    Subscription for the robot's odometry when defining a waypoint.
-#            calibration: Subscription for the robot's odometry when taking a calibration point.
-#            darpa_tf:    Where to publish the DARPA transform after taking a calibration.
+#            odometry:       Subscription for the robot's odometry when defining a waypoint.
+#            calibration:    Subscription for the robot's odometry when taking a calibration point.
+#            artifact_wifi:  Subscription to receive incoming detected artifact images via WIFI.
+#            artifact_radio: Subscription to receive incoming detected artifact images via Radio.
+#            darpa_tf:       Where to publish the DARPA transform after taking a calibration.
 robots:
   -
     name: Ground1
@@ -48,6 +50,8 @@ robots:
       odometry: integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
+      artifact_wifi: real_artifact_imgs
+      artifact_radio: real_artifact_detections
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
@@ -59,6 +63,8 @@ robots:
       odometry: integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
+      artifact_wifi: real_artifact_imgs
+      artifact_radio: real_artifact_detections
 
 
 darpa:

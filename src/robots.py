@@ -66,6 +66,8 @@ class Config(object):
             require_topic(robot.topics, "odometry")
             require_topic(robot.topics, "calibration")
             require_topic(robot.topics, "darpa_tf")
+            require_topic(robot.topics, "artifact_wifi")
+            require_topic(robot.topics, "artifact_radio")
             if req_err[0]:
                 continue
             robot.is_aerial = option(r, "is_aerial")

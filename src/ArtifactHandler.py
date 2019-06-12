@@ -109,66 +109,59 @@ class ArtifactHandler(BaseNode):
             "/gui/submit_tell_queue", String, queue_size=10
         )  # tell the queue we submitted an artifact
 
-        self.new_manual_artifact_sub = rospy.Subscriber(
+        self.subscriptions = []
+
+        def sub(topic, what, callback):
+            s = rospy.Subscriber(topic, what, callback)
+            self.subscriptions.append(s)
+
+        # if we generated the artifact manually from the queue
+        sub(
             "/gui/generate_new_artifact_manual",
             Artifact,
             self.generateNewArtifactManually,
-        )  # if we generated the artifact manually from the queue
-        self.focus_on_artifact_sub = rospy.Subscriber(
-            "/gui/focus_on_artifact", String, self.setDisplayedArtifact
-        )  # if we selected an artifact from the queue
-        self.archive_artifact_sub = rospy.Subscriber(
-            "/gui/archive_artifact", String, self.archiveArtifact
-        )  # if we archived an artifact from the queue
-        self.duplicate_artifact_sub = rospy.Subscriber(
-            "/gui/duplicate_artifact", String, self.duplicateArtifact
-        )  # if we duplicated an artifact from the queue
-        self.submit_artifact_from_queue_sub = rospy.Subscriber(
+        )
+        # if we selected an artifact from the queue
+        sub("/gui/focus_on_artifact", String, self.setDisplayedArtifact)
+        # if we archived an artifact from the queue
+        sub("/gui/archive_artifact", String, self.archiveArtifact)
+        # if we duplicated an artifact from the queue
+        sub("/gui/duplicate_artifact", String, self.duplicateArtifact)
+        # if we want to submit an artifact from the queue
+        sub(
             "/gui/submit_artifact_from_queue",
             String,
             self.buildArtifactSubmissionFromQueue,
-        )  # if we want to submit an artifact from the queue
-        self.submit_artifact_from_manip_sub = rospy.Subscriber(
+        )
+        # if we want to submit an artifact from the manipulation panel
+        sub(
             "/gui/submit_artifact_from_manip_plugin",
             String,
             self.buildArtifactSubmissionFromManipPlugin,
-        )  # if we want to submit an artifact from the manipulation panel
-        self.change_disp_img_sub = rospy.Subscriber(
-            "/gui/change_disp_img", RetreiveArtifactImage, self.getArtifactImage
-        )  # to handle button presses iterating over artifact images
-        self.update_artifact_sub = rospy.Subscriber(
-            "/gui/update_artifact_info", ArtifactUpdate, self.updateArtifactInfoFromGui
-        )  # for updates from the manipulation panel
-        self.darpa_status_sub = rospy.Subscriber(
-            "/gui/darpa_status", DarpaStatus, self.updateDarpaInfo
-        )  # if we received information from DARPA
-        self.real_detection_sub = rospy.Subscriber(
-            "/real_artifact_detections", RadioMsg, self.handleRadioDetection
-        )  # if we received a fake artifact detection (its fake because it not namespaced with robot name/number)
-        self.real_images_sub = rospy.Subscriber(
-            "/real_artifact_imgs", WifiDetection, self.handleWifiDetection
-        )  # if we received a fake artifact image (its fake because it not namespaced with robot name/number)
-        self.fake_detection_sub = rospy.Subscriber(
-            "/fake_artifact_detections", RadioMsg, self.handleRadioDetection
-        )  # kept around for legacy purposes
-        self.fakei_sub = rospy.Subscriber(
-            "/fake_artifact_imgs", WifiDetection, self.handleWifiDetection
-        )  # for fake wifi detections
+        )
+        # to handle button presses iterating over artifact images
+        sub("/gui/change_disp_img", UInt8, self.getArtifactImage)
+        # for updates from the manipulation panel
+        sub("/gui/update_artifact_info", ArtifactUpdate, self.updateArtifactInfoFromGui)
+        # if we received information from DARPA
+        sub("/gui/darpa_status", DarpaStatus, self.updateDarpaInfo)
+        # The next two subscriptions are for the object detection
+        # module which does not use the robot topic prefix for it's
+        # testing.  Note, that when deployed on the robot it does use
+        # the prefix.  We leave these here compatibility and to avoid
+        # having change that module.
+        sub("/real_artifact_detections", RadioMsg, self.handleRadioDetection)
+        sub("/real_artifact_imgs", WifiDetection, self.handleWifiDetection)
+        # These two subscriptions are kept around for legacy purposes despite
+        # no longer using fake artifact detections.
+        sub("/fake_artifact_detections", RadioMsg, self.handleRadioDetection)
+        sub("/fake_artifact_imgs", WifiDetection, self.handleWifiDetection)
 
-        # properly namespaced detections from the robots
-        # kept in for legacy reasons. need to come up with some naming scheme
-        self.ugv1_wifi_detect_sub = rospy.Subscriber(
-            "/ugv1/real_artifact_imgs", WifiDetection, self.handleWifiDetection
-        )
-        self.uav1_wifi_detect_sub = rospy.Subscriber(
-            "/uav1/real_artifact_imgs", WifiDetection, self.handleWifiDetection
-        )
-        self.ugv1_radio_detect_sub = rospy.Subscriber(
-            "/ugv1/real_artifact_detections", RadioMsg, self.handleRadioDetection
-        )
-        self.uav1_radio_detect_sub = rospy.Subscriber(
-            "/uav1/real_artifact_detections", RadioMsg, self.handleRadioDetection
-        )
+        for r in config.robots:
+            wifi = "/{0}/{1}".format(r.topic_prefix, r.topics.get("artifact_wifi"))
+            radio = "/{0}/{1}".format(r.topic_prefix, r.topics.get("artifact_radio"))
+            sub(wifi, WifiDetection, self.handleWifiDetection)
+            sub(radio, RadioMsg, self.handleRadioDetection)
 
         return True
 
@@ -908,7 +901,9 @@ class ArtifactHandler(BaseNode):
         return True
 
     def shutdown(self):
-        rospy.loginfo("ArtifactHandler shutting down")
+        for s in self.subscriptions:
+            s.unregister()
+        rospy.loginfo("[Artifact Handler] shutting down")
 
 
 class GuiArtifact:

@@ -116,8 +116,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 # Known issues / TODO
 
-* (D+V+B) Take out /ugv1/real_artifact_imgs hardcoded topic in the ArtifactHandler and think of some naming convention. More generally, defining a naming convention for topic types w.r.t. artifact detection. 
-
 * (D) Saving/loading of gui from CSV. In case the gui crashes, we want to be able to load from a saved .csv or something like that. Either load from button press or tab on top 
 
 * (D) Inherit from the base class for the interactiveMarkerProcessing.py file?
