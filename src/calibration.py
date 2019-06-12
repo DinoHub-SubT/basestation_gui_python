@@ -219,14 +219,14 @@ class Calibration(Plugin):
         if ECAL not in RPKG.list():
             m = "The ROS '{0}' package was not found in the package list.  Ensure that it is installed and sourced."
             return (True, m.format(ECAL))
-        if len(robot.points) < 3:
+        if len(robot.points) < 2:
             # This error was from reading the calibration code and we perform it here in
             # order to get a fast and clear error message to the user.  The drawback is
             # that if someone modifies the calibration process and changes the number of
             # points required for a calibration then this has to change as well.  C'est la vie.
             return (
                 True,
-                "Not enough points.  Need 3 or more points for a calibration.",
+                "Not enough points.  Need 2 or more points for a calibration.",
             )
 
         # In a previous implementation the GUI program would record the data into the
@@ -239,8 +239,8 @@ class Calibration(Plugin):
         # matter.  This keeps us from having to modify ROS parameters to tell the calibration
         # which files to load and just its defaults listed in its launch file.
         cal_data = os.path.join(RPKG.get_path("entrance_calib"), "data")
-        est_path = os.path.join(cal_data, "ugv0_state_estimation.txt")
-        tot_path = os.path.join(cal_data, "ugv0_total_station.txt")
+        est_path = os.path.join(cal_data, "data_points.txt")
+        tot_path = os.path.join(cal_data, "reference_points.txt")
         with open(est_path, "w") as est:
             with open(tot_path, "w") as tot:
                 this = "{0}\n".format(len(robot.points))
