@@ -124,8 +124,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (D) Integrating of darpa transform into gui
 
-* (B) Clean up branches on basestation_gui_python package
-
 * (D) Convert functionality for artifact refinement marker from old gui to modularized gui
 
 * (D) Artifacts, upon pressing "submit" are deleted from the queue. This could be a problem if, for example, the artifact tries to be submitted and the connection to the command post breaks. This artifact is then effectively "lost". It sits in the ArtifactHandler archived. It might be best to only delete from the table once the confirmation from darpa comes back? If the unique_id is still persisitent. Otherwise some other solution. 
@@ -139,6 +137,8 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 * (D) Completely remove artifact priority functionality from the gui (bob commented out lines containing this info. if after a few deployments we don't need it and want to take out, we can)
 
 * (Unassigned) The Signal/Slot triggers should be intialized in the init function? Not outside of it. 
+
+* (Unassigned) Clean up branches on basestation_gui_python package
 
 * (Unassigned) Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs 
 
