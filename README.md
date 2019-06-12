@@ -120,8 +120,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (D) Saving/loading of gui from CSV. In case the gui crashes, we want to be able to load from a saved .csv or something like that. Either load from button press or tab on top 
 
-* (B-Done) Fix NoneType issue in artifact queue
-
 * (D) Inherit from the base class for the interactiveMarkerProcessing.py file?
 
 * (D) Integrating of darpa transform into gui
