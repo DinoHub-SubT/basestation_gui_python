@@ -62,7 +62,6 @@ class ArtifactHandler(BaseNode):
 
         config = robots.Config()
 
-        self.artifact_priorities = config.darpa.artifact_priorities
         # categories from robot are 1-based. so element 0 is unknown
         self.artifact_categories = ["Unknown"]
         for category in config.darpa.artifact_categories:
@@ -257,7 +256,7 @@ class ArtifactHandler(BaseNode):
         msg.time_from_robot = artifact.time_from_robot
         msg.time_to_darpa = artifact.time_to_darpa
         msg.unread = artifact.unread
-        msg.priority = artifact.priority
+        msg.priority = ""
         msg.darpa_response = artifact.darpa_response
         msg.img_stamps = artifact.img_stamps
         msg.original_timestamp = artifact.original_timestamp
@@ -304,7 +303,6 @@ class ArtifactHandler(BaseNode):
                 artifact_report_id=artifact_report_id,
                 imgs=msg.imgs,
                 img_stamps=msg.img_stamps,
-                priority=self.artifact_priorities[1],
                 time_from_robot=self.time_elapsed,
             )
         return artifact
@@ -321,7 +319,6 @@ class ArtifactHandler(BaseNode):
             ArtifactUpdate.PROPERTY_POSE_X,
             ArtifactUpdate.PROPERTY_POSE_Y,
             ArtifactUpdate.PROPERTY_POSE_Z,
-            ArtifactUpdate.PROPERTY_PRIORITY,
         ]
 
         if msg.update_type not in categories:
@@ -347,10 +344,6 @@ class ArtifactHandler(BaseNode):
             elif msg.update_type == ArtifactUpdate.PROPERTY_POSE_Z:
                 artifact.pose[2] = msg.curr_pose.position.z
                 self.displayed_pose[2] = artifact.pose[2]
-            elif msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY:
-                artifact.priority = msg.priority
-                # change the value in the artifact queue
-                self.update_artifact_in_queue_pub.publish(msg)
 
     ##############################################################################
     # Functions to support generating artifacts from wifi detections,
@@ -453,7 +446,6 @@ class ArtifactHandler(BaseNode):
             artifact_report_id=msg.artifact_report_id,
             imgs=imgs,
             img_stamps=img_stamps,
-            priority=self.artifact_priorities[1],
             bluetooth_strength=msg.bluetooth_strength,
             audio_strength=msg.audio_strength,
             time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
@@ -521,7 +513,6 @@ class ArtifactHandler(BaseNode):
             artifact_report_id=msg.artifact_report_id,
             imgs=[],
             img_stamps=[],
-            priority=self.artifact_priorities[1],
             bluetooth_strength=msg.bluetooth_strength,
             audio_strength=msg.audio_strength,
             time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
@@ -571,7 +562,6 @@ class ArtifactHandler(BaseNode):
                 artifact_id,
                 copy.deepcopy(artifact_to_dup.imgs),
                 copy.deepcopy(artifact_to_dup.img_stamps),
-                copy.deepcopy(artifact_to_dup.priority),
                 bluetooth_strength=0,
                 audio_strength=0,
                 time_from_robot=copy.deepcopy(artifact_to_dup.time_from_robot),
@@ -582,7 +572,7 @@ class ArtifactHandler(BaseNode):
             self.all_artifacts[artifact.unique_id] = artifact
 
             # publish this message to be visualized by plugins
-            # necessary step to fill in some defaults (i.e. priority)
+            # necessary step to fill in some defaults (i.e. category)
             # to be used by other parts of the gui
             ros_msg = self.guiArtifactToRos(artifact)
 
@@ -908,7 +898,7 @@ class ArtifactHandler(BaseNode):
         self.queued_artifacts[artifact.unique_id] = artifact
 
         # publish this message to be visualized by plugins
-        # necessary step to fill in some defaults (i.e. priority)
+        # necessary step to fill in some defaults (i.e. category)
         # to be used by other parts of the gui
         ros_msg = self.guiArtifactToRos(artifact)
         # add the artifact to the queue
@@ -933,7 +923,6 @@ class GuiArtifact:
         artifact_report_id="",
         imgs=None,
         img_stamps=None,
-        priority=None,
         bluetooth_strength=0,
         audio_strength=0,
         time_from_robot=None,
@@ -949,7 +938,6 @@ class GuiArtifact:
         )  # time the detection has come in from the robot. TODO: change to be something different?
         self.time_to_darpa = -1  # time submitted to darpa
         self.unread = True
-        self.priority = priority
         self.darpa_response = ""
         self.imgs = imgs if imgs is not None else []
         self.img_stamps = (

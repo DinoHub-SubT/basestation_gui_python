@@ -37,7 +37,6 @@ class ArtifactManipulationPlugin(Plugin):
 
         config = robots.Config()
         self.artifact_categories = config.darpa.artifact_categories
-        self.artifact_priorities = config.darpa.artifact_priorities
         self.artifact_id_displayed = None
         # if we're also simulating the darpa command post
         self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
@@ -222,15 +221,6 @@ class ArtifactManipulationPlugin(Plugin):
             msg.unique_id = self.artifact_id_displayed
             msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
             msg.category = self.artifact_cat_box.currentText()
-
-            self.update_artifact_info_pub.publish(msg)
-
-    def updateArtifactPriority(self):
-        """Change the artifact priority after the combo box has been changed."""
-        if self.artifact_id_displayed != None:  # we're actually displaying an artifact
-            msg = ArtifactUpdate()
-            msg.unique_id = self.artifact_id_displayed
-            msg.update_type = ArtifactUpdate.PROPERTY_PRIORITY
 
             self.update_artifact_info_pub.publish(msg)
 

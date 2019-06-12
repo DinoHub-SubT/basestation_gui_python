@@ -134,8 +134,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (D+V) Handling bluetooth/audio detections
 
-* (D) Completely remove artifact priority functionality from the gui (bob commented out lines containing this info. if after a few deployments we don't need it and want to take out, we can)
-
 * (Unassigned) The Signal/Slot triggers should be intialized in the init function? Not outside of it. 
 
 * (Unassigned) Clean up branches on basestation_gui_python package

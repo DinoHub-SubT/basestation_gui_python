@@ -79,7 +79,6 @@ class Config(object):
         self.darpa.request_info_uri = require(darpa, "request_info_uri", "darpa")
         self.darpa.scoring_uris = require(darpa, "scoring_uris", "darpa")
         self.darpa.artifact_categories = require(darpa, "artifact_categories", "darpa")
-        self.darpa.artifact_priorities = require(darpa, "artifact_priorities", "darpa")
 
 
 class Robot(object):
@@ -116,7 +115,6 @@ class Darpa(object):
         self.scoring_uris = None
         self.scoring_uris = []
         self.artifact_categories = []
-        self.artifact_priorities = []
 
     def __repr__(self):
         return str(self)
