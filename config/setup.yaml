@@ -26,6 +26,10 @@
 #                     the robot is allowed to be away from comms.  If not specified
 #                     then the default is 10.
 #
+#    estop_serial_port: [required] Serial device to route DARPA hard E-Stop commands.
+#    estop_engage:      [required] Command to engage the hard E-Stop on the DARPA serial port.
+#    estop_disengage:   [required] Command to dis-engage the hard E-Stop on the DARPA serial port.
+#
 #    topic_prefix: [required] Name prefix to attach to pub/sub topics.  It would
 #                  wise to have this be unique from other robots.
 #
@@ -45,6 +49,9 @@ robots:
     executive_id: 0
     has_comms: true
     max_travel_time: 10
+    estop_serial_port: '/dev/ttyUSB1'
+    estop_engage: '7E 00 10 17 AB 00 13 A2 00 40 DA 8F E1 FF FE 02 44 30 04 87'
+    estop_disengage: '7E 00 10 17 01 00 13 A2 00 41 90 8A 87 FF FE 02 44 31 05 D7'
     topic_prefix: ugv1
     topics:
       odometry: integrated_to_map
@@ -58,6 +65,9 @@ robots:
     executive_id: 1
     is_aerial: true
     max_travel_time: 10
+    estop_serial_port: '/dev/ttyUSB1'
+    estop_engage: '7E 00 10 17 AB 00 13 A2 00 40 DA 8F E1 FF FE 02 44 30 04 87'
+    estop_disengage: '7E 00 10 17 01 00 13 A2 00 41 90 8A 87 FF FE 02 44 31 05 D7'
     topic_prefix: uav1
     topics:
       odometry: integrated_to_map
@@ -67,6 +77,15 @@ robots:
       artifact_radio: real_artifact_detections
 
 
+# The DARPA section specifies how the GUI should communicate with DARPA
+# systems.
+#
+#    auth_bearer_token:   [required] Authentication token to communicate with the DARPA web server.
+#    request_info_uri:    [required] URI to GET the current DARPA status.
+#    scoring_uris:        [required] URI to POST artifact reports to DARPA.
+#    artifact_categories: [required] Various artifact categories that any robot should report.
+#    artifact_priorities: [required] Priority to assign a received artifact.
+#
 darpa:
   auth_bearer_token: 'flux230{showroom'
   request_info_uri: 'http://api/status/'

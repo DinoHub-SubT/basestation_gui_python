@@ -14,6 +14,7 @@ import rospy
 import rospkg
 import threading
 import robots
+import serial
 
 import python_qt_binding.QtWidgets as qt
 
@@ -198,7 +199,7 @@ class RobotCommandPlugin(Plugin):
             if robot.is_aerial:
                 hover = HoverButton(exec_id, rad)
                 takeoff = TakeoffButton(exec_id, rad, rad900)
-                hard = AerialHardEStopButton(confirm, cancel, exec_id, rad, rad900)
+                hard = AerialHardEStopButton(confirm, cancel, robot, rad, rad900)
                 land = LandButton(confirm, cancel, exec_id, rad)
                 toComms = ExploreButton("Land in Comms", exec_id, rad)
 
@@ -226,7 +227,7 @@ class RobotCommandPlugin(Plugin):
                 commands = []
                 resume = ResumeButton(exec_id, rad, rad900)
                 soft = SoftEStopButton(exec_id, rad)
-                hard = HardEStopButton(confirm, cancel, exec_id, rad, rad900)
+                hard = HardEStopButton(confirm, cancel, robot, rad, rad900)
                 toComms = ExploreButton("Return to Comms", exec_id, rad)
 
                 stoppers.append(soft)
@@ -467,34 +468,69 @@ class LandButton(LinkableConfirmButton):
         self.execute()
 
 
+def darpa_estop(where, what):
+    try:
+        with serial.Serial(where) as s:
+            s.write(what)
+    except Exception as e:
+        rospy.logerr("[Robot Command] Hard E-Stop: %s", e)
+
+
 class HardEStopButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, exec_id, radio_pub, radio900_pub):
+    def __init__(self, confirm, cancel, robot, radio_pub, radio900_pub):
         super(HardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
-        self.exec_id = exec_id
+        self.exec_id = robot.executive_id
         self.radio = radio_pub
         self.radio900 = radio900_pub
+        self.estop_serial_port = robot.estop_serial_port
+        self.estop_engage = robot.estop_engage
+        self.estop_disengage = robot.estop_disengage
+
+    def uncheck(self):
+        darpa_estop(self.estop_serial_port, self.estop_disengage)
 
     def execute(self):
         radio900(self.radio900, 1, self.exec_id)
         radioStop(self.radio, RadioMsg.ESTOP_HARD, self.exec_id)
+        darpa_estop(self.estop_serial_port, self.estop_engage)
 
 
 class AerialHardEStopButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, exec_id, radio_pub, radio900_pub):
+    def __init__(self, confirm, cancel, robot, radio_pub, radio900_pub):
         super(AerialHardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
-        self.exec_id = exec_id
+        self.exec_id = robot.executive_id
         self.radio = radio_pub
         self.radio900 = radio900_pub
+        self.estop_serial_port = robot.estop_serial_port
+        self.estop_engage = robot.estop_engage
+        self.estop_disengage = robot.estop_disengage
+        self.was_darpa_estopped = False
         # Not started but initialized to avoid checking for None in uncheck.
         self.timer = threading.Timer(1, self.execute)
 
     def uncheck(self):
         self.timer.cancel()
+        # Due to the timer, the plugin has to forcefully uncheck this button, regardless
+        # if it was previously checked, in order to properly shutdown the timer.
+        # However, this can inadvertently send a DARPA disengage command which may not
+        # be desired.  Imagine the sequence:
+        #
+        # 1) DARPA hard E-stops the drone with their own interface.
+        # 2) GUI is subsequently shutdown for whatever reason.
+        # 3) GUI disengages DARPA hard e-stop; thus, re-activating the robot.
+        # 4) CMU is disqualified from the competition.
+        #
+        # Hence, why the 'was_darpa_estopped' flag is used to avoid this behavior.
+        if self.was_darpa_estopped:
+            darpa_estop(self.estop_serial_port, self.estop_disengage)
+            self.was_darpa_estopped = False
 
     def execute(self):
         self.timer.cancel()
         radio900(self.radio900, 1, self.exec_id)
         radioStop(self.radio, RadioMsg.ESTOP_HARD, self.exec_id)
+        darpa_estop(self.estop_serial_port, self.estop_engage)
+        self.was_darpa_estopped = True
         SECOND = 1
         self.timer = threading.Timer(2 * SECOND, self.execute)
         self.timer.start()

@@ -61,6 +61,9 @@ class Config(object):
             robot.name = require(r, "name", "robot")
             robot.uuid = require(r, "uuid", "robot")
             robot.executive_id = require(r, "executive_id", "robot")
+            robot.estop_serial_port = require(r, "estop_serial_port", "robot")
+            robot.estop_engage = require(r, "estop_engage", "robot")
+            robot.estop_disengage = require(r, "estop_disengage", "robot")
             robot.topic_prefix = require(r, "topic_prefix", "robot")
             robot.topics = require(r, "topics", "robot")
             require_topic(robot.topics, "odometry")
@@ -70,17 +73,26 @@ class Config(object):
             require_topic(robot.topics, "artifact_radio")
             if req_err[0]:
                 continue
+            else:
+                engage = robot.estop_engage.split()
+                disengage = robot.estop_disengage.split()
+                robot.estop_engage = "".join(engage).decode("hex")
+                robot.estop_disengage = "".join(disengage).decode("hex")
             robot.is_aerial = option(r, "is_aerial")
             robot.has_comms = option(r, "has_comms")
             if r.has_key("max_travel_time"):
                 robot.max_travel_time = int(r.get("max_travel_time"))
             self.robots.append(robot)
 
-        darpa = config["darpa"]
-        self.darpa.auth_bearer_token = require(darpa, "auth_bearer_token", "darpa")
-        self.darpa.request_info_uri = require(darpa, "request_info_uri", "darpa")
-        self.darpa.scoring_uris = require(darpa, "scoring_uris", "darpa")
-        self.darpa.artifact_categories = require(darpa, "artifact_categories", "darpa")
+        darpaCfg = config["darpa"]
+        darpa = Darpa()
+        darpa.auth_bearer_token = require(darpaCfg, "auth_bearer_token", "darpa")
+        darpa.request_info_uri = require(darpaCfg, "request_info_uri", "darpa")
+        darpa.scoring_uris = require(darpaCfg, "scoring_uris", "darpa")
+        darpa.artifact_categories = require(darpaCfg, "artifact_categories", "darpa")
+        darpa.artifact_priorities = require(darpaCfg, "artifact_priorities", "darpa")
+        if not req_err[0]:
+            self.darpa = darpa
 
 
 class Robot(object):
@@ -92,9 +104,13 @@ class Robot(object):
     def __init__(self):
         self.name = None
         self.uuid = None
+        self.executive_id = None
         self.is_aerial = False
         self.has_comms = False
         self.max_travel_time = 10
+        self.estop_serial_port = None
+        self.estop_engage = None
+        self.estop_disengage = None
         self.topic_prefix = None
         self.topics = dict()
 

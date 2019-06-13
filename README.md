@@ -145,6 +145,9 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 =======
 # Development
 
+Formatting
+----------
+
 Basestation_gui is developed using rospy and thus requires Python2.7.  However, for
 consistency of development amongst several developers we use
 [black](https://github.com/python/black) for all formatting of Python source code which
@@ -164,6 +167,13 @@ following instructions will make it easy to format the source code:
 Note that we use _black's_ defaults for formatting thus allowing for zero configuration
 and keeping things simple.  If you wish to integrate _black_ within your editor workflow
 then check out its project page from the link above for setup with your editor of choice.
+
+Library Dependencies
+--------------------
+
+Basestation_gui third-party dependencies and how to get them are listed here:
+
+* *pyserial*:  Required for DARPA E-Stop commands -- `pip2 install pyserial`
 
 
 =======
