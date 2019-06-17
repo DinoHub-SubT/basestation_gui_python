@@ -81,7 +81,7 @@ ROS_TO_EMBEDDED_TYPES = {
     'duration':   ('ros::Duration',     8, TimeDataType, ['ros/duration']),
     'string'  :   ('char*',             0, StringDataType, []),
     'Header'  :   ('std_msgs::Header',  0, MessageDataType, ['std_msgs/Header']),
-'RadioMsg':   ('basestation_gui_python::RadioMsg',  0, MessageDataType, ['basestation_gui_python/RadioMsg'])
+'Radio':   ('basestation_msgs::Radio',  0, MessageDataType, ['basestation_msgs/Radio'])
 }
 
 # need correct inputs
