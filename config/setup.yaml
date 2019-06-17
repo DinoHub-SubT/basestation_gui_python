@@ -42,6 +42,9 @@
 #            artifact_wifi:  Subscription to receive incoming detected artifact images via WIFI.
 #            artifact_radio: Subscription to receive incoming detected artifact images via Radio.
 #            darpa_tf:       Where to publish the DARPA transform after taking a calibration.
+#            wifi_detection: Subscription to receive incoming detected artifact images via WIFI.
+#            status_update:  Subscription to receive heath monitoring info from various nodes.
+#            radio_command:  Where to publish outgoing radio command messages.
 robots:
   -
     name: Ground1
@@ -59,6 +62,9 @@ robots:
       darpa_tf: transform
       artifact_wifi: real_artifact_imgs
       artifact_radio: real_artifact_detections
+      wifi_detection: wifi_detection
+      status_update: status_update
+      radio_command: radio_command
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
@@ -75,6 +81,9 @@ robots:
       darpa_tf: transform
       artifact_wifi: real_artifact_imgs
       artifact_radio: real_artifact_detections
+      wifi_detection: wifi_detection
+      status_update: status_update
+      radio_command: radio_command
 
 
 # The DARPA section specifies how the GUI should communicate with DARPA

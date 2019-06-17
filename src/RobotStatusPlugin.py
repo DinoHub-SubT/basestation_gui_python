@@ -19,12 +19,15 @@ from python_qt_binding.QtCore import Qt
 from python_qt_binding.QtWidgets import QWidget
 from PyQt5.QtCore import pyqtSignal
 
+import basestation_msgs.msg as bsm
+
 from basestation_gui_python.msg import StatusPanelUpdate
 
 
 class RobotStatusPlugin(Plugin):
     # to keep the drawing on the proper thread
     robot_status_trigger = pyqtSignal(object)
+    status_update_trigger = pyqtSignal(object, object)
 
     def __init__(self, context):
         super(RobotStatusPlugin, self).__init__(context)
@@ -48,9 +51,24 @@ class RobotStatusPlugin(Plugin):
 
         self.status_table = table
         self.robot_status_trigger.connect(self.robotStatusMonitor)
-        self.robot_status_sub = rospy.Subscriber(
-            "/status_panel_update", StatusPanelUpdate, self.robotStatus
-        )  # to get status updates from the robot
+        self.status_update_trigger.connect(self.statusUpdateMonitor)
+
+        self.subscriptions = []
+
+        def sub(where, what, callback):
+            s = rospy.Subscriber(where, what, callback)
+            self.subscriptions.append(s)
+
+        def update(column):
+            def fn(msg):
+                self.status_update_trigger.emit(column, msg)
+
+            return fn
+
+        sub("/status_panel_update", StatusPanelUpdate, self.robotStatus)
+        for (column, r) in enumerate(self.config.robots):
+            topic = "/{0}/{1}".format(r.topic_prefix, r.topics.get("status_update"))
+            sub(topic, bsm.StatusUpdate, update(column))
 
     def initPanel(self, robot_names, statuses):
         """Initialize the panel for displaying widgets."""
@@ -100,22 +118,30 @@ class RobotStatusPlugin(Plugin):
         if column == -1:
             rospy.logerr("[Robot Status Plugin] Invalid robot ID %d", msg.robot_id)
             return
-
         if msg.key not in self.statuses:
             rospy.logerr("[Robot Status Plugin] Invalid robot status: %s", msg.key)
             return
-
         row = self.statuses.index(msg.key)
+        rgb = gui.QColor(rgb.r, rgb.g, rgb.b)
+        self.updatePanel(row, column, msg.value, rgb)
+
+    def statusUpdateMonitor(self, column, msg):
+        rgb = gui.QColor(0, 255, 0)
+        if msg.severity == bsm.StatusUpdate.SEVERITY_WARNING:
+            rgb = gui.QColor(255, 255, 0)
+        elif msg.severity == bsm.StatusUpdate.SEVERITY_CRITICAL:
+            rgb = gui.QColor(255, 0, 0)
+        self.updatePanel(msg.what, column, msg.value, rgb)
+
+    def updatePanel(self, row, column, value, color):
         item = self.status_table.item(row, column)
         if item == None:
             self.status_table.setItem(row, column, qt.QTableWidgetItem(""))
-
-        rgb = msg.color
         item = self.status_table.item(row, column)
-        item.setBackground(gui.QColor(rgb.r, rgb.g, rgb.b))
-        item.setText(msg.value)
-
+        item.setBackground(color)
+        item.setText(value)
         self.status_table.viewport().update()
 
     def shutdown_plugin(self):
-        self.robot_status_sub.unregister()
+        for s in self.subscriptions:
+            s.unregister()

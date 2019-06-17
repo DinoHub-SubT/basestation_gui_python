@@ -17,6 +17,8 @@ import robots
 from cv_bridge import CvBridge
 from darpa_command_post.TeamClient import TeamClient, ArtifactReport
 
+import basestation_msgs.msg as bsm
+
 from std_msgs.msg import String, UInt8, Bool
 from sensor_msgs.msg import Image
 from basestation_gui_python.msg import (
@@ -157,11 +159,16 @@ class ArtifactHandler(BaseNode):
         sub("/fake_artifact_detections", RadioMsg, self.handleRadioDetection)
         sub("/fake_artifact_imgs", WifiDetection, self.handleWifiDetection)
 
+        def topic(robot, what):
+            return "/{0}/{1}".format(robot.topic_prefix, robot.topics.get(what))
+
         for r in config.robots:
-            wifi = "/{0}/{1}".format(r.topic_prefix, r.topics.get("artifact_wifi"))
-            radio = "/{0}/{1}".format(r.topic_prefix, r.topics.get("artifact_radio"))
+            wifi = topic(r, "artifact_wifi")
+            radio = topic(r, "artifact_radio")
+            detect = topic(r, "wifi_detection")
             sub(wifi, WifiDetection, self.handleWifiDetection)
             sub(radio, RadioMsg, self.handleRadioDetection)
+            sub(detect, bsm.WifiDetection, self.handleWifiDetection)
 
         return True
 
@@ -396,14 +403,6 @@ class ArtifactHandler(BaseNode):
             artifact.pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
             updated = True
 
-        if msg.bluetooth_strength != 0:
-            artifact.bluetooth_strength = msg.bluetooth_strength
-            updated = True
-
-        if msg.audio_strength != 0:
-            artifact.audio_strength = msg.audio_strength
-            updated = True
-
         # over-write all of the images!! probably should be fixed.
         if len(msg.imgs) > 0:
             artifact.imgs, artifact.img_stamps = self.timestampsOnImgs(msg.imgs)
@@ -439,8 +438,6 @@ class ArtifactHandler(BaseNode):
             artifact_report_id=msg.artifact_report_id,
             imgs=imgs,
             img_stamps=img_stamps,
-            bluetooth_strength=msg.bluetooth_strength,
-            audio_strength=msg.audio_strength,
             time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
         )
         self.bookeepAndPublishNewArtifact(artifact)
@@ -475,14 +472,6 @@ class ArtifactHandler(BaseNode):
                 artifact.pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
                 pose_updated = True
 
-            if msg.bluetooth_strength != 0:
-                artifact.bluetooth_strength = msg.bluetooth_strength
-                bluetooth_updated = True
-
-            if msg.audio_strength != 0:
-                artifact.audio_strength = msg.audio_strength
-                audio_updated = True
-
             if updated and msg_unique_id == self.displayed_artifact_id:
                 # if we updated the artifact being displayed,
                 # send a message to the image visualization panel to re-select the artifact from the queue
@@ -506,8 +495,6 @@ class ArtifactHandler(BaseNode):
             artifact_report_id=msg.artifact_report_id,
             imgs=[],
             img_stamps=[],
-            bluetooth_strength=msg.bluetooth_strength,
-            audio_strength=msg.audio_strength,
             time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
         )
         self.bookeepAndPublishNewArtifact(artifact)
@@ -555,8 +542,6 @@ class ArtifactHandler(BaseNode):
                 artifact_id,
                 copy.deepcopy(artifact_to_dup.imgs),
                 copy.deepcopy(artifact_to_dup.img_stamps),
-                bluetooth_strength=0,
-                audio_strength=0,
                 time_from_robot=copy.deepcopy(artifact_to_dup.time_from_robot),
             )
 
@@ -918,8 +903,6 @@ class GuiArtifact:
         artifact_report_id="",
         imgs=None,
         img_stamps=None,
-        bluetooth_strength=0,
-        audio_strength=0,
         time_from_robot=None,
     ):
 
@@ -942,8 +925,6 @@ class GuiArtifact:
         self.unique_id = GuiArtifact.message_id(
             source_robot_id, artifact_report_id, original_timestamp
         )
-        self.bluetooth_strength = bluetooth_strength
-        self.audio_strength = audio_strength
 
     @staticmethod
     def message_id(robot_id, report_id, secs):

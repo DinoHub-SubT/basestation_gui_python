@@ -128,8 +128,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 ** This is, depending on how you look at it, an effect of a bigger problem: if you close the artifact queue, that info will be out of sync with the artifact handler. some way to refresh with artifacthandler info? Either by button press or maybe automatically at 1Hz or so
 
-* (D) Pull out radio and wifi messages into some other more lightweight and ubiquitous package in order to all them to have the messag without installing the entire basestation package
-
 * (D+V) Handling bluetooth/audio detections
 
 * (Unassigned) The Signal/Slot triggers should be intialized in the init function? Not outside of it. 

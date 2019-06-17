@@ -23,37 +23,14 @@ from PyQt5.QtCore import pyqtSignal
 from python_qt_binding.QtCore import Qt
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy, QTabWidget
 
+import basestation_msgs.msg as bsm
+
 from basestation_gui_python.msg import GuiMessage, RadioMsg, NineHundredRadioMsg
 from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import InteractiveMarkerFeedback
 
 from gui_utils import COLORS
-
-################################################################################
-#
-#    Helper functions for publishing radio messages.
-#
-################################################################################
-
-
-def radio900(pub, what, exec_id):
-    r9 = NineHundredRadioMsg()
-    r9.message_type = what
-    r9.recipient_robot_id = exec_id
-    pub.publish(r9)
-
-
-def radio(pub, msg_type, what, exec_id):
-    rm = RadioMsg()
-    rm.data = what
-    rm.recipient_robot_id = exec_id
-    rm.message_type = msg_type
-    pub.publish(rm)
-
-
-def radioStop(pub, what, exec_id):
-    radio(pub, RadioMsg.MESSAGE_TYPE_ESTOP, what, exec_id)
 
 
 ################################################################################
@@ -79,19 +56,53 @@ class RobotCommandPlugin(Plugin):
         def pub(to, what, size):
             return rospy.Publisher(to, what, queue_size=size)
 
-        self.radio_pub = pub("/from_gui", RadioMsg, 50)
-        self.radio_900_pub = pub("/ros_to_teensy", NineHundredRadioMsg, 50)
         self.gui_message_pub = pub("/gui/message_print", GuiMessage, 10)
         self.waypoint_marker_on_pub = pub("/define_waypoint_marker_pos", Point, 50)
         self.waypoint_marker_off_pub = pub("/define_waypoint_marker_off", Point, 50)
+
+        radio_pub = pub("/from_gui", RadioMsg, 50)
+        radio_900_pub = pub("/ros_to_teensy", NineHundredRadioMsg, 50)
+
+        def radioize(robot):
+            t = "/{0}/{1}".format(robot.topic_prefix, robot.topics["radio_command"])
+            radio_cmd = pub(t, bsm.Radio, 50)
+
+            def send(msg_type, what):
+                rm = RadioMsg()
+                rm.data = what
+                rm.recipient_robot_id = robot.executive_id
+                rm.message_type = msg_type
+                radio_pub.publish(rm)
+
+                cmd = bsm.Radio()
+                cmd.message_type = msg_type
+                cmd.data = what
+                radio_cmd.publish(cmd)
+
+            def stop(what):
+                send(bsm.Radio.MESSAGE_TYPE_ESTOP, what)
+
+            def r900(what):
+                r9 = NineHundredRadioMsg()
+                r9.message_type = what
+                r9.recipient_robot_id = robot.executive_id
+                radio_900_pub.publish(r9)
+
+            robot.radio = send
+            robot.radio900 = r900
+            robot.radioStop = stop
+
         self.subs = [
             rospy.Subscriber(
                 "/define_waypoint/feedback", InteractiveMarkerFeedback, self.onWaypoint
             )
         ]
+
         for r in self.config.robots:
             t = "/{0}/{1}".format(r.topic_prefix, r.topics["odometry"])
             self.subs.append(rospy.Subscriber(t, Odometry, self.onOdometry, r))
+            radioize(r)
+
         context.add_widget(self.createPanel())
 
     def shutdown_plugin(self):
@@ -105,8 +116,7 @@ class RobotCommandPlugin(Plugin):
         if self.waypoints.has_key(robot.uuid):
             w = self.waypoints[robot.uuid]
             d = "{0},{1},{2}".format(w[0], w[1], w[2])
-            m = RadioMsg.MESSAGE_TYPE_DEFINE_WAYPOINT
-            radio(self.radio_pub, m, d, robot.executive_id)
+            robot.radio(bsm.Radio.MESSAGE_TYPE_DEFINE_WAYPOINT, d)
             # Publish an invalid point to turn off the interactive marker in Rviz.
             self.waypoint_marker_off_pub.publish(Point(-1, -1, -1))
             self.waypt_robot = None
@@ -150,8 +160,6 @@ class RobotCommandPlugin(Plugin):
         layout = qt.QGridLayout()
         tabs = QTabWidget()
         label = qt.QLabel()
-        rad = self.radio_pub
-        rad900 = self.radio_900_pub
         waypt_links = []
         stoppers = []
 
@@ -161,11 +169,10 @@ class RobotCommandPlugin(Plugin):
         layout.addWidget(tabs)
         widget.setLayout(layout)
 
-        def make_adjuster(combo_box, exec_id):
+        def make_adjuster(combo_box, robot):
             def fn():
-                m = RadioMsg.MESSAGE_TYPE_MAX_FLIGHT_TIME
                 d = str(float(combo_box.currentText()) * 60)
-                radio(self.radio_pub, m, d, exec_id)
+                robot.radio(bsm.Radio.MESSAGE_TYPE_MAX_FLIGHT_TIME, d)
 
             return fn
 
@@ -180,12 +187,9 @@ class RobotCommandPlugin(Plugin):
             cancel = ConfirmButton("Cancel", COLORS.RED)
             waypt = DefineWaypointButton(robot, self.moveWaypoint, self.publishWaypoint)
             blue = ShowBluetoothButton()
-            goHome = ReturnHomeButton(exec_id, rad)
+            goHome = ReturnHomeButton(robot)
             resend = RadioButton(
-                "Re-send Artifacts",
-                exec_id,
-                rad,
-                RadioMsg.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS,
+                "Re-send Artifacts", robot, bsm.Radio.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
             )
 
             for w in waypt_links:
@@ -197,11 +201,11 @@ class RobotCommandPlugin(Plugin):
             tabs.addTab(tab, robot.name)
 
             if robot.is_aerial:
-                hover = HoverButton(exec_id, rad)
-                takeoff = TakeoffButton(exec_id, rad, rad900)
-                hard = AerialHardEStopButton(confirm, cancel, robot, rad, rad900)
-                land = LandButton(confirm, cancel, exec_id, rad)
-                toComms = ExploreButton("Land in Comms", exec_id, rad)
+                hover = HoverButton(robot)
+                takeoff = TakeoffButton(robot)
+                hard = AerialHardEStopButton(confirm, cancel, robot)
+                land = LandButton(confirm, cancel, robot)
+                toComms = ExploreButton("Land in Comms", robot)
 
                 stoppers.append(land)
                 self.timer_buttons.append(hard)
@@ -225,10 +229,10 @@ class RobotCommandPlugin(Plugin):
                 ]
             else:
                 commands = []
-                resume = ResumeButton(exec_id, rad, rad900)
-                soft = SoftEStopButton(exec_id, rad)
-                hard = HardEStopButton(confirm, cancel, robot, rad, rad900)
-                toComms = ExploreButton("Return to Comms", exec_id, rad)
+                resume = ResumeButton(robot)
+                soft = SoftEStopButton(robot)
+                hard = HardEStopButton(confirm, cancel, robot)
+                toComms = ExploreButton("Return to Comms", robot)
 
                 stoppers.append(soft)
                 resume.link([soft, hard, goHome])
@@ -238,8 +242,8 @@ class RobotCommandPlugin(Plugin):
 
                 commands.extend([resume, soft, hard, waypt, goHome])
                 if robot.has_comms:
-                    mt = RadioMsg.MESSAGE_TYPE_DROP_COMMS
-                    commands.append(RadioButton("Drop Comms", exec_id, rad, mt))
+                    mt = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
+                    commands.append(RadioButton("Drop Comms", robot, mt))
                 commands.extend([blue, toComms, resend, confirm, cancel])
 
             for c in commands:
@@ -256,7 +260,7 @@ class RobotCommandPlugin(Plugin):
             box = qt.QComboBox()
             for speed in times:
                 box.addItem(speed)
-            box.currentTextChanged.connect(make_adjuster(box, exec_id))
+            box.currentTextChanged.connect(make_adjuster(box, robot))
             grid.addWidget(box, row, col)
 
         def stopAll():
@@ -283,11 +287,11 @@ class RadioButton(qt.QPushButton):
     RadioButton is a simple fire and forget button that sends a RadioMsg when clicked.
     """
 
-    def __init__(self, text, exec_id, radio_pub, msg_type):
+    def __init__(self, text, robot, msg_type):
         super(RadioButton, self).__init__(text)
 
         def onClick():
-            radio(radio_pub, msg_type, "", exec_id)
+            robot.radio(msg_type, "")
 
         self.setStyleSheet("QPushButton:pressed {" + COLORS.GREEN + "}")
         self.clicked.connect(onClick)
@@ -411,39 +415,34 @@ class LinkableConfirmButton(LinkableButton):
 
 
 class ResumeButton(LinkableButton):
-    def __init__(self, exec_id, radio_pub, radio900_pub):
+    def __init__(self, robot):
         super(ResumeButton, self).__init__("Resume")
-        self.exec_id = exec_id
-        self.radio = radio_pub
-        self.radio900 = radio900_pub
+        self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
 
     def execute(self):
-        radio900(self.radio900, NineHundredRadioMsg.ESTOP_RESUME, self.exec_id)
-        radioStop(self.radio, RadioMsg.ESTOP_RESUME, self.exec_id)
+        self.robot.radio900(NineHundredRadioMsg.ESTOP_RESUME)
+        self.robot.radioStop(RadioMsg.ESTOP_RESUME)
 
 
 class TakeoffButton(LinkableButton):
-    def __init__(self, exec_id, radio_pub, radio900_pub):
+    def __init__(self, robot):
         super(TakeoffButton, self).__init__("Resume/Takeoff")
-        self.exec_id = exec_id
-        self.radio = radio_pub
-        self.radio900 = radio900_pub
+        self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
 
     def execute(self):
-        radio900(self.radio900, NineHundredRadioMsg.ESTOP_RESUME, self.exec_id)
-        radioStop(self.radio, RadioMsg.ESTOP_RESUME, self.exec_id)
+        self.robot.radioStop(bsm.Radio.ESTOP_RESUME)
+        self.robot.radio900(NineHundredRadioMsg.ESTOP_RESUME)
 
 
 class SoftEStopButton(LinkableButton):
-    def __init__(self, exec_id, radio_pub):
+    def __init__(self, robot):
         super(SoftEStopButton, self).__init__("Soft E-Stop")
-        self.exec_id = exec_id
-        self.radio = radio_pub
+        self.robot = robot
 
     def execute(self):
-        radioStop(self.radio, RadioMsg.ESTOP_SOFT, self.exec_id)
+        self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
 
     # Allows programmatical way to activate this button from a mega E-Stop button.
     def forceStop(self):
@@ -453,13 +452,12 @@ class SoftEStopButton(LinkableButton):
 
 
 class LandButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, exec_id, radio_pub):
+    def __init__(self, confirm, cancel, robot):
         super(LandButton, self).__init__("Land", confirm, cancel)
-        self.exec_id = exec_id
-        self.radio = radio_pub
+        self.robot = robot
 
     def execute(self):
-        radioStop(self.radio, RadioMsg.ESTOP_SOFT, self.exec_id)
+        self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
 
     # Allows programmatical way to activate this button from a mega E-Stop button.
     def forceStop(self):
@@ -477,33 +475,23 @@ def darpa_estop(where, what):
 
 
 class HardEStopButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, robot, radio_pub, radio900_pub):
+    def __init__(self, confirm, cancel, robot):
         super(HardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
-        self.exec_id = robot.executive_id
-        self.radio = radio_pub
-        self.radio900 = radio900_pub
-        self.estop_serial_port = robot.estop_serial_port
-        self.estop_engage = robot.estop_engage
-        self.estop_disengage = robot.estop_disengage
+        self.robot = robot
 
     def uncheck(self):
-        darpa_estop(self.estop_serial_port, self.estop_disengage)
+        darpa_estop(self.robot.estop_serial_port, self.robot.estop_disengage)
 
     def execute(self):
-        radio900(self.radio900, 1, self.exec_id)
-        radioStop(self.radio, RadioMsg.ESTOP_HARD, self.exec_id)
-        darpa_estop(self.estop_serial_port, self.estop_engage)
+        self.robot.radio900(1)
+        self.robot.radioStop(bsm.Radio.ESTOP_HARD)
+        darpa_estop(self.robot.estop_serial_port, self.robot.estop_engage)
 
 
 class AerialHardEStopButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, robot, radio_pub, radio900_pub):
+    def __init__(self, confirm, cancel, robot):
         super(AerialHardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
-        self.exec_id = robot.executive_id
-        self.radio = radio_pub
-        self.radio900 = radio900_pub
-        self.estop_serial_port = robot.estop_serial_port
-        self.estop_engage = robot.estop_engage
-        self.estop_disengage = robot.estop_disengage
+        self.robot = robot
         self.was_darpa_estopped = False
         # Not started but initialized to avoid checking for None in uncheck.
         self.timer = threading.Timer(1, self.execute)
@@ -527,9 +515,9 @@ class AerialHardEStopButton(LinkableConfirmButton):
 
     def execute(self):
         self.timer.cancel()
-        radio900(self.radio900, 1, self.exec_id)
-        radioStop(self.radio, RadioMsg.ESTOP_HARD, self.exec_id)
-        darpa_estop(self.estop_serial_port, self.estop_engage)
+        self.robot.radio900(1)
+        self.robot.radioStop(bsm.Radio.ESTOP_HARD)
+        darpa_estop(self.robot.estop_serial_port, self.robot.estop_engage)
         self.was_darpa_estopped = True
         SECOND = 1
         self.timer = threading.Timer(2 * SECOND, self.execute)
@@ -537,41 +525,38 @@ class AerialHardEStopButton(LinkableConfirmButton):
 
 
 class HoverButton(LinkableButton):
-    def __init__(self, exec_id, radio_pub):
+    def __init__(self, robot):
         super(HoverButton, self).__init__("Hover")
-        self.exec_id = exec_id
-        self.radio = radio_pub
+        self.robot = robot
 
     def execute(self):
-        radioStop(self.radio, RadioMsg.ESTOP_PAUSE, self.exec_id)
+        self.robot.radioStop(bsm.Radio.ESTOP_PAUSE)
 
 
 class ReturnHomeButton(LinkableButton):
-    def __init__(self, exec_id, radio_pub):
+    def __init__(self, robot):
         super(ReturnHomeButton, self).__init__("Return Home")
-        self.exec_id = exec_id
-        self.radio = radio_pub
+        self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
 
     def execute(self):
-        radio(self.radio, RadioMsg.MESSAGE_TYPE_RETURN_HOME, "", self.exec_id)
+        self.robot.radio(bsm.Radio.MESSAGE_TYPE_RETURN_HOME, "")
 
 
 class ExploreButton(LinkableButton):
-    def __init__(self, text, exec_id, radio_pub):
+    def __init__(self, text, robot):
         super(ExploreButton, self).__init__(text)
         self.text = text
-        self.exec_id = exec_id
-        self.radio = radio_pub
-        self.msg_type = RadioMsg.MESSAGE_TYPE_LANDING_BEHAVIOR
+        self.robot = robot
+        self.msg_type = bsm.Radio.MESSAGE_TYPE_LANDING_BEHAVIOR
 
     def uncheck(self):
         self.setText(self.text)
-        radio(self.radio, self.msg_type, RadioMsg.LAND_AT_HOME, self.exec_id)
+        self.robot.radio(self.msg_type, bsm.Radio.LAND_AT_HOME)
 
     def execute(self):
         self.setText("Explore")
-        radio(self.radio, self.msg_type, RadioMsg.LAND_IN_COMMS, self.exec_id)
+        self.robot.radio(self.msg_type, bsm.Radio.LAND_IN_COMMS)
 
 
 class DefineWaypointButton(LinkableButton):

@@ -71,6 +71,9 @@ class Config(object):
             require_topic(robot.topics, "darpa_tf")
             require_topic(robot.topics, "artifact_wifi")
             require_topic(robot.topics, "artifact_radio")
+            require_topic(robot.topics, "wifi_detection")
+            require_topic(robot.topics, "status_update")
+            require_topic(robot.topics, "radio_command")
             if req_err[0]:
                 continue
             else:
