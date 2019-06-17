@@ -142,7 +142,7 @@ class ArtifactHandler(BaseNode):
             self.buildArtifactSubmissionFromManipPlugin,
         )
         # to handle button presses iterating over artifact images
-        sub("/gui/change_disp_img", UInt8, self.getArtifactImage)
+        sub("/gui/change_disp_img", RetreiveArtifactImage, self.getArtifactImage)
         # for updates from the manipulation panel
         sub("/gui/update_artifact_info", ArtifactUpdate, self.updateArtifactInfoFromGui)
         # if we received information from DARPA
