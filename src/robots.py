@@ -93,7 +93,6 @@ class Config(object):
         darpa.request_info_uri = require(darpaCfg, "request_info_uri", "darpa")
         darpa.scoring_uris = require(darpaCfg, "scoring_uris", "darpa")
         darpa.artifact_categories = require(darpaCfg, "artifact_categories", "darpa")
-        darpa.artifact_priorities = require(darpaCfg, "artifact_priorities", "darpa")
         if not req_err[0]:
             self.darpa = darpa
 
