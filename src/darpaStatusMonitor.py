@@ -39,6 +39,8 @@ class DarpaBridge(BaseNode):
         self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
 
         # start a schedule which runs "get status" every few seconds
+        self.get_status_thread = None
+        self.http_client = None
         if self.connect_to_command_post:
             self.http_client = TeamClient()
             self.get_status_thread = threading.Timer(1.0, self.getStatus)
@@ -68,8 +70,10 @@ class DarpaBridge(BaseNode):
     def shutdownHttpServer(self):
         """Closes the http connection."""
         # stop the thread that keeps reuesting the status
-        self.get_status_thread.cancel()
-        self.http_client.exit()
+        if self.get_status_thread:
+            self.get_status_thread.cancel()
+        if self.http_client:
+            self.http_client.exit()
 
     def execute(self):
         return True
