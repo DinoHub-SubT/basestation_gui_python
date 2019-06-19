@@ -80,7 +80,7 @@ class DarpaBridge(BaseNode):
 
     def shutdown(self):
         self.shutdownHttpServer()
-        rospy.loginfo("DarpaBridge node shutting down")
+        rospy.loginfo("[Darpa Status Monitor] shutting down")
 
 
 if __name__ == "__main__":
