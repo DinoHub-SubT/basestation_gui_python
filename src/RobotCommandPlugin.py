@@ -143,14 +143,11 @@ class RobotCommandPlugin(Plugin):
         widget = QWidget()
         layout = qt.QGridLayout()
         tabs = QTabWidget()
-        label = qt.QLabel()
         waypt_links = []
         stoppers = []
 
-        label.setText("CONTROL PANEL")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
         layout.addWidget(tabs)
+        widget.setWindowTitle("Robot Control")
         widget.setLayout(layout)
 
         def make_adjuster(combo_box, robot):

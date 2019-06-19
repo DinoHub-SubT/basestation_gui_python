@@ -7,68 +7,47 @@ Contact: Bob DeBortoli (debortor@oregonstate.edu)
 Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 """
-from __future__ import print_function
-
 import rospy
 import rospkg
-from std_msgs.msg import String
 import threading
 
-from qt_gui.plugin import Plugin
 import python_qt_binding.QtWidgets as qt
 import python_qt_binding.QtCore as core
 import python_qt_binding.QtGui as gui
 
-from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
-
-from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
-from python_qt_binding.QtGui import QColor, QPixmap
-from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
-
-from functools import partial
-import pdb
+from python_qt_binding.QtCore import Qt
+from qt_gui.plugin import Plugin
 from PyQt5.QtCore import pyqtSignal
-
-from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactSubmissionReply
 from gui_utils import displaySeconds
+
+from std_msgs.msg import String
+from basestation_gui_python.msg import GuiMessage, DarpaStatus, ArtifactSubmissionReply
 
 
 class ArtifactSubmissionPlugin(Plugin):
-
-    submission_reply_trigger = pyqtSignal(
-        object
-    )  # to keep the drawing on the proper thread
+    # to keep the drawing on the proper thread
+    submission_reply_trigger = pyqtSignal(object)
 
     def __init__(self, context):
         super(ArtifactSubmissionPlugin, self).__init__(context)
-        self.setObjectName("MessagePlugin")
-
+        self.setObjectName("ArtifactSubmissionPlugin")
         self.column_headers = ["Category", "Time", "x/y/z", "Response"]
-
-        self.initPanel(context)  # layout plugin
-
+        self.initPanel(context)
         self.submission_reply_trigger.connect(self.submissionReplyMonitor)
 
-        # setup subscribers
+        # contains info from darpa about the artifact submission
         self.submission_reply_sub = rospy.Subscriber(
             "/gui/submission_reply", ArtifactSubmissionReply, self.submissionReply
-        )  # contains info from darpa about the artifact submission
+        )
 
     def initPanel(self, context):
-        """
-		Initialize the panel for displaying widgets
-		"""
-
+        """Initialize the panel for displaying widgets."""
         # define the overall widget
-        self.submission_reply_widget = QWidget()
+        self.submission_reply_widget = qt.QWidget()
         self.submission_reply_layout = qt.QGridLayout()
 
+        self.submission_reply_widget.setWindowTitle("Artifact Submissions")
         context.add_widget(self.submission_reply_widget)
-
-        submission_reply_label = qt.QLabel()
-        submission_reply_label.setText("ARTIFACT SUBMISSION INFO")
-        submission_reply_label.setAlignment(Qt.AlignCenter)
-        self.submission_reply_layout.addWidget(submission_reply_label, 0, 0)
 
         # add the sort on/off button
         self.submission_reply_table_sort_button = qt.QPushButton("Sort by time")
@@ -78,7 +57,7 @@ class ArtifactSubmissionPlugin(Plugin):
         self.submission_reply_table_sort_button.toggle()  # start with it sorting the table
 
         self.submission_reply_layout.addWidget(
-            self.submission_reply_table_sort_button, 1, 0
+            self.submission_reply_table_sort_button, 0, 0
         )
 
         self.submission_reply_table = qt.QTableWidget()
@@ -93,37 +72,26 @@ class ArtifactSubmissionPlugin(Plugin):
             len(self.column_headers)
         )  # set column count
         self.submission_reply_table.setHorizontalHeaderLabels(self.column_headers)
-
-        # make sortable
         self.submission_reply_table.setSortingEnabled(True)
 
         tooltip_font = gui.QFont()
         tooltip_font.setPointSize(13)
 
-        # add the table to the layout
         self.submission_reply_layout.addWidget(self.submission_reply_table)
-
-        # add to the overall gui
         self.submission_reply_widget.setLayout(self.submission_reply_layout)
 
     def submissionReply(self, msg):
-        """
-		For proper threading. See function below.
-		"""
+        """For proper threading. See function below."""
         self.submission_reply_trigger.emit(msg)
 
     def submissionReplyMonitor(self, msg):
         """
-		Populate the table with infromation about an artifact that was submitted
+        Populate the table with infromation about an artifact that was submitted.
 
-		msg is a custom ArtifactSubmissionReply message containing info from darpa about the artifact we submitted
-		"""
-
-        # check that threading is working properly
+        msg is a custom ArtifactSubmissionReply message containing info from darpa about the artifact we submitted
+        """
         if not isinstance(threading.current_thread(), threading._MainThread):
-            print(
-                "Drawing on the submission history panel not guarented to be on the proper thread"
-            )
+            rospy.logerr("[Artifact Submission] Not rendering on main thread.")
 
         # make a table item to add
         try:
@@ -148,12 +116,10 @@ class ArtifactSubmissionPlugin(Plugin):
             + "\nSubmission Correct? "
             + submission_correct
         )
-
         response_item.setBackground(submission_color)
 
         # add the item to the table
         self.submission_reply_table.setSortingEnabled(False)
-
         self.submission_reply_table.insertRow(self.submission_reply_table.rowCount())
         row = self.submission_reply_table.rowCount() - 1
 
@@ -166,37 +132,29 @@ class ArtifactSubmissionPlugin(Plugin):
         for col, val in enumerate(row_data):
             if col == 1:
                 colon = submission_time.find(":")
-                val = float(submission_time[:colon]) * 60 + float(
-                    submission_time[colon + 1 :]
-                )
+                stime = float(submission_time[colon + 1 :])
+                val = float(submission_time[:colon]) * 60 + stime
                 item = NumericItem(str(submission_time))
                 item.setData(core.Qt.UserRole, val)
-
             else:  # if we're not dealing with a display time
                 item = NumericItem(str(val))
                 item.setData(core.Qt.UserRole, val)
-
-            item.setFlags(
-                core.Qt.ItemIsSelectable | core.Qt.ItemIsEnabled
-            )  # make it non-editable
+            # make it non-editable
+            item.setFlags(core.Qt.ItemIsSelectable | core.Qt.ItemIsEnabled)
             item.setTextAlignment(Qt.AlignHCenter)
-
             self.submission_reply_table.setItem(row, col, item)
 
         # add the response item (has tool-tip with info about the submission) we don't want this to be a NumericItem
         response_item.setFlags(core.Qt.ItemIsSelectable | core.Qt.ItemIsEnabled)
         self.submission_reply_table.setItem(row, 3, response_item)
-
         self.submission_reply_table.setSortingEnabled(True)
 
-        if (
-            self.submission_reply_table_sort_button.isChecked()
-        ):  # if the sort button is pressed, sort the incoming artifacts
+        # if the sort button is pressed, sort the incoming artifacts
+        if self.submission_reply_table_sort_button.isChecked():
             self.submission_reply_table.sortItems(1, core.Qt.DescendingOrder)
             self.submission_reply_table.viewport().update()
 
     def shutdown_plugin(self):
-        # TODO unregister all publishers here
         self.submission_reply_sub.unregister()
 
 

@@ -58,7 +58,6 @@ class RobotStatusPlugin(Plugin):
         """Initialize the panel for displaying widgets."""
         widget = QWidget()
         layout = qt.QGridLayout()
-        status = qt.QLabel()
         table = qt.QTableWidget()
         statuses = [
             "Battery(mins)",
@@ -69,12 +68,9 @@ class RobotStatusPlugin(Plugin):
             "RSSI",
         ]
 
+        widget.setWindowTitle("Robot Status")
         widget.setLayout(layout)
-        layout.addWidget(status, 0, 0)
-        layout.addWidget(table, 1, 0)
-
-        status.setText("STATUS PANEL")
-        status.setAlignment(Qt.AlignCenter)
+        layout.addWidget(table, 0, 0)
 
         table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)

@@ -17,7 +17,6 @@ import python_qt_binding.QtCore as core
 import python_qt_binding.QtGui as gui
 
 from python_qt_binding.QtCore import Qt
-from python_qt_binding.QtWidgets import QWidget
 from PyQt5.QtCore import pyqtSignal
 
 from gui_utils import displaySeconds, COLORS
@@ -108,51 +107,47 @@ class ArtifactQueuePlugin(Plugin):
 
     def initPanel(self, context):
         """Initialize the panel for displaying widgets."""
-        widget = QWidget()
+        widget = qt.QWidget()
         layout = qt.QGridLayout()
 
-        context.add_widget(widget)
+        widget.setWindowTitle("Artifact Detections")
         widget.setLayout(layout)
-
-        label = qt.QLabel()
-        label.setText("ARTIFACT QUEUE")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label, 0, 0, 1, 3)
+        context.add_widget(widget)
 
         self.sort_button = qt.QPushButton("Sort by time")
         self.sort_button.setCheckable(True)
         self.sort_button.toggle()  # start with it sorting the table
-        layout.addWidget(self.sort_button, 1, 0)
+        layout.addWidget(self.sort_button, 0, 0)
 
         insert = qt.QPushButton("Add artifact")
         insert.clicked.connect(self.manuallyAddArtifact)
-        layout.addWidget(insert, 1, 1)
+        layout.addWidget(insert, 0, 1)
 
         duplicate = qt.QPushButton("Duplicate artifact")
         duplicate.clicked.connect(self.duplicateArtifact)
-        layout.addWidget(duplicate, 1, 2)
+        layout.addWidget(duplicate, 0, 2)
 
         archive = qt.QPushButton("Archive artifact")
         archive.clicked.connect(self.archiveArtifact)
-        layout.addWidget(archive, 2, 0)
+        layout.addWidget(archive, 1, 0)
 
         self.confirm_button = qt.QPushButton("Confirm")
         self.confirm_button.setCheckable(True)
         self.confirm_button.clicked.connect(self.confirmArchiveArtifact)
         self.confirm_button.setStyleSheet(COLORS.GRAY)
         self.confirm_button.setEnabled(False)
-        layout.addWidget(self.confirm_button, 2, 2)
+        layout.addWidget(self.confirm_button, 1, 2)
 
         self.cancel_button = qt.QPushButton("Cancel")
         self.cancel_button.setCheckable(True)
         self.cancel_button.clicked.connect(self.cancelArchiveArtifact)
         self.cancel_button.setStyleSheet(COLORS.GRAY)
         self.cancel_button.setEnabled(False)
-        layout.addWidget(self.cancel_button, 2, 1)
+        layout.addWidget(self.cancel_button, 1, 1)
 
         submit = qt.QPushButton("Submit all queued artifacts!")
         submit.clicked.connect(self.submitAllQueuedArtifacts)
-        layout.addWidget(submit, 3, 0, 1, 3)
+        layout.addWidget(submit, 2, 0, 1, 3)
 
         self.queue_table = qt.QTableWidget()
         self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
@@ -167,7 +162,7 @@ class ArtifactQueuePlugin(Plugin):
 
         # add click listener
         self.queue_table.cellClicked.connect(self.queueClick)
-        layout.addWidget(self.queue_table, 4, 0, 1, 3)
+        layout.addWidget(self.queue_table, 3, 0, 1, 3)
 
     ############################################################################################
     # Functions dealing with updating artifacts in the queue

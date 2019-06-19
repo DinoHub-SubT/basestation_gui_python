@@ -7,36 +7,24 @@ Contact: Bob DeBortoli (debortor@oregonstate.edu)
 Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebation or Matt).
 """
-from __future__ import print_function
-
 import rospy
-import rospkg
-from std_msgs.msg import String
 import threading
 
-from qt_gui.plugin import Plugin
 import python_qt_binding.QtWidgets as qt
 import python_qt_binding.QtCore as core
 import python_qt_binding.QtGui as gui
 
-from python_qt_binding import QT_BINDING, QT_BINDING_VERSION
-
-from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
-from python_qt_binding.QtGui import QColor, QPixmap
-from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
-
-import pdb
+from qt_gui.plugin import Plugin
 from PyQt5.QtCore import pyqtSignal
-
-from basestation_gui_python.msg import GuiMessage, DarpaStatus
 from gui_utils import displaySeconds
+
+from std_msgs.msg import String
+from basestation_gui_python.msg import GuiMessage, DarpaStatus
 
 
 class MessagePlugin(Plugin):
-
-    print_message_trigger = pyqtSignal(
-        object
-    )  # to keep the message printing on the proper thread
+    # to keep the message printing on the proper thread
+    print_message_trigger = pyqtSignal(object)
 
     def __init__(self, context):
         super(MessagePlugin, self).__init__(context)
@@ -59,64 +47,48 @@ class MessagePlugin(Plugin):
         )  # contains darpa status information
 
     def initMessagePanel(self, context):
-        """
-		Initialize the panel which displays messages
-		"""
-
-        # define the overall widget
-        self.message_box_widget = QWidget()
+        """Initialize the panel which displays messages."""
+        self.message_box_widget = qt.QWidget()
         self.message_box_layout = qt.QGridLayout()
 
+        self.message_box_widget.setWindowTitle("Messages")
         context.add_widget(self.message_box_widget)
-
-        message_label = qt.QLabel()
-        message_label.setText("MESSAGE PANEL")
-        message_label.setAlignment(Qt.AlignCenter)
-        self.message_box_layout.addWidget(message_label, 0, 0)
 
         self.message_textbox = qt.QListWidget()
         self.message_textbox.setWordWrap(True)
 
-        self.message_box_layout.addWidget(self.message_textbox, 1, 0)
-
-        # add to the overall gui
+        self.message_box_layout.addWidget(self.message_textbox, 0, 0)
         self.message_box_widget.setLayout(self.message_box_layout)
 
     def setDarpaTime(self, msg):
         """
-		Function that saves the darpa time published from the darpa status node
-		into a local variable to be used here
+        Function that saves the darpa time published from the darpa status node
+        into a local variable to be used here
 
-		msg is a custom DarpaStatus message which contains info about time/score/remaining reports
-		"""
+        msg is a custom DarpaStatus message which contains info about time/score/remaining reports
+        """
         self.darpa_time = msg.time_elapsed
 
     def printMessage(self, msg):
-        """
-		For being thread-safe. See function below
-		"""
+        """For being thread-safe. See function below."""
         self.print_message_trigger.emit(msg)
 
     def printMessageMonitor(self, msg):
         """
-		Add message to the message box that is simply a string from
-		this application (not ROS)
+        Add message to the message box that is simply a string from
+        this application (not ROS)
 
-		msg is a custom GuiMessage msg which contains a field for text and 
-			constants for setting message color, depnding on importance of message
-		"""
-
+        msg is a custom GuiMessage msg which contains a field for text and 
+                constants for setting message color, depnding on importance of message
+        """
         # check that threading is working properly
         if not isinstance(threading.current_thread(), threading._MainThread):
-            print(
-                "Drawing on the message panel not guarented to be on the proper thread"
-            )
+            rospy.logerr("[Messages] Not rendering on main thread.")
 
         if self.darpa_time != None:
             item = qt.QListWidgetItem(
                 "[" + displaySeconds(self.darpa_time) + "]" + msg.data
             )
-
         else:  # if we're not connect to the command post, don't display a time
             item = qt.QListWidgetItem("[--] " + msg.data)
 
@@ -135,10 +107,8 @@ class MessagePlugin(Plugin):
 
         self.message_textbox.addItem(item)
         self.message_textbox.sortItems(core.Qt.DescendingOrder)
-
         self.message_textbox.viewport().update()  # refresh the message box
 
     def shutdown_plugin(self):
-        # TODO unregister all subscribers here
         self.message_sub.unregister()
         self.time_sub.unregister()

@@ -1,133 +1,110 @@
 <library path="src">
-  <class name="BasestationGuiPlugin" type="Gui.BasestationGuiPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Main gui for SubT human interface
-    </description>
-    <qtgui>
-      <group>
-        <label>Basestation GUI</label>
-        <icon type="theme">folder</icon>
-      </group>
-      <label>Basestation Gui</label>
-      <icon type="theme">system</icon>
-      <statustip>Basestation Gui interface.</statustip>
-    </qtgui>
-  </class>
   <class name="CalibrationPlugin" type="calibration.Calibration" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Calibrate robot positions and load transformed frames to DARPA.
-    </description>
+    <description>Calibrate robot positions to compute a DARPA transform frame.</description>
     <qtgui>
       <group>
-        <label>Basestation GUI</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
       <label>Robot Calibration</label>
       <icon type="theme">system-run</icon>
-      <statustip>Calibrate robot positions and load transformed frames to DARPA.</statustip>
+      <statustip>Calibrate robot positions to compute a DARPA transform frame.</statustip>
     </qtgui>
   </class>
   <class name="MessagePlugin" type="MessagePlugin.MessagePlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to display text messages
-    </description>
+    <description>Display various information messages.</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>MessagePlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to display text messages.</statustip>
+      <label>Messages</label>
+      <icon type="theme">important</icon>
+      <statustip>Display various information messages.</statustip>
     </qtgui>
   </class>
   <class name="InfoPlugin" type="InfoPlugin.InfoPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to display status info from darpa
-    </description>
+    <description>Display scoring information from DARPA.</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>InfoPlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to display info from darpa.</statustip>
+      <label>Scoring</label>
+      <icon type="theme">hotwire</icon>
+      <statustip>Display scoring information from DARPA.</statustip>
     </qtgui>
   </class>
   <class name="ArtifactSubmissionPlugin" type="ArtifactSubmissionPlugin.ArtifactSubmissionPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to display information about artifact submissions
-    </description>
+    <description>Display information about artifact submissions.</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>ArtifactSubmissionPlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to display information about artifact submissions</statustip>
+      <label>Artifact Submissions</label>
+      <icon type="theme">stock_weather-storm</icon>
+      <statustip>DARPA results of artifact submissions.</statustip>
     </qtgui>
   </class>
   <class name="RobotStatusPlugin" type="RobotStatusPlugin.RobotStatusPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to display info about robot status (battery, mobility, etc.)
-    </description>
+    <description>Displays various robot status information (battery, mobility, etc.)</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>RobotStatusPlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to display info about robot status (battery, mobility, etc.)</statustip>
+      <label>Robot Status</label>
+      <icon type="theme">battery-charged</icon>
+      <statustip>Displays various robot status information (battery, mobility, etc.)</statustip>
     </qtgui>
   </class>
   <class name="RobotCommandPlugin" type="RobotCommandPlugin.RobotCommandPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to include command buttons for the robot (e-stop, etc.)
-    </description>
+    <description>Sends various commands to robots (resume, e-stop, etc.)</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>RobotCommandPlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to include command buttons for the robot (e-stop, etc.)</statustip>
+      <label>Robot Control</label>
+      <icon type="theme">audio-card</icon>
+      <statustip>Sends various commands to robots (resume, e-stop, etc.)</statustip>
     </qtgui>
   </class>
   <class name="ArtifactQueuePlugin" type="ArtifactQueuePlugin.ArtifactQueuePlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to display the artifact queue
-    </description>
+    <description>Displays artifact detected from the robots.</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>ArtifactQueuePlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to display the artifact queue</statustip>
+      <label>Artifact Detections</label>
+      <icon type="theme">stock_cell-phone</icon>
+      <statustip>Displays artifact detected from the robots.</statustip>
     </qtgui>
   </class>
   <class name="ArtifactManipulationPlugin" type="ArtifactManipulationPlugin.ArtifactManipulationPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to manipulation artifact properties (position, category, submission to DARPA, etc.)
-    </description>
+    <description>Allows manipulation of artifact properties (category, submission to DARPA, etc.)</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>ArtifactManipulationPlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to manipulation artifact properties (position, category, submission to DARPA, etc.)</statustip>
+      <label>Artifact Manipulation</label>
+      <icon type="theme">camera_unmount</icon>
+      <statustip>Allows manipulation of artifact properties (category, submission to DARPA, etc.)</statustip>
     </qtgui>
   </class>
   <class name="ArtifactImageVisualizerPlugin" type="ArtifactImageVisualizerPlugin.ArtifactImageVisualizerPlugin" base_class_type="rqt_gui_py::Plugin">
-    <description>
-      Plugin to visualize artifact rgb images
-    </description>
+    <description>Displays received artifact images.</description>
     <qtgui>
       <group>
-        <label>Basestation Gui</label>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
       </group>
-      <label>ArtifactImageVisualizerPlugin</label>
-      <icon type="theme">system-help</icon>
-      <statustip>Plugin to visualize artifact rgb images</statustip>
+      <label>Artifact Visualization</label>
+      <icon type="theme">monitor</icon>
+      <statustip>Displays received artifact images.</statustip>
     </qtgui>
   </class>
 </library>
