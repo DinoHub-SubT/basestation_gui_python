@@ -13,232 +13,162 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 """
 
 import rospy
-import copy
+import math
 
+from base_py import BaseNode
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
 from tf.broadcaster import TransformBroadcaster
-
-from random import random
-from math import sin
-
-import sys
+from geometry_msgs.msg import Point
+from visualization_msgs.msg import Marker, InteractiveMarkerControl
 
 
-class CustomInteractiveMarker:
+class InteractiveMarkerProcessing(BaseNode):
     """
-    Class handles the interactive markers for artifact refinement
+    ROS node that is a bridge to the interactive marker placement in RViz.
+
+    When the user places a navigation marker for the robot or wishes to refine a
+    position of a detected artifact image within the GUI, a message will be received by
+    this node to have the marker placed/removed within RViz.
     """
 
-    def __init__(self, position, node_name):
+    def __init__(self):
+        super(InteractiveMarkerProcessing, self).__init__("InteractiveMarkerProcessing")
 
-        rospy.init_node(node_name)
+    def initialize(self):
+        self.subscriptions = []
 
-        self.server = None
-        self.menu_handler = MenuHandler()
-        self.br = TransformBroadcaster()
+        def sub(topic, what, callback):
+            s = rospy.Subscriber(topic, what, callback)
+            self.subscriptions.append(s)
+
+        def wayptMarker(scale):
+            m = Marker()
+            m.type = Marker.CYLINDER
+            m.scale.x = scale * 0.4
+            m.scale.y = scale * 0.4
+            m.scale.z = scale * 3
+            m.color.r = 1.0
+            m.color.g = 0.0
+            m.color.b = 0.0
+            m.color.a = 1.0
+            return m
+
+        def refineMarker(scale):
+            m = Marker()
+            m.type = Marker.SPHERE
+            m.scale.x = scale * 0.4
+            m.scale.y = scale * 0.4
+            m.scale.z = scale * 0.4
+            m.color.r = 1.0
+            m.color.g = 165.0 / 255.0
+            m.color.b = 0.0
+            m.color.a = 1.0
+            return m
+
+        self.refinement = MarkerServer(
+            "artifact_refinement", "Artifact Marker Refinement", refineMarker
+        )
+        self.waypoint = MarkerServer(
+            "define_waypoint", "Robot Move Waypoint", wayptMarker
+        )
+        self.refinement.hide(None)
+        self.waypoint.hide(None)
+
+        sub("/refinement_marker_pos", Point, self.refinement.move)
+        sub("/refinement_marker_off", Point, self.refinement.hide)
+        sub("/define_waypoint_marker_pos", Point, self.waypoint.move)
+        sub("/define_waypoint_marker_off", Point, self.waypoint.hide)
+        return True
+
+    def execute(self):
+        return True
+
+    def shutdown(self):
+        self.refinement.shutdown()
+        self.waypoint.shutdown()
+        for s in self.subscriptions:
+            s.unregister()
+        rospy.loginfo("[Interactive Marker Processing] shutting down")
+
+
+class MarkerServer(object):
+    """
+    MarkerServer acts as an intermediary between the interactive processing node and an
+    InteractiveMarkerServer; thus, allowing the placement of interactive markers within
+    RViz.
+    """
+
+    def __init__(self, serverName, description, createMarkerDisplay):
+        """
+        Creates a portal to an interactive marker server.
+
+        serverName  - Name assigned to the server.
+        description - Text description of the server that is displayed in RViz.
+
+        createMarkerDisplay - A function that takes a floating point scale parameter
+                              and is expected to return a Marker object that shows
+                              how to display the interactive marker inside of RViz.
+        """
+        self.server = InteractiveMarkerServer(serverName)
+        self.menu = MenuHandler()
+        self.tfCaster = TransformBroadcaster()
         self.counter = 0
-        self.ref_frame = "/map"
+        self.ref_frame = rospy.get_param("~reference_frame")
 
-        if node_name == "basic_controls":
+        self.menu.insert("First Entry", callback=self.onFeedback)
+        self.menu.insert("Second Entry", callback=self.onFeedback)
 
-            # setup a subscriber listenting to position changes
-            rospy.Subscriber(
-                "/refinement_marker_pos", Point, self.moveInteractiveMarkerAndShow
-            )
+        sub = self.menu.insert("Submenu")
+        self.menu.insert("First Entry", parent=sub, callback=self.onFeedback)
+        self.menu.insert("Second Entry", parent=sub, callback=self.onFeedback)
 
-            # subscriber for hiding the refinement marker
-            rospy.Subscriber("/refinement_marker_off", Point, self.hideMarkerCallback)
+        im = InteractiveMarker()
+        im.header.frame_id = self.ref_frame
+        im.pose.position = Point(0, 0, 0)
+        im.scale = 1
+        im.name = "simple_6dof_MOVE_3D"
+        im.description = description
 
-        if node_name == "define_waypoint":
+        md = createMarkerDisplay(im.scale)
+        ic = InteractiveMarkerControl()
+        ic.always_visible = True
+        ic.markers.append(md)
+        im.controls.append(ic)
+        im.controls[0].interaction_mode = InteractiveMarkerControl.MOVE_3D
 
-            # setup a subscriber listenting to position changes
-            rospy.Subscriber(
-                "/define_waypoint_marker_pos", Point, self.moveInteractiveMarkerAndShow
-            )
-
-            # subscriber for hiding the refinement marker
-            rospy.Subscriber(
-                "/define_waypoint_marker_off", Point, self.hideMarkerCallback
-            )
-
-        self.generateInteractiveMarker(position, node_name)
-        self.hideInteractiveMarker()
-
-    def generateInteractiveMarker(self, position, node_name):
-        """
-        Custom function to initialzie a custom marker.
-        Should only be called once at the beginning of gui intiialization
-        """
-
-        # create a timer to update the published transforms
-        rospy.Timer(rospy.Duration(0.01), self.frameCallback)
-
-        self.server = InteractiveMarkerServer(node_name)
-
-        self.menu_handler.insert("First Entry", callback=self.processFeedback)
-        self.menu_handler.insert("Second Entry", callback=self.processFeedback)
-        self.sub_menu_handle = self.menu_handler.insert("Submenu")
-        self.menu_handler.insert(
-            "First Entry", parent=self.sub_menu_handle, callback=self.processFeedback
-        )
-        self.menu_handler.insert(
-            "Second Entry", parent=self.sub_menu_handle, callback=self.processFeedback
-        )
-
-        self.int_marker = self.make6DofMarker(
-            False, InteractiveMarkerControl.MOVE_3D, position, node_name, False
-        )
-
+        self.timer = rospy.Timer(rospy.Duration(0.01), self.onFrame)
+        self.marker = im
         self.server.applyChanges()
 
-        rospy.spin()
+    def shutdown(self):
+        self.timer.shutdown()
 
-    def frameCallback(self, msg):
-        time = rospy.Time.now()
-        self.br.sendTransform(
-            (0, 0, sin(self.counter / 140.0) * 2.0),
-            (0, 0, 0, 1.0),
-            time,
-            self.ref_frame,
-            "moving_frame",
-        )
+    def onFeedback(self, feedback):
+        self.server.applyChanges()
+
+    def onFrame(self, msg):
+        now = rospy.Time.now()
+        v3 = (0, 0, math.sin(self.counter / 140.0) * 2.0)
+        v4 = (0, 0, 0, 1.0)
         self.counter += 1
+        self.tfCaster.sendTransform(v3, v4, now, self.ref_frame, "moving_frame")
 
-    def processFeedback(self, feedback):
-        s = "Feedback from marker '" + feedback.marker_name
-        s += "' / control '" + feedback.control_name + "'"
-
-        mp = ""
-        if feedback.mouse_point_valid:
-            mp = " at " + str(feedback.mouse_point.x)
-            mp += ", " + str(feedback.mouse_point.y)
-            mp += ", " + str(feedback.mouse_point.z)
-            mp += " in frame " + feedback.header.frame_id
-
-        # if feedback.event_type == InteractiveMarkerFeedback.BUTTON_CLICK:
-        #     rospy.loginfo( s + ": button click" + mp + "." )
-        # elif feedback.event_type == InteractiveMarkerFeedback.MENU_SELECT:
-        #     rospy.loginfo( s + ": menu item " + str(feedback.menu_entry_id) + " clicked" + mp + "." )
-        # elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
-        #     rospy.loginfo( s + ": pose changed")
-        # elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
-        #     rospy.loginfo( s + ": mouse down" + mp + "." )
-        # elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
-        #     rospy.loginfo( s + ": mouse up" + mp + "." )
-
+    def move(self, msg):
+        """
+        Informs the marker server move the interactive marker to a specific position.
+        """
+        self.marker.pose.position = msg
+        self.server.insert(self.marker, self.onFeedback)
+        self.menu.apply(self.server, self.marker.name)
         self.server.applyChanges()
 
-    def makeBox(self, msg, node_name):
-        marker = Marker()
-
-        if node_name == "basic_controls":
-            marker.type = Marker.SPHERE
-            marker.scale.x = msg.scale * 0.4
-            marker.scale.y = msg.scale * 0.4
-            marker.scale.z = msg.scale * 0.4
-            marker.color.r = 1.0
-            marker.color.g = 165.0 / 255.0
-            marker.color.b = 0.0
-            marker.color.a = 1.0
-
-        elif node_name == "define_waypoint":
-            marker.type = Marker.CYLINDER
-            marker.scale.x = msg.scale * 0.4
-            marker.scale.y = msg.scale * 0.4
-            marker.scale.z = msg.scale * 3
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = 0.0
-            marker.color.a = 1.0
-
-        return marker
-
-    def makeBoxControl(self, msg, node_name):
-        control = InteractiveMarkerControl()
-        control.always_visible = True
-        control.markers.append(self.makeBox(msg, node_name))
-        msg.controls.append(control)
-        return control
-
-    def make6DofMarker(
-        self, fixed, interaction_mode, position, node_name, show_6dof=False
-    ):
-        int_marker = InteractiveMarker()
-        int_marker.header.frame_id = self.ref_frame
-        int_marker.pose.position = position
-        int_marker.scale = 1
-
-        int_marker.name = "simple_6dof"
-        int_marker.description = "Simple 6-DOF Control"
-
-        # insert a box
-        marker_control = self.makeBoxControl(int_marker, node_name)
-        int_marker.controls[0].interaction_mode = interaction_mode
-
-        if fixed:
-            int_marker.name += "_fixed"
-            int_marker.description += "\n(fixed orientation)"
-
-        if interaction_mode != InteractiveMarkerControl.NONE:
-            control_modes_dict = {
-                InteractiveMarkerControl.MOVE_3D: "MOVE_3D",
-                InteractiveMarkerControl.ROTATE_3D: "ROTATE_3D",
-                InteractiveMarkerControl.MOVE_ROTATE_3D: "MOVE_ROTATE_3D",
-            }
-            int_marker.name += "_" + control_modes_dict[interaction_mode]
-            int_marker.description = "Artifact Refinement Marker"
-            # if show_6dof:
-            #   int_marker.description += " + 6-DOF controls"
-            # int_marker.description += "\n" + control_modes_dict[interaction_mode]
-
-        # self.server.insert(int_marker, self.processFeedback)
-        # self.menu_handler.apply( self.server, int_marker.name )
-
-        return int_marker
-
-    def moveInteractiveMarkerAndShow(self, msg):
-        """
-        Move the interactive marker to a specific position
-        """
-
-        self.int_marker.pose.position = msg
-
-        self.server.insert(self.int_marker, self.processFeedback)
-        self.menu_handler.apply(self.server, self.int_marker.name)
+    def hide(self, msgIgnored):
+        """Forces the marker server to hide the interactive marker."""
+        self.server.erase(self.marker.name)
         self.server.applyChanges()
-
-    def hideInteractiveMarker(self):
-        """
-        Function to hide interactive marker
-        """
-
-        self.server.erase(self.int_marker.name)
-        self.server.applyChanges()
-
-    def hideMarkerCallback(self, msg):
-        self.hideInteractiveMarker()
 
 
 if __name__ == "__main__":
-
-    pose = Point(0, 0, 0)
-    CustomInteractiveMarker(pose, str(sys.argv[1]))
-
-#     generateInteractiveMarker()
-#     # hideInteractiveMarker()
-#     # rospy.spin()
-
-#     rate = rospy.Rate(0.5)
-
-#     while not rospy.is_shutdown():
-
-#         if(server.get(int_marker.name)!=None):
-#             hideInteractiveMarker()
-
-#         else:
-#             pose = Point( random()*3,random()*3,random()*3 )
-#             moveInteractiveMarker(pose)
-#         rate.sleep()
+    node = InteractiveMarkerProcessing()
+    node.run()
