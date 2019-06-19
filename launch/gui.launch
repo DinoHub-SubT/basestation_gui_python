@@ -20,7 +20,7 @@
     <!--launch the interactive marker processing node-->
     <node name="interactiveMarkerProcessing" pkg="basestation_gui_python" type="interactiveMarkerProcessing.py" output="screen">
         <param name="execute_target" type="double" value="1." />
-        <param name="reference_frame" value="/map" />
+        <param name="reference_frame" value="/darpa_map" />
     </node>
 
     <!--launch the darpa status monitor node-->

@@ -50,12 +50,31 @@ robots:
     estop_disengage: '7E 00 10 17 01 00 13 A2 00 41 90 8A 87 FF FE 02 44 31 05 D7'
     topic_prefix: ugv1
     topics:
-      odometry: integrated_to_map
+      odometry: frame/integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
       wifi_detection: wifi_detection
       status_update: status_update
-      radio_command: radio_command
+      radio_command: radio_command_bst
+  -
+    name: Ground2
+    uuid: eb6ec779-2d3a-4f9a-9bb0-e11a7ce8e501
+    executive_id: 2
+    has_comms: true
+    max_travel_time: 10
+    estop_serial_port: '/dev/ttyUSB1'
+    estop_engage: '7E 00 10 17 AB 00 13 A2 00 40 DA 8F E1 FF FE 02 44 30 04 87'
+    estop_disengage: '7E 00 10 17 01 00 13 A2 00 41 90 8A 87 FF FE 02 44 31 05 D7'
+    topic_prefix: ugv2
+    topics:
+      odometry: frame/integrated_to_map
+      calibration: integrated_to_map
+      darpa_tf: transform
+      artifact_wifi: real_artifact_imgs
+      artifact_radio: real_artifact_detections
+      wifi_detection: wifi_detection
+      status_update: status_update
+      radio_command: radio_command_bst
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
@@ -66,12 +85,12 @@ robots:
     estop_disengage: '7E 00 10 17 01 00 13 A2 00 41 90 8A 87 FF FE 02 44 31 05 D7'
     topic_prefix: uav1
     topics:
-      odometry: integrated_to_map
+      odometry: frame/integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
       wifi_detection: wifi_detection
       status_update: status_update
-      radio_command: radio_command
+      radio_command: radio_command_bst
 
 
 # The DARPA section specifies how the GUI should communicate with DARPA
