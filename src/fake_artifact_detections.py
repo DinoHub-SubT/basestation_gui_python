@@ -10,11 +10,12 @@ This code is proprietary to the CMU SubT challenge. Do not share or distribute w
 from __future__ import print_function
 
 import rospy
-from basestation_gui_python.msg import RadioMsg, WifiDetection, StatusPanelUpdate
-from std_msgs.msg import String, ColorRGBA
 import pdb
 import random
 import time
+
+from basestation_msgs.msg import WifiDetection, StatusUpdate
+from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 
 from sensor_msgs.msg import Image
@@ -31,10 +32,7 @@ class FakePublisher:
         rospy.init_node("fake_artifact_node", anonymous=True)
 
         self.artifact_pub = rospy.Publisher(
-            "/fake_artifact_detections", RadioMsg, queue_size=10
-        )
-        self.img_pub = rospy.Publisher(
-            "/fake_artifact_imgs", WifiDetection, queue_size=10
+            "/ugv1/wifi_detection", WifiDetection, queue_size=10
         )
         self.message_pub = rospy.Publisher(
             "/gui_message_listener", String, queue_size=10
@@ -50,14 +48,11 @@ class FakePublisher:
         self.ji_pub_ground = rospy.Publisher(
             "/ugv1/integrated_to_map", Odometry, queue_size=10
         )
-        self.ji_pub_aerial = rospy.Publisher(
-            "/uav1/integrated_to_map", Odometry, queue_size=10
-        )
         self.total_pub = rospy.Publisher("/position", Odometry, queue_size=10)
 
         # add stuff to test status panel updates
         self.status_pub = rospy.Publisher(
-            "/status_panel_update", StatusPanelUpdate, queue_size=10
+            "/ugv1/status_update", StatusUpdate, queue_size=10
         )
 
         self.published_list = []
@@ -80,7 +75,6 @@ class FakePublisher:
 
         # publish all of the other message types
         self.ji_pub_ground.publish(self.getJiFakePose())
-        self.ji_pub_aerial.publish(self.getJiFakePose())
         self.total_pub.publish(self.getTotalFakePose())
         self.status_pub.publish(self.getStatusMsg())
 
@@ -88,114 +82,40 @@ class FakePublisher:
             self.message_pub.publish("Message system testing")
 
     def pubArtifactReport(self, update):
-
-        # randomly select a radio or wifi message type
-        if random.random() < 0.2:
-            msg = RadioMsg()
-            msg.message_type = RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT
-
-            if not update:  # generate a new detection
-
-                msg.artifact_type = random.sample(self.artifact_types, 1)[0]
-                msg.artifact_report_id = self.num_pubbed  # random.randint(0,9999)
-                msg.artifact_robot_id = random.sample(self.robot_nums, 1)[0]
-                msg.artifact_x = random.random() * 5.0
-                msg.artifact_y = random.random() * 5.0
-                msg.artifact_z = random.random() * 5.0
-                msg.artifact_stamp.secs = time.time()
-
-            else:  # update an existing detection
-
-                rand_ind = random.randint(0, len(self.published_list) - 1)
-                robot_id = self.published_list[rand_ind][0]
-                report_id = self.published_list[rand_ind][1]
-                timestamp = self.published_list[rand_ind][2]
-
-                if (report_id not in self.deleted_ids) and (random.random() < 0.15):
-                    msg.artifact_type = RadioMsg.ARTIFACT_REMOVE
-                    print("radio delete:", msg.artifact_type, robot_id, report_id)
-
-                else:
-                    msg.artifact_type = random.sample(self.artifact_types, 1)[0]
-
-                msg.artifact_report_id = report_id
-                msg.artifact_robot_id = robot_id
-                msg.artifact_x = random.random() * 5.0
-                msg.artifact_y = random.random() * 5.0
-                msg.artifact_z = random.random() * 5.0
-                msg.artifact_stamp.secs = timestamp
-
-            if msg.artifact_report_id not in self.deleted_ids:
-
-                if not update:
-                    print(
-                        "new radio: ",
-                        msg.artifact_type,
-                        msg.artifact_robot_id,
-                        msg.artifact_report_id,
-                    )
-                else:
-                    print(
-                        "radio update: ",
-                        msg.artifact_type,
-                        msg.artifact_robot_id,
-                        msg.artifact_report_id,
-                    )
-
-                self.published_list.append(
-                    [
-                        msg.artifact_robot_id,
-                        msg.artifact_report_id,
-                        msg.artifact_stamp.secs,
-                    ]
-                )
-                self.artifact_pub.publish(msg)
-
-            if msg.artifact_type == RadioMsg.ARTIFACT_REMOVE:
-                self.deleted_ids.append(msg.artifact_report_id)
-
-        else:  # publish a wifi message
-
-            if not update:  # generate a new detection
-
+        if not update:  # generate a new detection
+            typ = random.sample(self.artifact_types, 1)[0]
+            report_id = self.num_pubbed  # random.randint(0,9999)
+            robot_id = random.sample(self.robot_nums, 1)[0]
+            timestamp = time.time()
+            msg = self.getFakeWifiMsg(
+                artifact_report_id=report_id,
+                artifact_type=typ,
+                artifact_robot_id=robot_id,
+                artifact_pos=[
+                    random.random() * 5.0,
+                    random.random() * 5.0,
+                    random.random() * 5.0,
+                ],
+                timestamp=timestamp,
+            )
+        else:  # update an existing detection
+            rand_ind = random.randint(0, len(self.published_list) - 1)
+            robot_id = self.published_list[rand_ind][0]
+            report_id = self.published_list[rand_ind][1]
+            timestamp = self.published_list[rand_ind][2]
+            if (report_id not in self.deleted_ids) and (random.random() < 0.0):
+                typ = WifiDetection.ARTIFACT_REMOVE
+                print("wifi  delete:", typ, robot_id, report_id)
+            else:
                 typ = random.sample(self.artifact_types, 1)[0]
-                report_id = self.num_pubbed  # random.randint(0,9999)
-                robot_id = random.sample(self.robot_nums, 1)[0]
-                timestamp = time.time()
 
-                msg = self.getFakeWifiMsg(
-                    artifact_report_id=report_id,
-                    artifact_type=typ,
-                    artifact_robot_id=robot_id,
-                    artifact_pos=[
-                        random.random() * 5.0,
-                        random.random() * 5.0,
-                        random.random() * 5.0,
-                    ],
-                    timestamp=timestamp,
-                )
-
-            else:  # update an existing detection
-
-                rand_ind = random.randint(0, len(self.published_list) - 1)
-                robot_id = self.published_list[rand_ind][0]
-                report_id = self.published_list[rand_ind][1]
-                timestamp = self.published_list[rand_ind][2]
-
-                if (report_id not in self.deleted_ids) and (random.random() < 0.0):
-                    typ = WifiDetection.ARTIFACT_REMOVE
-                    print("wifi  delete:", typ, robot_id, report_id)
-
-                else:
-                    typ = random.sample(self.artifact_types, 1)[0]
-
-                msg = self.getFakeWifiMsg(
-                    artifact_report_id=report_id,
-                    artifact_type=typ,
-                    artifact_robot_id=robot_id,
-                    artifact_pos=[random.random() * 5.0, 0, 1.2],
-                    timestamp=timestamp,
-                )
+            msg = self.getFakeWifiMsg(
+                artifact_report_id=report_id,
+                artifact_type=typ,
+                artifact_robot_id=robot_id,
+                artifact_pos=[random.random() * 5.0, 0, 1.2],
+                timestamp=timestamp,
+            )
 
             if msg.artifact_report_id not in self.deleted_ids:
                 if not update:
@@ -225,10 +145,6 @@ class FakePublisher:
             if msg.artifact_type == WifiDetection.ARTIFACT_REMOVE:
                 self.deleted_ids.append(msg.artifact_report_id)
 
-        # print msg.artifact_robot_id
-
-        return True
-
     def getJiFakePose(self):
         ji_msg = Odometry()
 
@@ -248,21 +164,24 @@ class FakePublisher:
         return ji_msg
 
     def getStatusMsg(self):
-        statuses = ["Battery(mins)", "Comms", "Mobility", "CPU", "Disk Space"]
+        statuses = [
+            StatusUpdate.WHAT_BATTERY,
+            StatusUpdate.WHAT_COMMS,
+            StatusUpdate.WHAT_MOBILITY,
+            StatusUpdate.WHAT_CPU,
+            StatusUpdate.WHAT_DISK_SPACE,
+        ]
+        severities = [
+            StatusUpdate.SEVERITY_OK,
+            StatusUpdate.SEVERITY_WARNING,
+            StatusUpdate.SEVERITY_CRITICAL,
+        ]
         values = [1, 4, 9, 10]
 
-        status_msg = StatusPanelUpdate()
-
-        status_msg.robot_id = random.sample(self.robot_nums, 1)[0]
-        status_msg.key = random.sample(statuses, 1)[0]
+        status_msg = StatusUpdate()
+        status_msg.what = random.sample(statuses, 1)[0]
         status_msg.value = str(random.sample(values, 1)[0])
-
-        status_msg.color = ColorRGBA()
-        status_msg.color.r = random.random() * 126.0 + 126.0
-        status_msg.color.g = random.random() * 126.0 + 126.0
-        status_msg.color.b = random.random() * 126.0 + 126.0
-        status_msg.color.a = 1
-
+        status_msg.severity = random.sample(severities, 1)[0]
         return status_msg
 
     def getFakeWifiMsg(
@@ -273,55 +192,34 @@ class FakePublisher:
         artifact_pos,
         timestamp,
     ):
-        rospack = rospkg.RosPack()
+        def img_path(name):
+            gui = rospkg.RosPack().get_path("basestation_gui_python")
+            return "{0}/fake_artifact_imgs/{1}".format(gui, name)
 
         # 'survivor', 'fire extinguisher', 'phone', 'backpack', 'drill'
         # [4, 3, 5, 1, 2]
-
         if artifact_type == 3:
-            image_filename = (
-                rospack.get_path("basestation_gui_python")
-                + "/fake_artifact_imgs/test_img.jpg"
-            )
+            image_filename = img_path("test_img.jpg")
         elif artifact_type == 4:
-            image_filename = (
-                rospack.get_path("basestation_gui_python")
-                + "/fake_artifact_imgs/human.png"
-            )
+            image_filename = img_path("human.jpg")
         elif artifact_type == 2:
-            image_filename = (
-                rospack.get_path("basestation_gui_python")
-                + "/fake_artifact_imgs/drill.jpg"
-            )
+            image_filename = img_path("drill.jpg")
         elif artifact_type == 1:
-            image_filename = (
-                rospack.get_path("basestation_gui_python")
-                + "/fake_artifact_imgs/backpack.png"
-            )
+            image_filename = img_path("backpack.jpg")
         elif artifact_type == 5:
-            image_filename = (
-                rospack.get_path("basestation_gui_python")
-                + "/fake_artifact_imgs/cell_phone.png"
-            )
+            image_filename = img_path("cell_phone.jpg")
         elif artifact_type == WifiDetection.ARTIFACT_REMOVE:
-            image_filename = (
-                rospack.get_path("basestation_gui_python")
-                + "/fake_artifact_imgs/cell_phone.png"
-            )
+            image_filename = img_path("cell_phone.jpg")
 
         img = cv2.imread(image_filename)
-
         br = CvBridge()
         img = br.cv2_to_imgmsg(img)
         img.header.stamp.secs = timestamp
-        # print '\n\n\n\n\n\n'+str(img.header.stamp.secs)+'\n\n\n\n\n\n\n'
 
         if artifact_report_id == None:  # we need to generate some fake data
             msg = None
-
         else:
             msg = WifiDetection()
-
             msg.imgs = [img] * random.randint(0, 4)
             msg.artifact_robot_id = artifact_robot_id
             msg.artifact_report_id = artifact_report_id
@@ -330,7 +228,6 @@ class FakePublisher:
             msg.artifact_y = artifact_pos[1]
             msg.artifact_z = artifact_pos[2]
             msg.artifact_stamp.secs = timestamp
-
         return msg
 
 

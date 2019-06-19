@@ -20,6 +20,7 @@ description
   <build_depend>std_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
+  <build_depend>basestation_msgs</build_depend>
 
 
 	<run_depend>rospy</run_depend>
@@ -29,6 +30,7 @@ description
   <run_depend>std_msgs</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>geometry_msgs</run_depend>
+  <run_depend>basestation_msgs</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

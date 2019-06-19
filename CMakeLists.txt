@@ -62,9 +62,6 @@ add_message_files(
    DarpaStatus.msg
    GuiMessage.msg
    GuiRobCommand.msg
-   NineHundredRadioMsg.msg
-   RadioMsg.msg
-   StatusPanelUpdate.msg
    WifiDetection.msg
    RetreiveArtifactImage.msg
    ArtifactVisualizerUpdate.msg

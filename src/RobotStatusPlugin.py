@@ -21,39 +21,24 @@ from PyQt5.QtCore import pyqtSignal
 
 import basestation_msgs.msg as bsm
 
-from basestation_gui_python.msg import StatusPanelUpdate
-
 
 class RobotStatusPlugin(Plugin):
     # to keep the drawing on the proper thread
-    robot_status_trigger = pyqtSignal(object)
     status_update_trigger = pyqtSignal(object, object)
 
     def __init__(self, context):
         super(RobotStatusPlugin, self).__init__(context)
         self.setObjectName("RobotStatusPlugin")
-        self.config = robots.Config()
 
-        names = [robot.name for robot in self.config.robots]
+        config = robots.Config()
+        names = [robot.name for robot in config.robots]
 
-        # Define the rows of the table as statuses that the robot will have.
-        self.statuses = [
-            "Battery(mins)",
-            "Comms",
-            "Mobility",
-            "CPU",
-            "Disk Space",
-            "RSSI",
-        ]
-
-        (widget, table) = self.initPanel(names, self.statuses)
+        (widget, table) = self.initPanel(names)
         context.add_widget(widget)
 
-        self.status_table = table
-        self.robot_status_trigger.connect(self.robotStatusMonitor)
-        self.status_update_trigger.connect(self.statusUpdateMonitor)
-
         self.subscriptions = []
+        self.status_table = table
+        self.status_update_trigger.connect(self.statusUpdateMonitor)
 
         def sub(where, what, callback):
             s = rospy.Subscriber(where, what, callback)
@@ -65,17 +50,24 @@ class RobotStatusPlugin(Plugin):
 
             return fn
 
-        sub("/status_panel_update", StatusPanelUpdate, self.robotStatus)
-        for (column, r) in enumerate(self.config.robots):
+        for (column, r) in enumerate(config.robots):
             topic = "/{0}/{1}".format(r.topic_prefix, r.topics.get("status_update"))
             sub(topic, bsm.StatusUpdate, update(column))
 
-    def initPanel(self, robot_names, statuses):
+    def initPanel(self, robot_names):
         """Initialize the panel for displaying widgets."""
         widget = QWidget()
         layout = qt.QGridLayout()
         status = qt.QLabel()
         table = qt.QTableWidget()
+        statuses = [
+            "Battery(mins)",
+            "Comms",
+            "Mobility",
+            "CPU",
+            "Disk Space",
+            "RSSI",
+        ]
 
         widget.setLayout(layout)
         layout.addWidget(status, 0, 0)
@@ -92,38 +84,6 @@ class RobotStatusPlugin(Plugin):
         table.setHorizontalHeaderLabels(robot_names)
 
         return (widget, table)
-
-    def robotStatus(self, msg):
-        """For proper threading. See function below."""
-        self.robot_status_trigger.emit(msg)
-
-    def robotStatusMonitor(self, msg):
-        """
-	Display some status information about the robot. Update a cell in the status table.
-
-	Msg is a custom StatusPanelUpdate msg containing the robot_number, status field, 
-	and status value and color.
-        """
-        if not isinstance(threading.current_thread(), threading._MainThread):
-            rospy.logerr("[Robot Status Plugin] Not rendering on main thread.")
-
-        # The columns of the status table are ordered by the robots list from the
-        # config.  Since a robot's exec_id can be changed arbitrarily we need to
-        # the appropriate column within the table.
-        column = -1
-        for (i, r) in enumerate(self.config.robots):
-            if r.executive_id == msg.robot_id:
-                column = i
-                break
-        if column == -1:
-            rospy.logerr("[Robot Status Plugin] Invalid robot ID %d", msg.robot_id)
-            return
-        if msg.key not in self.statuses:
-            rospy.logerr("[Robot Status Plugin] Invalid robot status: %s", msg.key)
-            return
-        row = self.statuses.index(msg.key)
-        rgb = gui.QColor(rgb.r, rgb.g, rgb.b)
-        self.updatePanel(row, column, msg.value, rgb)
 
     def statusUpdateMonitor(self, column, msg):
         rgb = gui.QColor(0, 255, 0)

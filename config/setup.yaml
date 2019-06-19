@@ -13,11 +13,7 @@
 #          To generate a UUID open a python prompt and then:
 #              >>> import uuid
 #              >>> str(uuid.uuid4())
-#
-#    executive_id: [required] An unique integer ID that is sent in radio messages
-#                  to robots in order to execute various commands.  This ID is
-#                  assigned by the behavior executive of that particular robot.
-#
+##
 #    has_comms: [optional] Can this robot drop comm nodes?  Influences UI.
 #
 #    is_aerial: [optional] Set to true if the robot is an aerial drone.
@@ -39,8 +35,6 @@
 #
 #            odometry:       Subscription for the robot's odometry when defining a waypoint.
 #            calibration:    Subscription for the robot's odometry when taking a calibration point.
-#            artifact_wifi:  Subscription to receive incoming detected artifact images via WIFI.
-#            artifact_radio: Subscription to receive incoming detected artifact images via Radio.
 #            darpa_tf:       Where to publish the DARPA transform after taking a calibration.
 #            wifi_detection: Subscription to receive incoming detected artifact images via WIFI.
 #            status_update:  Subscription to receive heath monitoring info from various nodes.
@@ -49,7 +43,6 @@ robots:
   -
     name: Ground1
     uuid: df0a06b4-c247-4489-9869-9dedeb2d8b67
-    executive_id: 0
     has_comms: true
     max_travel_time: 10
     estop_serial_port: '/dev/ttyUSB1'
@@ -60,15 +53,12 @@ robots:
       odometry: integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
-      artifact_wifi: real_artifact_imgs
-      artifact_radio: real_artifact_detections
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
-    executive_id: 1
     is_aerial: true
     max_travel_time: 10
     estop_serial_port: '/dev/ttyUSB1'
@@ -79,8 +69,6 @@ robots:
       odometry: integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
-      artifact_wifi: real_artifact_imgs
-      artifact_radio: real_artifact_detections
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command

@@ -25,10 +25,8 @@ from basestation_gui_python.msg import (
     Artifact,
     GuiMessage,
     ArtifactSubmissionReply,
-    WifiDetection,
     ArtifactDisplayImage,
     ArtifactUpdate,
-    RadioMsg,
     DarpaStatus,
     RetreiveArtifactImage,
     ArtifactVisualizerUpdate,
@@ -147,27 +145,9 @@ class ArtifactHandler(BaseNode):
         sub("/gui/update_artifact_info", ArtifactUpdate, self.updateArtifactInfoFromGui)
         # if we received information from DARPA
         sub("/gui/darpa_status", DarpaStatus, self.updateDarpaInfo)
-        # The next two subscriptions are for the object detection
-        # module which does not use the robot topic prefix for it's
-        # testing.  Note, that when deployed on the robot it does use
-        # the prefix.  We leave these here compatibility and to avoid
-        # having change that module.
-        sub("/real_artifact_detections", RadioMsg, self.handleRadioDetection)
-        sub("/real_artifact_imgs", WifiDetection, self.handleWifiDetection)
-        # These two subscriptions are kept around for legacy purposes despite
-        # no longer using fake artifact detections.
-        sub("/fake_artifact_detections", RadioMsg, self.handleRadioDetection)
-        sub("/fake_artifact_imgs", WifiDetection, self.handleWifiDetection)
-
-        def topic(robot, what):
-            return "/{0}/{1}".format(robot.topic_prefix, robot.topics.get(what))
 
         for r in config.robots:
-            wifi = topic(r, "artifact_wifi")
-            radio = topic(r, "artifact_radio")
-            detect = topic(r, "wifi_detection")
-            sub(wifi, WifiDetection, self.handleWifiDetection)
-            sub(radio, RadioMsg, self.handleRadioDetection)
+            detect = "/{0}/{1}".format(r.topic_prefix, r.topics.get("wifi_detection"))
             sub(detect, bsm.WifiDetection, self.handleWifiDetection)
 
         return True
@@ -187,7 +167,7 @@ class ArtifactHandler(BaseNode):
         msg_unique_id = GuiArtifact.message_id_from_msg(msg)
         if msg_unique_id in self.queued_artifacts.keys():
             # we're removing an artifact not adding one
-            if msg.artifact_type == WifiDetection.ARTIFACT_REMOVE:
+            if msg.artifact_type == bsm.WifiDetection.ARTIFACT_REMOVE:
                 self.archiveArtifact(String(msg_unique_id))
                 # remove the artifact from the queue
                 remove_msg = String()
@@ -198,40 +178,6 @@ class ArtifactHandler(BaseNode):
         # this artifact has is a completely new artifact detection
         elif msg_unique_id not in self.all_artifacts.keys():
             self.generateNewArtifactWifi(msg)
-
-    def handleRadioDetection(self, msg):
-        """
-	An artifact detection or update has come in over the radio. Generate a
-	new artifact and save to proper dictionaries/lists, or update an existing
-	artifact.
-
-	msg is a custom RaidoMsg message containing info about the artifact detected
-        """
-        msg_unique_id = GuiArtifact.message_id_from_msg(msg)
-        # if it is an artifact report and it is not archived (i.e. still queued)
-        if msg.message_type == RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT:
-            if msg_unique_id in self.queued_artifacts.keys():
-                # we're removing an artifact not adding one
-                if msg.artifact_type == RadioMsg.ARTIFACT_REMOVE:
-                    self.archiveArtifact(String(msg_unique_id))
-                    # remove the artifact from the queue
-                    remove_msg = String()
-                    remove_msg.data = msg_unique_id
-                    self.remove_artifact_from_queue_pub.publish(remove_msg)
-                else:  # this is an update for an artifact we already have
-                    self.updateRadioDetection(msg, msg_unique_id)
-            # this artifact has is a completely new artifact detection
-            elif msg_unique_id not in self.all_artifacts.keys():
-                self.generateNewArtifactRadio(msg)
-        # The message type is not and artifact report and thus not
-        # what we would expect to receive from the robot.
-        elif msg.message_type != RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT:
-            update_msg = GuiMessage()
-            update_msg.data = (
-                "Received radio message with an unexpected message type.  Discarded."
-            )
-            update_msg.color = update_msg.COLOR_ORANGE
-            self.message_pub.publish(update_msg)
 
     ##############################################################################
     # Functions to support converting betwen ros messages ansd guiartifact messages
@@ -438,63 +384,6 @@ class ArtifactHandler(BaseNode):
             artifact_report_id=msg.artifact_report_id,
             imgs=imgs,
             img_stamps=img_stamps,
-            time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
-        )
-        self.bookeepAndPublishNewArtifact(artifact)
-
-    def updateRadioDetection(self, msg, msg_unique_id):
-        """
-        Updated information for an artifact we already have has
-        been sent from the robot via radio.
-
-        msg is a RadioMsg message containing artifact info
-        msg_unique_id is the unique id of the artifact being sent
-        """
-        artifact = self.all_artifacts[msg_unique_id]
-
-        # Now we need to check was information is passed in the message if a field has
-        # something other than the default value sent back, we need to update the
-        # artifact.
-        if msg.message_type == RadioMsg.MESSAGE_TYPE_ARTIFACT_REPORT:
-            updated = False  # if it has been updated, send a notification to the queue
-            if msg.artifact_type != 0:
-                artifact.category = self.artifact_categories[msg.artifact_type]
-                type_updated = True
-                # publish to change the value in the queue. we only do this for changes in the type
-                # because that's the only relevant property that the queue displays
-                queue_msg = ArtifactUpdate()
-                queue_msg.unique_id = artifact.unique_id
-                queue_msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
-                queue_msg.category = artifact.category
-                self.update_artifact_in_queue_pub.publish(queue_msg)
-
-            if (msg.artifact_x != 0) or (msg.artifact_y != 0) or (msg.artifact_z != 0):
-                artifact.pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
-                pose_updated = True
-
-            if updated and msg_unique_id == self.displayed_artifact_id:
-                # if we updated the artifact being displayed,
-                # send a message to the image visualization panel to re-select the artifact from the queue
-                update_msg = ArtifactVisualizerUpdate()
-                update_msg.data = ArtifactVisualizerUpdate.UPDATE
-                self.update_label_pub.publish(update_msg)
-
-    def generateNewArtifactRadio(self, msg):
-        """
-        Generate a new artifact which has been detected from the robot
-        and trasmitted via radio.
-
-        msg is of type RadioMsg
-        """
-        artifact_category = self.artifact_categories[msg.artifact_type]
-        artifact = GuiArtifact(
-            original_timestamp=msg.artifact_stamp.secs,
-            category=artifact_category,
-            pose=[msg.artifact_x, msg.artifact_y, msg.artifact_z],
-            source_robot_id=msg.artifact_robot_id,
-            artifact_report_id=msg.artifact_report_id,
-            imgs=[],
-            img_stamps=[],
             time_from_robot=self.robotTimeToDarpaTime(msg.artifact_stamp.to_sec()),
         )
         self.bookeepAndPublishNewArtifact(artifact)

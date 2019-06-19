@@ -60,7 +60,6 @@ class Config(object):
             robot = Robot()
             robot.name = require(r, "name", "robot")
             robot.uuid = require(r, "uuid", "robot")
-            robot.executive_id = require(r, "executive_id", "robot")
             robot.estop_serial_port = require(r, "estop_serial_port", "robot")
             robot.estop_engage = require(r, "estop_engage", "robot")
             robot.estop_disengage = require(r, "estop_disengage", "robot")
@@ -69,8 +68,6 @@ class Config(object):
             require_topic(robot.topics, "odometry")
             require_topic(robot.topics, "calibration")
             require_topic(robot.topics, "darpa_tf")
-            require_topic(robot.topics, "artifact_wifi")
-            require_topic(robot.topics, "artifact_radio")
             require_topic(robot.topics, "wifi_detection")
             require_topic(robot.topics, "status_update")
             require_topic(robot.topics, "radio_command")
@@ -106,7 +103,6 @@ class Robot(object):
     def __init__(self):
         self.name = None
         self.uuid = None
-        self.executive_id = None
         self.is_aerial = False
         self.has_comms = False
         self.max_travel_time = 10
