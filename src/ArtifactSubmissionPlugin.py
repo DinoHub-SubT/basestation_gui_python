@@ -49,19 +49,7 @@ class ArtifactSubmissionPlugin(Plugin):
         self.submission_reply_widget.setWindowTitle("Artifact Submissions")
         context.add_widget(self.submission_reply_widget)
 
-        # add the sort on/off button
-        self.submission_reply_table_sort_button = qt.QPushButton("Sort by time")
-        self.submission_reply_table_sort_button.setCheckable(
-            True
-        )  # a button pressed will stay pressed, until unclicked
-        self.submission_reply_table_sort_button.toggle()  # start with it sorting the table
-
-        self.submission_reply_layout.addWidget(
-            self.submission_reply_table_sort_button, 0, 0
-        )
-
         self.submission_reply_table = qt.QTableWidget()
-
         # resize the cells to fill the widget
         self.submission_reply_table.horizontalHeader().setSectionResizeMode(
             qt.QHeaderView.Stretch
@@ -148,11 +136,6 @@ class ArtifactSubmissionPlugin(Plugin):
         response_item.setFlags(core.Qt.ItemIsSelectable | core.Qt.ItemIsEnabled)
         self.submission_reply_table.setItem(row, 3, response_item)
         self.submission_reply_table.setSortingEnabled(True)
-
-        # if the sort button is pressed, sort the incoming artifacts
-        if self.submission_reply_table_sort_button.isChecked():
-            self.submission_reply_table.sortItems(1, core.Qt.DescendingOrder)
-            self.submission_reply_table.viewport().update()
 
     def shutdown_plugin(self):
         self.submission_reply_sub.unregister()

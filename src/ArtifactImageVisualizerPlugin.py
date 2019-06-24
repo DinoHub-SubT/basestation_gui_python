@@ -113,8 +113,8 @@ class ArtifactImageVisualizerPlugin(Plugin):
         self.artvis_layout.addWidget(self.img_back_button, 4, 0)
 
         self.img_displayed_label = qt.QLabel()
-        self.img_displayed_label.setText("Img 0/0")
-        self.img_displayed_label.setFont(gui.QFont(None, 16, gui.QFont.Bold))
+        self.img_displayed_label.setText("[0/0] (0, 0, 0)")
+        self.img_displayed_label.setFont(gui.QFont(None, 14, gui.QFont.Bold))
         self.img_displayed_label.setAlignment(Qt.AlignCenter)
         self.artvis_layout.addWidget(self.img_displayed_label, 4, 1)
 
@@ -169,16 +169,12 @@ class ArtifactImageVisualizerPlugin(Plugin):
         msg is a custom ArtifactDisplayImage which contains an image, and the number in the 
         artifact's image list
         """
-
-        # check that threading is working properly
         if not isinstance(threading.current_thread(), threading._MainThread):
             rospy.logerr("[Artifact Visualization] Not rendering on main thread.")
 
         img = self.br.imgmsg_to_cv2(msg.img)
-
         if len(img.shape) > 2:  # if there's actually an image
             img = cv2.resize(img, (self.artifact_img_width, self.artifact_img_length))
-
             img_height, img_width = img.shape[:2]
             img = gui.QImage(img, img_width, img_height, gui.QImage.Format_RGB888)
             img = gui.QPixmap.fromImage(img)
@@ -190,9 +186,15 @@ class ArtifactImageVisualizerPlugin(Plugin):
         else:
             image_ind = msg.image_ind + 1
 
-        self.img_displayed_label.setText(
-            "Img " + str(image_ind) + "/" + str(msg.num_images)
+        x, y, z = 0, 0, 0
+        if len(msg.pose) >= 3:
+            x = msg.pose[0]
+            y = msg.pose[1]
+            z = msg.pose[2]
+        text = "[{0}/{1}] ({2:.1f}, {3:.1f}, {4:.1f})".format(
+            image_ind, msg.num_images, x, y, z
         )
+        self.img_displayed_label.setText(text)
 
     def updateArtLabel(self, msg):
         """For proper threading. See function below."""
@@ -205,24 +207,19 @@ class ArtifactImageVisualizerPlugin(Plugin):
 
         msg is a string that just contains the text to display
         """
-
         if msg.data == ArtifactVisualizerUpdate.DELETE:  # the artifact has been deleted
-            self.update_art_label.setText("Artifact has been deleted!")
+            self.update_art_label.setText("Artifact Deleted")
             self.update_art_label.setStyleSheet(
                 "background-color: rgba(220, 0, 0, 70%)"
             )
             self.update_art_label.show()
-
         # the artifact has been modified
         elif msg.data == ArtifactVisualizerUpdate.UPDATE:
-            self.update_art_label.setText(
-                "Artifact has been updated. Please select it again in the queue"
-            )
+            self.update_art_label.setText("Artifact Updated -- Re-select in table.")
             self.update_art_label.setStyleSheet(
                 "background-color: rgba(255, 255, 0, 80%)"
             )
             self.update_art_label.show()
-
         # the user has done something else, remove the label from sight
         elif msg.data == ArtifactVisualizerUpdate.HIDE:
             self.update_art_label.hide()

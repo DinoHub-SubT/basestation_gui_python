@@ -8,19 +8,25 @@ Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebastion or Matt).
 """
 import rospy
+import rospkg
 import threading
 import robots
+import os
 
-from qt_gui.plugin import Plugin
 import python_qt_binding.QtWidgets as qt
 import python_qt_binding.QtCore as core
 import python_qt_binding.QtGui as gui
 
+from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Qt
+from qt_gui.plugin import Plugin
 from PyQt5.QtCore import pyqtSignal
+from gui_utils import COLORS
 
 from gui_utils import displaySeconds, COLORS
 from std_msgs.msg import String, Bool
+from geometry_msgs.msg import Point
+from visualization_msgs.msg import InteractiveMarkerFeedback
 from basestation_gui_python.msg import (
     GuiMessage,
     Artifact,
@@ -28,42 +34,59 @@ from basestation_gui_python.msg import (
     ArtifactVisualizerUpdate,
 )
 
+# Table columns -- each entry describes its column width and column name
+COLUMNS = [
+    (0, "Unique ID"),
+    (85, "Robot"),
+    (120, "Time"),
+    (140, "Category"),
+    (70, "Clone"),
+    (70, "Delete"),
+    (70, "Refine"),
+    (70, "Submit"),
+]
+
+UNIQUE_ID = 0
+ROBOT_NAME = 1
+DETECT_TIME = 2
+CATEGORY = 3
+DUPLICATE = 4
+DELETE = 5
+REFINE = 6
+SUBMIT = 7
+
+FAKE_ROBOT_UUID = "4e21937b-b55e-49d7-8493-129c9f4e112c"
+
 
 class ArtifactQueuePlugin(Plugin):
-    queue_trigger = pyqtSignal(object)  # to keep the drawing on the proper thread
-    archive_artifact_trigger = pyqtSignal()
+    queue_trigger = pyqtSignal(object)
     update_table_trigger = pyqtSignal(object)
-    submit_all_artifacts_trigger = pyqtSignal()
-    remove_artifact_from_queue_trigger = pyqtSignal(object)
+    remove_artifact_trigger = pyqtSignal(object)
 
     def __init__(self, context):
         super(ArtifactQueuePlugin, self).__init__(context)
         self.setObjectName("ArtifactQueuePlugin")
-        self.artifact_categories = robots.Config().darpa.artifact_categories
+        self.robots = dict()
         self.displayed_artifact_id = None
-        self.column_headers = [
-            "Robot\nNum",
-            "Detect\nTime",
-            "   Category   ",
-            "Unread",
-            "Unique ID",
-        ]
+        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
+        self.refined_waypoint = [0, 0, 0]
 
-        self.col_robot_num = 0
-        self.col_time = 1
-        self.col_category = 2
-        self.col_unread = 3
-        self.col_unique_id = 4
+        config = robots.Config()
 
+        for r in config.robots:
+            self.robots[r.uuid] = r
+
+        fake = robots.Robot()
+        fake.name = "Phantom"
+        fake.uuid = FAKE_ROBOT_UUID
+        self.robots[fake.uuid] = fake
+
+        self.artifact_categories = config.darpa.artifact_categories
         self.initPanel(context)
 
-        self.queue_trigger.connect(self.addArtifactToQueueMonitor)
-        self.archive_artifact_trigger.connect(self.confirmArchiveArtifactMonitor)
+        self.queue_trigger.connect(self.addArtifactMonitor)
         self.update_table_trigger.connect(self.updateQueueTableMonitor)
-        self.submit_all_artifacts_trigger.connect(self.submitAllQueuedArtifactsMonitor)
-        self.remove_artifact_from_queue_trigger.connect(
-            self.removeArtifactFromQueueMonitor
-        )
+        self.remove_artifact_trigger.connect(self.removeArtifactMonitor)
 
         # setup subscribers/publishers
         self.add_new_artifact_pub = rospy.Publisher(
@@ -90,20 +113,34 @@ class ArtifactQueuePlugin(Plugin):
         self.restart_manip_plugin_pub = rospy.Publisher(
             "/gui/disable_confirm_cancel_manip_plugin", Bool, queue_size=10
         )  # disable confirm/cancel sequence in manipulation plugin
+        self.update_artifact_info_pub = rospy.Publisher(
+            "/gui/update_artifact_info", ArtifactUpdate, queue_size=10
+        )  # for if we get more info from robot
+        self.refine_marker_pos_pub = rospy.Publisher(
+            "/refinement_marker_pos", Point, queue_size=10
+        )
+        self.refine_marker_off_pub = rospy.Publisher(
+            "/refinement_marker_off", Point, queue_size=10
+        )
 
-        self.queue_sub = rospy.Subscriber(
-            "/gui/artifact_to_queue", Artifact, self.addArtifactToQueue
-        )  # some plugin wants us to add an artifact
-        self.update_sub = rospy.Subscriber(
-            "/gui/update_artifact_in_queue", ArtifactUpdate, self.updateQueueTable
-        )  # an artifact's property has changed. just update the queue accordingly
-        self.remove_sub = rospy.Subscriber(
-            "/gui/remove_artifact_from_queue", String, self.removeArtifactFromQueue
-        )  # some plugin wants us to remove a plugin
-        self.submit_from_manip_sub = rospy.Subscriber(
-            "/gui/submit_artifact_from_manip_plugin", String, self.artifactSubmitted
-        )  # the manipulation plugin has submitted an artifact, we need to keep
-        # track of this happening
+        self.subscriptions = []
+
+        def sub(topic, what, callback):
+            s = rospy.Subscriber(topic, what, callback)
+            self.subscriptions.append(s)
+
+        sub("/gui/artifact_to_queue", Artifact, self.addArtifact)
+        sub("/gui/update_artifact_in_queue", ArtifactUpdate, self.updateQueueTable)
+        sub("/gui/remove_artifact_from_queue", String, self.removeArtifact)
+        sub("/artifact_refinement/feedback", InteractiveMarkerFeedback, self.onWaypoint)
+
+    def onWaypoint(self, msg):
+        """
+	Record the movemment of the interactive marker from RViz where 'msg' is the pose
+	of the interactive marker for the artifact refinement.
+        """
+        p = msg.pose.position
+        self.refined_waypoint = [p.x, p.y, p.z]
 
     def initPanel(self, context):
         """Initialize the panel for displaying widgets."""
@@ -114,64 +151,35 @@ class ArtifactQueuePlugin(Plugin):
         widget.setLayout(layout)
         context.add_widget(widget)
 
-        self.sort_button = qt.QPushButton("Sort by time")
-        self.sort_button.setCheckable(True)
-        self.sort_button.toggle()  # start with it sorting the table
-        layout.addWidget(self.sort_button, 0, 0)
-
-        insert = qt.QPushButton("Add artifact")
-        insert.clicked.connect(self.manuallyAddArtifact)
-        layout.addWidget(insert, 0, 1)
-
-        duplicate = qt.QPushButton("Duplicate artifact")
-        duplicate.clicked.connect(self.duplicateArtifact)
-        layout.addWidget(duplicate, 0, 2)
-
-        archive = qt.QPushButton("Archive artifact")
-        archive.clicked.connect(self.archiveArtifact)
-        layout.addWidget(archive, 1, 0)
-
-        self.confirm_button = qt.QPushButton("Confirm")
-        self.confirm_button.setCheckable(True)
-        self.confirm_button.clicked.connect(self.confirmArchiveArtifact)
-        self.confirm_button.setStyleSheet(COLORS.GRAY)
-        self.confirm_button.setEnabled(False)
-        layout.addWidget(self.confirm_button, 1, 2)
-
-        self.cancel_button = qt.QPushButton("Cancel")
-        self.cancel_button.setCheckable(True)
-        self.cancel_button.clicked.connect(self.cancelArchiveArtifact)
-        self.cancel_button.setStyleSheet(COLORS.GRAY)
-        self.cancel_button.setEnabled(False)
-        layout.addWidget(self.cancel_button, 1, 1)
-
-        submit = qt.QPushButton("Submit all queued artifacts!")
-        submit.clicked.connect(self.submitAllQueuedArtifacts)
-        layout.addWidget(submit, 2, 0, 1, 3)
-
         self.queue_table = qt.QTableWidget()
-        self.queue_table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
 
-        self.queue_table.setColumnCount(len(self.column_headers))  # set column count
-        self.queue_table.setHorizontalHeaderLabels(
-            self.column_headers
-        )  # make the column headers
-
-        self.queue_table.setColumnHidden(self.col_unique_id, True)  # hide the unique_id
-        self.queue_table.setSortingEnabled(True)  # make sortable
-
-        # add click listener
+        headers = [h[1] for h in COLUMNS]
+        self.queue_table.setColumnCount(len(headers))
+        self.queue_table.setHorizontalHeaderLabels(headers)
+        self.queue_table.setColumnHidden(UNIQUE_ID, True)
+        self.queue_table.setSortingEnabled(True)
         self.queue_table.cellClicked.connect(self.queueClick)
-        layout.addWidget(self.queue_table, 3, 0, 1, 3)
+        self.queue_table.horizontalHeader().setSectionResizeMode(
+            CATEGORY, qt.QHeaderView.Stretch
+        )
+        for idx, col in enumerate(COLUMNS):
+            self.queue_table.setColumnWidth(idx, col[0])
+        layout.addWidget(self.queue_table, 0, 0, 1, 4)
+
+        submit = qt.QPushButton("Submit All")
+        submit.clicked.connect(self.submitAllArtifacts)
+        layout.addWidget(submit, 1, 2)
+
+        insert = qt.QPushButton("Add Artifact")
+        insert.clicked.connect(self.manuallyAddArtifact)
+        layout.addWidget(insert, 1, 3)
 
     ############################################################################################
     # Functions dealing with updating artifacts in the queue
     ############################################################################################
 
     def updateQueueTable(self, msg):
-        """
-        For proper threading. See function below. 
-        """
+        """For proper threading. See function below."""
         self.update_table_trigger.emit(msg)
 
     def updateQueueTableMonitor(self, msg):
@@ -180,71 +188,58 @@ class ArtifactQueuePlugin(Plugin):
 
         msg is of type ArtifactUpdate containing the info to be changed
         """
-
-        # check that threading is working properly
         if not isinstance(threading.current_thread(), threading._MainThread):
             rospy.logerr("[Artifact Queue] Not rendering on main thread.")
 
         # find the artifact row
         row = None
         for potential_row in range(self.queue_table.rowCount()):
-            if (
-                self.queue_table.item(potential_row, self.col_unique_id).text()
-                == msg.unique_id
-            ):
+            uid = self.queue_table.item(potential_row, UNIQUE_ID).text()
+            if uid == msg.unique_id:
                 row = potential_row
                 break
 
         if row is None:
-            update_msg = GuiMessage()
-            update_msg.data = "Could not find artifact with proper unique_id in table. Artifact not updated in queue"
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
-
+            data = "No such artifact, {0}. Artifact not updated."
+            g = GuiMessage()
+            g.data = data.format(msg.unique_id)
+            g.color = g.COLOR_RED
+            self.message_pub.publish(g)
             return
 
         # determine the column to update and the data to update it with
         if msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY:
-            col, data = self.col_category, msg.category
-
-        # elif msg.update_type == ArtifactUpdate.PROPERTY_PRIORITY:
-        #     col, data = 1, msg.priority
-
+            col, data = CATEGORY, msg.category
         elif msg.update_type == ArtifactUpdate.PROPERTY_UNREAD:
-            col, data = self.col_unread, ""
-
+            col, data = ROBOT_NAME, ""
         else:
-
-            update_msg = GuiMessage()
-            update_msg.data = "We received an update message of unknown type or of type pose. Artifact queue not updated"
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
+            data = "Received update with unknown property, {0}.  Artifact not updated."
+            g = GuiMessage()
+            g.data = data.format(msg.update_type)
+            g.color = g.COLOR_RED
+            self.message_pub.publish(g)
             return
 
         # actually go and change the appropriate cell in the table
-        if (
-            row > self.queue_table.rowCount() or col > self.queue_table.columnCount()
-        ) and type(data) == str:
-
-            update_msg = GuiMessage()
-            update_msg.data = "Something got misaligned in the artifact queue table and we are trying to update a cell that no longer exists. Artifact queue not updated."
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
+        rows = self.queue_table.rowCount()
+        cols = self.queue_table.columnCount()
+        if (row > rows or col > cols) and type(data) == str:
+            g = GuiMessage()
+            g.data = "Artifact row in table no longer exists.  Artifact not updated."
+            g.color = g.COLOR_RED
+            self.message_pub.publish(g)
             return
-
         elif type(data) == str:
-
-            self.queue_table.item(row, col).setText(data)
-
-            self.queue_table.item(row, col).setBackground(
-                gui.QColor(255, 255, 255)
-            )  # to remove the green background if its the unread element
-
+            if col == CATEGORY:
+                self.queue_table.item(row, col).setText(data)
+            else:
+                # to remove the green background if its the unread element
+                self.queue_table.item(row, col).setBackground(gui.QColor(255, 255, 255))
         else:
-            msg = GuiMessage()
-            msg.data = "Tried to update queue table with non-string value. Therefore table not updated"
-            msg.color = msg.COLOR_ORANGE
-            self.message_pub.publish(msg)
+            g = GuiMessage()
+            g.data = "Artifact update with non-string value.  Artifact not updated."
+            g.color = g.COLOR_ORANGE
+            self.message_pub.publish(g)
 
     ############################################################################################
     # Functions dealing with queue button presses
@@ -260,114 +255,15 @@ class ArtifactQueuePlugin(Plugin):
         msg.orig_pose.position.z = -0.1
         msg.source_robot_id = -1
         msg.artifact_report_id = -1
+        msg.robot_uuid = FAKE_ROBOT_UUID
+        msg.imgs = []
         self.add_new_artifact_pub.publish(msg)
 
-    def duplicateArtifact(self):
-        """Duplicate the artifact(s) that is being clicked on."""
-        rows_selected = self.getSelectedRowIndices()
-
-        if len(rows_selected) == 0:
-            msg = GuiMessage()
-            msg.data = "No artifact(s) selected, did not duplicate anything"
-            msg.color = msg.COLOR_ORANGE
-            self.message_pub.publish(msg)
-        # make the confirm/delete buttons pressable and the correct color
-        else:
-            msg = String()
-            for row in rows_selected:
-                msg.data = self.queue_table.item(row, self.col_unique_id).text()
-                self.duplicate_pub.publish(msg)
-
-    def archiveArtifact(self):
-        """
-        Archive artifact. Currently, this means it never shows back up
-        in the gui. Adds it to a list of archived artifacts in the
-        artifact handler
-        """
-        # confirm we've actually selected an artifact
-        rows_selected = self.getSelectedRowIndices()
-
-        if len(rows_selected) == 0:
-            msg = GuiMessage()
-            msg.data = "No artifact(s) selected, did not delete anything"
-            msg.color = msg.COLOR_ORANGE
-            self.message_pub.publish(msg)
-        # make the confirm/delete buttons pressable and the correct color
-        else:
-            self.cancel_button.setStyleSheet(COLORS.RED)
-            self.cancel_button.setEnabled(True)
-            self.confirm_button.setStyleSheet(COLORS.GREEN)
-            self.confirm_button.setEnabled(True)
-
-    def getSelectedRowIndices(self):
-        """
-        Returns the indice(s) of the selected rows in the queue table.
-        Always returns a list, unlike self.queue_table.selectionModel().selectedRows()
-        """
-        if self.queue_table.rowCount() == 0:
-            return []
-        return [a.row() for a in self.queue_table.selectionModel().selectedRows()]
-
-    def confirmArchiveArtifact(self):
-        """For proper threading. See function below."""
-        self.archive_artifact_trigger.emit()
-
-    def confirmArchiveArtifactMonitor(self):
-        """
-        A deletion of an artifact has been confirmed. Remove the artifact from the
-        queue.
-        """
-        if not isinstance(threading.current_thread(), threading._MainThread):
-            rospy.logerr("[Artifact Queue] Not rendering on main thread.")
-
-        # Needs to happen in reverse order so we don't try to access a row that no longer
-        # exists.
-        rows_selected = self.getSelectedRowIndices()
-        for row in sorted(rows_selected, reverse=True):
-            artifact_uid = self.queue_table.item(row, self.col_unique_id).text()
-
-            # if we're archiving something we're viewing, reset the id we're viewing
-            if artifact_uid == self.displayed_artifact_id:
-                self.displayed_artifact_id = None
-
-            # delete it from the ArtifactHandler book-keeping
-            handler_msg = String()
-            handler_msg.data = artifact_uid
-            self.archive_artifact_pub.publish(handler_msg)  # only send the unique ID
-
-            # delete it from the queue table
-            msg = String()
-            msg.data = artifact_uid
-            self.removeArtifactFromQueue(msg)
-
-            # reset the confirm/cancel buttons
-            self.cancel_button.setStyleSheet(COLORS.GRAY)
-            self.cancel_button.setEnabled(False)
-            self.confirm_button.setStyleSheet(COLORS.GRAY)
-            self.confirm_button.setEnabled(False)
-
-    def cancelArchiveArtifact(self):
-        """
-        Do not actually archive the artifact. Leave it as-is.
-        Just reset the confirm/cancel buttons
-        """
-        self.cancel_button.setStyleSheet(COLORS.GRAY)
-        self.cancel_button.setEnabled(False)
-        self.confirm_button.setStyleSheet(COLORS.GRAY)
-        self.confirm_button.setEnabled(False)
-
-    def submitAllQueuedArtifacts(self):
-        """For threading properly. See function below."""
-        self.submit_all_artifacts_trigger.emit()
-
-    def submitAllQueuedArtifactsMonitor(self):
+    def submitAllArtifacts(self):
         """Submit all of the queued artifacts to DARPA."""
-        if not isinstance(threading.current_thread(), threading._MainThread):
-            rospy.logerr("[Artifact Queue] Not rendering on main thread.")
-
         msg = String()
         for row in range(self.queue_table.rowCount()):
-            msg.data = self.queue_table.item(row, self.col_unique_id).text()
+            msg.data = self.queue_table.item(row, UNIQUE_ID).text()
             self.artifact_submit_pub.publish(msg)
         # remove all of the rows from the table
         self.queue_table.setRowCount(0)
@@ -376,11 +272,11 @@ class ArtifactQueuePlugin(Plugin):
     # Functions adding/removing artifacts from the queue
     ############################################################################################
 
-    def removeArtifactFromQueue(self, msg):
+    def removeArtifact(self, msg):
         """For proper threading. See function below."""
-        self.remove_artifact_from_queue_trigger.emit(msg)
+        self.remove_artifact_trigger.emit(msg)
 
-    def removeArtifactFromQueueMonitor(self, msg):
+    def removeArtifactMonitor(self, msg):
         """
         Remove an artifact from the queue, i.e. after is has been submitted
 
@@ -396,14 +292,12 @@ class ArtifactQueuePlugin(Plugin):
             self.update_label_pub.publish(m)
         # Find the artifact in the queue table for removal.
         for row in range(self.queue_table.rowCount()):
-            if self.queue_table.item(row, self.col_unique_id).text() == msg.data:
-
+            if self.queue_table.item(row, UNIQUE_ID).text() == msg.data:
                 m = GuiMessage()
-                m.data = "Artifact removed:" + str(msg.data)
+                m.data = "Artifact Removed: " + str(msg.data)
                 m.color = m.COLOR_GREEN
                 self.message_pub.publish(m)
                 self.queue_table.removeRow(self.queue_table.item(row, 0).row())
-
                 return
 
         # If we get to this point, we did not find the artifact to delete.
@@ -412,11 +306,11 @@ class ArtifactQueuePlugin(Plugin):
         m.color = m.COLOR_RED
         self.message_pub.publish(m)
 
-    def addArtifactToQueue(self, msg):
+    def addArtifact(self, msg):
         """For proper threading. See function below."""
         self.queue_trigger.emit(msg)
 
-    def addArtifactToQueueMonitor(self, msg):
+    def addArtifactMonitor(self, msg):
         """
         Draw something on the gui in this function
 
@@ -428,20 +322,18 @@ class ArtifactQueuePlugin(Plugin):
         self.queue_table.setSortingEnabled(False)  # to avoid corrupting the table
         self.queue_table.insertRow(self.queue_table.rowCount())
 
+        robot = self.robots[msg.robot_uuid]
         row = self.queue_table.rowCount() - 1
         disp_time = displaySeconds(float(msg.time_from_robot))
 
         row_data = ["--"] * self.queue_table.columnCount()
-        row_data[self.col_robot_num] = msg.source_robot_id
-        row_data[self.col_time] = disp_time
-        row_data[self.col_category] = msg.category
-        row_data[self.col_unread] = "!"
-        row_data[self.col_unique_id] = msg.unique_id
+        row_data[ROBOT_NAME] = robot.name
+        row_data[DETECT_TIME] = disp_time
+        row_data[CATEGORY] = msg.category
+        row_data[UNIQUE_ID] = msg.unique_id
 
         for col, val in enumerate(row_data):
-
-            if col == self.col_time:
-
+            if col == DETECT_TIME:
                 colon = disp_time.find(":")
                 val = float(disp_time[:colon]) * 60 + float(disp_time[colon + 1 :])
                 item = NumericItem(str(disp_time))
@@ -451,8 +343,115 @@ class ArtifactQueuePlugin(Plugin):
                 item.setData(core.Qt.UserRole, val)
             self.queue_table.setItem(row, col, item)
 
+        def remove_row():
+            for row in range(self.queue_table.rowCount()):
+                item = self.queue_table.item(row, UNIQUE_ID)
+                if item.text() == msg.unique_id:
+                    self.queue_table.removeRow(item.row())
+                    break
+
+        def delete():
+            MB = qt.QMessageBox
+            answer = MB.warning(
+                None,
+                "Delete Artifact",
+                "Really delete artifact?  This can not be undone.",
+                buttons=MB.Yes | MB.Cancel,
+                defaultButton=MB.Yes,
+            )
+            if answer == MB.Cancel:
+                return
+            s = String()
+            s.data = msg.unique_id
+            self.archive_artifact_pub.publish(s)
+            remove_row()
+
+        def duplicate():
+            s = String()
+            s.data = msg.unique_id
+            self.duplicate_pub.publish(s)
+
+        def refine():
+            p = msg.curr_pose.position
+            d = RefineDialog(self.artifact_categories, p.x, p.y, p.z)
+
+            def moveMarker(isChecked):
+                if not isChecked:
+                    d.xCoordEdit.setText(str(self.refined_waypoint[0]))
+                    d.yCoordEdit.setText(str(self.refined_waypoint[1]))
+                    d.zCoordEdit.setText(str(self.refined_waypoint[2]))
+                    d.showMarkerButton.setText("Show RViz Marker")
+                    self.refine_marker_off_pub.publish(Point(0, 0, 0))
+                    return
+                # Set the refinfed_waypoint immediately in case the user
+                # does not move the marker in RViz, thus not calling the
+                # onWaypoint handler, and then unchecks the 'Show Marker'
+                # button.  Not doing this will set the _CoordEdit boxes
+                # to whatever junk is currently in refined_waypoint.
+                x = float(d.xCoordEdit.text())
+                y = float(d.yCoordEdit.text())
+                z = float(d.zCoordEdit.text())
+                self.refined_waypoint = [x, y, z]
+                self.refine_marker_pos_pub.publish(Point(p.x, p.y, p.z))
+                d.showMarkerButton.setText("Move RViz Marker")
+
+            d.showMarkerButton.clicked.connect(moveMarker)
+            d.categoryComboBox.setCurrentText(msg.category)
+            d.exec_()
+            if d.result() == 0:
+                return
+
+            msg.category = d.categoryComboBox.currentText()
+            p.x = float(d.xCoordEdit.text())
+            p.y = float(d.yCoordEdit.text())
+            p.z = float(d.zCoordEdit.text())
+            u = ArtifactUpdate()
+            u.unique_id = msg.unique_id
+            u.update_type = u.PROPERTY_CATEGORY
+            u.category = msg.category
+            u.curr_pose.position.x = p.x
+            u.curr_pose.position.y = p.y
+            u.curr_pose.position.z = p.z
+            self.update_artifact_info_pub.publish(u)
+
+        def submit():
+            if self.connect_to_command_post:
+                MB = qt.QMessageBox
+                answer = MB.warning(
+                    None,
+                    "Submit Artifact",
+                    "Really submit artifact?",
+                    buttons=MB.Yes | MB.Cancel,
+                    defaultButton=MB.Yes,
+                )
+                if answer == MB.Cancel:
+                    return
+                s = String()
+                s.data = msg.unique_id
+                self.artifact_submit_pub.publish(s)
+                remove_row()
+            else:
+                g = GuiMessage()
+                g.data = "Not connected to DARPA.  Artifact not submitted."
+                g.color = g.COLOR_ORANGE
+                self.message_pub.publish(g)
+
+        def add_btn(column, theme, callback, toolTip):
+            b = qt.QToolButton()
+            b.setIcon(gui.QIcon.fromTheme(theme))
+            b.clicked[bool].connect(callback)
+            b.setToolTip(toolTip)
+            self.queue_table.setCellWidget(row, column, b)
+
+        add_btn(DUPLICATE, "gtk-copy", duplicate, "Duplicate artifact")
+        add_btn(DELETE, "gtk-delete", delete, "Remove artifact from table")
+        add_btn(
+            REFINE, "stock_refresh", refine, "Refine artifact to a different position"
+        )
+        add_btn(SUBMIT, "go-home", submit, "Submit artifact to DARPA for scoring")
+
         # color the unread green
-        self.queue_table.item(row, self.col_unread).setBackground(gui.QColor(0, 255, 0))
+        self.queue_table.item(row, ROBOT_NAME).setBackground(gui.QColor(0, 255, 0))
 
         # make the cells not editable and make the text centered
         for i in range(self.queue_table.columnCount()):
@@ -463,23 +462,9 @@ class ArtifactQueuePlugin(Plugin):
 
         self.queue_table.setSortingEnabled(True)  # to avoid corrupting the table
 
-        # if the sort button is pressed, sort the incoming artifacts
-        if self.sort_button.isChecked():
-            self.queue_table.sortItems(2, core.Qt.DescendingOrder)
-            self.queue_table.viewport().update()
-
     ############################################################################################
     # Misc. functions
     ############################################################################################
-
-    def artifactSubmitted(self, msg):
-        """
-        An artifact was just submitted. IF its the one we were viewing, reset the displayed artifact id
-
-        msg is a String with the unique id of the artifact
-        """
-        if self.displayed_artifact_id == msg.data:
-            self.displayed_artifact_id = None
 
     def queueClick(self, row, col):
         """
@@ -487,29 +472,21 @@ class ArtifactQueuePlugin(Plugin):
 
         row, col define the coordinates (ints) of the cells that was clicked on
         """
-        # select the whole row. for visualization mostly
         self.queue_table.selectRow(row)
-
-        # so we know what's currently being displayed
-        self.displayed_artifact_id = self.queue_table.item(
-            row, self.col_unique_id
-        ).text()
-
-        # publish that we have selected this artifact
+        # So we know what's currently being displayed.
+        self.displayed_artifact_id = self.queue_table.item(row, UNIQUE_ID).text()
+        # Publish that we have selected this artifact.
         msg = String()
         msg.data = self.displayed_artifact_id
         self.focus_on_artifact_pub.publish(msg)
-
-        # remove the artifact update message from the image visualizer plugin
-        # if it is still visible
+        # Remove the artifact update message from the image visualizer plugin if it is
+        # still visible.
         msg = ArtifactVisualizerUpdate()
         msg.data = ArtifactVisualizerUpdate.HIDE
         self.update_label_pub.publish(msg)
-
-        # dectivate the proper buttons in the manipulation panel, we're viewing another artifact,
-        # so restart the Confirm/Cancel sequence.
+        # Dectivate the proper buttons in the manipulation panel, we're viewing another
+        # artifact, so restart the Confirm/Cancel sequence.
         self.restart_manip_plugin_pub.publish(Bool(True))
-
         # remove the unread indicator from the last column
         msg = ArtifactUpdate()
         msg.unique_id = self.displayed_artifact_id
@@ -517,10 +494,8 @@ class ArtifactQueuePlugin(Plugin):
         self.updateQueueTable(msg)
 
     def shutdown_plugin(self):
-        self.submit_from_manip_sub.unregister()
-        self.queue_sub.unregister()
-        self.remove_sub.unregister()
-        self.update_sub.unregister()
+        for s in self.subscriptions:
+            s.unregister()
 
 
 class NumericItem(qt.QTableWidgetItem):
@@ -531,3 +506,16 @@ class NumericItem(qt.QTableWidgetItem):
 
     def __lt__(self, other):
         return self.data(core.Qt.UserRole) < other.data(core.Qt.UserRole)
+
+
+class RefineDialog(qt.QDialog):
+    def __init__(self, categories, xPos, yPos, zPos):
+        super(RefineDialog, self).__init__()
+        bs = rospkg.RosPack().get_path("basestation_gui_python")
+        ui = os.path.join(bs, "resources", "refine_artifact.ui")
+        loadUi(ui, self, {})
+        self.setStyleSheet("QPushButton:checked {" + COLORS.BLUE + "}")
+        self.categoryComboBox.addItems(categories)
+        self.xCoordEdit.setText(str(xPos))
+        self.yCoordEdit.setText(str(yPos))
+        self.zCoordEdit.setText(str(zPos))

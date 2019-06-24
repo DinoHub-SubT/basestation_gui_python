@@ -13,4 +13,4 @@ sensor_msgs/Image[] imgs
 time[] img_stamps
 float32 original_timestamp
 string unique_id
-
+string robot_uuid

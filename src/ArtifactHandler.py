@@ -90,9 +90,6 @@ class ArtifactHandler(BaseNode):
         self.img_display_pub = rospy.Publisher(
             "/gui/img_to_display", ArtifactDisplayImage, queue_size=10
         )  # for sending which image to display to VisualizerPlugin
-        self.manipulation_info_pub = rospy.Publisher(
-            "/gui/refresh_manipulation_info", Artifact, queue_size=10
-        )  # for sending info to the manipulation plugin
         self.update_artifact_in_queue_pub = rospy.Publisher(
             "/gui/update_artifact_in_queue", ArtifactUpdate, queue_size=10
         )  # to change artifact info in the queue
@@ -133,12 +130,6 @@ class ArtifactHandler(BaseNode):
             String,
             self.buildArtifactSubmissionFromQueue,
         )
-        # if we want to submit an artifact from the manipulation panel
-        sub(
-            "/gui/submit_artifact_from_manip_plugin",
-            String,
-            self.buildArtifactSubmissionFromManipPlugin,
-        )
         # to handle button presses iterating over artifact images
         sub("/gui/change_disp_img", RetreiveArtifactImage, self.getArtifactImage)
         # for updates from the manipulation panel
@@ -146,38 +137,30 @@ class ArtifactHandler(BaseNode):
         # if we received information from DARPA
         sub("/gui/darpa_status", DarpaStatus, self.updateDarpaInfo)
 
+        def onDetect(robot_uuid):
+            def callback(msg):
+                msg_id = GuiArtifact.message_id_from_msg(msg, robot_uuid)
+                if msg_id in self.queued_artifacts.keys():
+                    # we're removing an artifact not adding one
+                    if msg.artifact_type == bsm.WifiDetection.ARTIFACT_REMOVE:
+                        self.archiveArtifact(String(msg_id))
+                        # remove the artifact from the queue
+                        remove_msg = String()
+                        remove_msg.data = msg_id
+                        self.remove_artifact_from_queue_pub.publish(remove_msg)
+                    else:  # this is an update for an artifact we already have
+                        self.updateWifiDetection(msg, msg_id)
+                # this artifact has is a completely new artifact detection
+                elif msg_id not in self.all_artifacts.keys():
+                    self.generateNewArtifactWifi(msg, robot_uuid)
+
+            return callback
+
         for r in config.robots:
             detect = "/{0}/{1}".format(r.topic_prefix, r.topics.get("wifi_detection"))
-            sub(detect, bsm.WifiDetection, self.handleWifiDetection)
+            sub(detect, bsm.WifiDetection, onDetect(r.uuid))
 
         return True
-
-    ##############################################################################
-    # Functions to handle detections from the robots over wifi or radio
-    ##############################################################################
-
-    def handleWifiDetection(self, msg):
-        """
-	An artifact detection or update has come in over wifi. Generate a
-	new artifact and save to proper dictionaries/lists, or update an existing
-	artifact.
-
-	msg is a WifiDetection message from the robot
-        """
-        msg_unique_id = GuiArtifact.message_id_from_msg(msg)
-        if msg_unique_id in self.queued_artifacts.keys():
-            # we're removing an artifact not adding one
-            if msg.artifact_type == bsm.WifiDetection.ARTIFACT_REMOVE:
-                self.archiveArtifact(String(msg_unique_id))
-                # remove the artifact from the queue
-                remove_msg = String()
-                remove_msg.data = msg_unique_id
-                self.remove_artifact_from_queue_pub.publish(remove_msg)
-            else:  # this is an update for an artifact we already have
-                self.updateWifiDetection(msg, msg_unique_id)
-        # this artifact has is a completely new artifact detection
-        elif msg_unique_id not in self.all_artifacts.keys():
-            self.generateNewArtifactWifi(msg)
 
     ##############################################################################
     # Functions to support converting betwen ros messages ansd guiartifact messages
@@ -197,6 +180,7 @@ class ArtifactHandler(BaseNode):
         msg.orig_pose.position.x = artifact.orig_pose[0]
         msg.orig_pose.position.y = artifact.orig_pose[1]
         msg.orig_pose.position.z = artifact.orig_pose[2]
+        msg.robot_uuid = artifact.robot_uuid
         msg.source_robot_id = artifact.source_robot_id
         msg.artifact_report_id = artifact.artifact_report_id
         msg.time_from_robot = artifact.time_from_robot
@@ -250,6 +234,7 @@ class ArtifactHandler(BaseNode):
                 imgs=msg.imgs,
                 img_stamps=msg.img_stamps,
                 time_from_robot=self.time_elapsed,
+                robot_uuid=msg.robot_uuid,
             )
         return artifact
 
@@ -268,28 +253,25 @@ class ArtifactHandler(BaseNode):
         ]
 
         if msg.update_type not in categories:
+            data = "Received unknown artifact property, {0}.  Not updated."
             update_msg = GuiMessage()
-            update_msg.data = (
-                "Received update message of unknown type.  Artifact not updated"
-            )
+            update_msg.data = data.format(msg.updateType)
             update_msg.color = update_msg.COLOR_RED
             self.message_pub.publish(update_msg)
         else:
-            if msg.update_type == ArtifactUpdate.PROPERTY_CATEGORY:
-
-                artifact.category = msg.category
-                self.displayed_category = artifact.category
-                # change the value in the artifact queue
-                self.update_artifact_in_queue_pub.publish(msg)
-            elif msg.update_type == ArtifactUpdate.PROPERTY_POSE_X:
-                artifact.pose[0] = msg.curr_pose.position.x
-                self.displayed_pose[0] = artifact.pose[0]
-            elif msg.update_type == ArtifactUpdate.PROPERTY_POSE_Y:
-                artifact.pose[1] = msg.curr_pose.position.y
-                self.displayed_pose[1] = artifact.pose[1]
-            elif msg.update_type == ArtifactUpdate.PROPERTY_POSE_Z:
-                artifact.pose[2] = msg.curr_pose.position.z
-                self.displayed_pose[2] = artifact.pose[2]
+            artifact.category = msg.category
+            artifact.pose = [
+                msg.curr_pose.position.x,
+                msg.curr_pose.position.y,
+                msg.curr_pose.position.z,
+            ]
+            self.displayed_pose = artifact.pose
+            self.displayed_category = artifact.category
+            self.update_artifact_in_queue_pub.publish(msg)
+            idx = -1
+            if len(artifact.imgs) > 0:
+                idx = self.img_ind_displayed
+            self.publishImgToDisplay(idx)
 
     ##############################################################################
     # Functions to support generating artifacts from wifi detections,
@@ -361,7 +343,7 @@ class ArtifactHandler(BaseNode):
             update_msg.data = ArtifactVisualizerUpdate.UPDATE
             self.update_label_pub.publish(update_msg)
 
-    def generateNewArtifactWifi(self, msg):
+    def generateNewArtifactWifi(self, msg, robot_uuid):
         """
         Generate a new artifact which has been detected from the robot
         and trasmitted via WiFi.
@@ -377,6 +359,7 @@ class ArtifactHandler(BaseNode):
         imgs, img_stamps = self.timestampsOnImgs(msg.imgs)
 
         artifact = GuiArtifact(
+            robot_uuid=robot_uuid,
             original_timestamp=msg.artifact_stamp.secs,
             category=artifact_category,
             pose=[msg.artifact_x, msg.artifact_y, msg.artifact_z],
@@ -432,6 +415,7 @@ class ArtifactHandler(BaseNode):
                 copy.deepcopy(artifact_to_dup.imgs),
                 copy.deepcopy(artifact_to_dup.img_stamps),
                 time_from_robot=copy.deepcopy(artifact_to_dup.time_from_robot),
+                robot_uuid=copy.deepcopy(artifact_to_dup.robot_uuid),
             )
 
             # add the artifact to the list of queued objects and to the all_artifacts list
@@ -474,41 +458,6 @@ class ArtifactHandler(BaseNode):
             )
             update_msg.color = update_msg.COLOR_RED
             self.message_pub.publish(update_msg)
-
-    def buildArtifactSubmissionFromManipPlugin(self, msg):
-        """
-        We are submitting an artifact from the manipulation plugin Thus, we will pull
-        the information from what is being displayed on the gui itself not what the
-        artifact object may contain.
-
-        msg is just a string that's the unqiue_id of the artifact to submit
-        """
-        artifact = self.all_artifacts[msg.data]
-        if artifact != None:
-            pose_is_none = (
-                self.displayed_pose[0] != None
-                and self.displayed_pose[1] != None
-                and self.displayed_pose[2] != None
-                and self.displayed_category != None
-            )
-            # we have been keeping track of what's on the gui
-            # ensure this info has been filled in
-            if pose_is_none:
-                artifact_report = ArtifactReport(
-                    x=float(self.displayed_pose[0]),
-                    y=float(self.displayed_pose[1]),
-                    z=float(self.displayed_pose[2]),
-                    type=str(self.displayed_category),
-                )
-                submission_fine = self.submitArtifact(
-                    artifact_report, artifact.unique_id
-                )
-                # remove the artifact from the queue
-                if submission_fine == True:
-                    remove_msg = String()
-                    remove_msg.data = msg.data
-                    self.remove_artifact_from_queue_pub.publish(remove_msg)
-                    self.submit_tell_queue_pub.publish(String(artifact.unique_id))
 
     def submitArtifact(self, artifact_report, artifact_unique_id):
         """
@@ -608,16 +557,6 @@ class ArtifactHandler(BaseNode):
         self.displayed_artifact_id = msg.data
         self.img_ind_displayed = 0  # reset the image index we're displaying
         self.getArtifactImage(UInt8(2))  # display the first image in the detection
-        self.publishManipulationInfomation(msg.data)
-
-    def publishManipulationInfomation(self, unique_id):
-        """
-        Send out the artifact manipulation data (original pose and current pose)
-
-        unique_id is a string that is the unique_id for the artifact
-        """
-        manip_msg = self.guiArtifactToRos(self.all_artifacts[unique_id])
-        self.manipulation_info_pub.publish(manip_msg)
 
     def getArtifactImage(self, msg):
         """
@@ -625,77 +564,62 @@ class ArtifactHandler(BaseNode):
 
         msg.data defines whethere we go forward in the set or backward
         """
-        direction = msg.data
-        # check for errors with request
-        update_msg = GuiMessage()
-
         if self.displayed_artifact_id == None:
-            update_msg.data = (
-                "No artifact has been selected. Please select one from the queue"
-            )
-            update_msg.color = update_msg.COLOR_ORANGE
-            self.message_pub.publish(update_msg)
+            g = GuiMessage()
+            g.data = "No artifact selected.  No image to display."
+            g.color = g.COLOR_ORANGE
+            self.message_pub.publish(g)
             return
 
         # display a black image because this artifact has no images
+        direction = msg.data
         img_count = len(self.all_artifacts[self.displayed_artifact_id].imgs)
+        idx = -1
 
         if img_count == 0:
-            self.publishImgToDisplay(-1)
+            idx = -1
         elif direction == RetreiveArtifactImage.DIRECTION_FORWARD:
-            if self.img_ind_displayed < img_count - 1:
-                # we have some runway to go forward in the sequence
-                self.img_ind_displayed += 1
-            else:
-                # we can't go forward anymore, loop back around
-                self.img_ind_displayed = 0
-            self.publishImgToDisplay(self.img_ind_displayed)
-
+            idx = (self.img_ind_displayed + 1) % img_count
+            self.img_ind_displayed = idx
         elif direction == RetreiveArtifactImage.DIRECTION_BACKWARD:
-            if self.img_ind_displayed > 0:
-                # we have some runway to go backward in the sequence
-                self.img_ind_displayed -= 1
-            else:
-                # we're already at the beginning on the sequence, loop back around
-                self.img_ind_displayed = img_count - 1
-            self.publishImgToDisplay(self.img_ind_displayed)
-
-        # display the first image
+            idx = (self.img_ind_displayed - 1) % img_count
+            self.img_ind_displayed = idx
         elif direction == RetreiveArtifactImage.DISPLAY_FIRST and img_count > 0:
-            self.publishImgToDisplay(0)
-
+            idx = 0
         else:
-            update_msg.data = "Somehow a wrong direction was sent. Image not changed."
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
+            g = GuiMessage()
+            g.data = "Invalid direction. Image not changed."
+            g.color = g.COLOR_RED
+            self.message_pub.publish(g)
+
+        self.publishImgToDisplay(idx)
 
     def publishImgToDisplay(self, ind):
         """
-        Publish an image to be displayed in the artifact visualization panel
+        Publish an image to be displayed in the artifact visualization panel.
 
-        ind is the indice in the artifact's image list that the image to be displayed is (this comment could use better grammar)
+        ind is the index in the artifact's image list of the image to be displayed.
         """
         if self.displayed_artifact_id == None:
-            update_msg.data = "No artifact selected.  Select one from the queue"
-            update_msg.color = update_msg.COLOR_ORANGE
-            self.message_pub.publish(update_msg)
+            # Nothing selected in the table so nothing to display.
             return
 
         msg = ArtifactDisplayImage()
+        art = self.all_artifacts[self.displayed_artifact_id]
         if ind == -1:  # this artifact contains no images display the blank black image
-            rospack = rospkg.RosPack()
-            path = rospack.get_path("basestation_gui_python")
+            path = rospkg.RosPack().get_path("basestation_gui_python")
             name = "{0}/src/black_img.png".format(path)
             img = cv2.imread(name)
             msg.img = self.br.cv2_to_imgmsg(img)
             msg.image_ind = 0
             msg.num_images = 0
+            msg.pose = art.pose
         else:
-            # publish the image
-            img = self.all_artifacts[self.displayed_artifact_id].imgs[ind]
+            img = art.imgs[ind]
             msg.img = self.br.cv2_to_imgmsg(img)
             msg.image_ind = ind
-            msg.num_images = len(self.all_artifacts[self.displayed_artifact_id].imgs)
+            msg.num_images = len(art.imgs)
+            msg.pose = art.pose
 
         self.img_display_pub.publish(msg)
 
@@ -719,10 +643,8 @@ class ArtifactHandler(BaseNode):
 
         If the DARPA time isn't available, the original time is returned.
         """
-
         if self.time_elapsed == -1:
             return robot_time
-
         current_time = rospy.get_time()
         time_offset = current_time - self.time_elapsed
         return robot_time - time_offset
@@ -735,24 +657,26 @@ class ArtifactHandler(BaseNode):
         msg is a string of the unique_id
         """
         # go find the artifact
-        artifact_to_archive = self.all_artifacts[msg.data]
-        if artifact_to_archive != None:
-            self.archived_artifacts[artifact_to_archive.unique_id] = artifact_to_archive
+        artifact = self.all_artifacts[msg.data]
+        if artifact != None:
+            self.archived_artifacts[artifact.unique_id] = artifact
             # default return value is None if key not found
-            self.queued_artifacts.pop(artifact_to_archive.unique_id)
+            self.queued_artifacts.pop(artifact.unique_id)
 
+            g = GuiMessage()
+            g.data = "Artifact removed: " + artifact.unique_id
+            g.color = g.COLOR_GREEN
+            self.message_pub.publish(g)
             # if the artifact has images displayed, we want to send a message syaing its been deleted
-            if artifact_to_archive.unique_id == self.displayed_artifact_id:
-
-                update_msg = ArtifactVisualizerUpdate()
-                update_msg.data = ArtifactVisualizerUpdate.DELETE
-                self.update_label_pub.publish(update_msg)
-
+            if artifact.unique_id == self.displayed_artifact_id:
+                u = ArtifactVisualizerUpdate()
+                u.data = ArtifactVisualizerUpdate.DELETE
+                self.update_label_pub.publish(u)
         else:
-            update_msg = GuiMessage()
-            update_msg.data = "Artifact not removed from handler"
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
+            g = GuiMessage()
+            g.data = "[Artifact Handler] No such artifact"
+            g.color = g.COLOR_RED
+            self.message_pub.publish(g)
 
     def bookeepAndPublishNewArtifact(self, artifact):
         """
@@ -793,11 +717,12 @@ class GuiArtifact:
         imgs=None,
         img_stamps=None,
         time_from_robot=None,
+        robot_uuid=None,
     ):
-
         self.category = category
         self.pose = pose
         self.orig_pose = copy.deepcopy(pose)
+        self.robot_uuid = robot_uuid
         self.source_robot_id = source_robot_id
         self.artifact_report_id = artifact_report_id
         self.time_from_robot = (
@@ -812,18 +737,18 @@ class GuiArtifact:
         )  # time stamps of the images
         self.original_timestamp = original_timestamp
         self.unique_id = GuiArtifact.message_id(
-            source_robot_id, artifact_report_id, original_timestamp
+            robot_uuid, artifact_report_id, original_timestamp
         )
 
     @staticmethod
-    def message_id(robot_id, report_id, secs):
-        return "{0}/{1}/{2}".format(robot_id, report_id, secs)
+    def message_id(robot_uuid, report_id, secs):
+        return "{0}/{1}/{2}".format(robot_uuid[0:8], report_id, secs)
 
     @staticmethod
-    def message_id_from_msg(msg):
-        return GuiArtifact.message_id(
-            msg.artifact_robot_id, msg.artifact_report_id, msg.artifact_stamp.secs
-        )
+    def message_id_from_msg(msg, robot_uuid):
+        report = msg.artifact_report_id
+        secs = msg.artifact_stamp.secs
+        return GuiArtifact.message_id(robot_uuid, report, secs)
 
 
 if __name__ == "__main__":

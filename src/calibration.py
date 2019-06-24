@@ -362,7 +362,7 @@ def confirm(title, message):
     """
     Presents a simple message box to the asking to confirm the operation.
 
-    Returns QtWidgest.QMessageBox.Yes if the user confirms; otherwise, returns
+    Returns QtWidgets.QMessageBox.  Yes if the user confirms; otherwise, returns
     QtWidgest.QMessageBox.Cancel.
     """
     MB = QtWidgets.QMessageBox

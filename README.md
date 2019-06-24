@@ -118,10 +118,6 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (D) Saving/loading of gui from CSV. In case the gui crashes, we want to be able to load from a saved .csv or something like that. Either load from button press or tab on top 
 
-* (D) Integrating of darpa transform into gui
-
-* (D) Convert functionality for artifact refinement marker from old gui to modularized gui
-
 * (D) Artifacts, upon pressing "submit" are deleted from the queue. This could be a problem if, for example, the artifact tries to be submitted and the connection to the command post breaks. This artifact is then effectively "lost". It sits in the ArtifactHandler archived. It might be best to only delete from the table once the confirmation from darpa comes back? If the unique_id is still persisitent. Otherwise some other solution. 
 
 ** This is, depending on how you look at it, an effect of a bigger problem: if you close the artifact queue, that info will be out of sync with the artifact handler. some way to refresh with artifacthandler info? Either by button press or maybe automatically at 1Hz or so
@@ -132,11 +128,7 @@ To ensure that its displayed everytime the gui is roslaunched, add it to the per
 
 * (Unassigned) Clean up branches on basestation_gui_python package
 
-* (Unassigned) Fully utilizing tabs in rqt. It looks like you can just drag plugins on top of each other and it will automatically generate tabs 
-
 * (Unassigned) Don't deepcopy immutable objects in ArtifactHandler, like when new GuiArtifact objects are generated. 
-
-* (Unassigned) In the manipulation plugin, in updateArtifactPose callback, Might be less code to just have every manual update of the position update all 3 coordinates (e.g. have the same callback for all 3 coordinate boxes).
 
 =======
 # Development
