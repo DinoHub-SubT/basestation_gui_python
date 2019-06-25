@@ -71,6 +71,7 @@ class Config(object):
             require_topic(robot.topics, "wifi_detection")
             require_topic(robot.topics, "status_update")
             require_topic(robot.topics, "radio_command")
+            require_topic(robot.topics, "behavior_tree")
             if req_err[0]:
                 continue
             else:

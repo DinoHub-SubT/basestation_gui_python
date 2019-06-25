@@ -436,7 +436,7 @@ class CalibrationView(QtWidgets.QWidget):
     def add_robot(self, robot):
         tab = self.robot_table
         row = tab.rowCount()
-        item = QtWidgets.QTableWidgetItem(robot.name)
+        item = self.non_editable(robot.name)
         item.robot = robot
         points = self.non_editable(str(len(robot.points)))
         time = self.non_editable(robot.last_save)

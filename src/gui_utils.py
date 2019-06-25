@@ -19,9 +19,12 @@ def rgb(r, g, b):
 
 
 class COLORS:
+    WHITE = rgb(255, 255, 255)
     GRAY = rgb(126, 126, 126)
     DARK_GRAY = rgb(100, 100, 100)
     RED = rgb(220, 0, 0)
+    LIGHT_RED = rgb(220, 100, 100)
     GREEN = rgb(0, 220, 0)
     BLUE = rgb(0, 100, 220)
     ORANGE = rgb(255, 130, 0)
+    YELLOW = rgb(220, 220, 0)

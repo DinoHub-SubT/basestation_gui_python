@@ -13,6 +13,7 @@ import robots
 
 import python_qt_binding.QtWidgets as qt
 import python_qt_binding.QtGui as gui
+import python_qt_binding.QtCore as core
 
 from qt_gui.plugin import Plugin
 from python_qt_binding.QtCore import Qt
@@ -59,25 +60,30 @@ class RobotStatusPlugin(Plugin):
         widget = QWidget()
         layout = qt.QGridLayout()
         table = qt.QTableWidget()
-        statuses = [
-            "Battery(mins)",
-            "Comms",
-            "Mobility",
-            "CPU",
-            "Disk Space",
-            "RSSI",
-        ]
+        statuses = ["Battery(mins)", "Comms", "Mobility", "CPU", "Disk Space", "RSSI"]
 
         widget.setWindowTitle("Robot Status")
         widget.setLayout(layout)
         layout.addWidget(table, 0, 0)
 
+        rows = len(statuses)
+        cols = len(robot_names)
+        mode = qt.QAbstractItemView.NoSelection
+
+        table.setSelectionMode(mode)
         table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
         table.verticalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
-        table.setRowCount(len(statuses))
-        table.setColumnCount(len(robot_names))
+        table.setRowCount(rows)
+        table.setColumnCount(cols)
         table.setVerticalHeaderLabels(statuses)
         table.setHorizontalHeaderLabels(robot_names)
+
+        for r in range(rows):
+            for c in range(cols):
+                item = qt.QTableWidgetItem()
+                flags = item.flags()
+                item.setFlags(flags ^ core.Qt.ItemIsEditable)
+                table.setItem(r, c, item)
 
         return (widget, table)
 

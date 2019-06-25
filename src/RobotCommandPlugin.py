@@ -15,11 +15,15 @@ import rospkg
 import threading
 import robots
 import serial
+import os
 
+import xdot.xdot_qt as xdot
 import python_qt_binding.QtWidgets as qt
+import python_qt_binding.QtGui as gui
 
 from qt_gui.plugin import Plugin
 from PyQt5.QtCore import pyqtSignal
+from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Qt
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy, QTabWidget
 
@@ -28,6 +32,7 @@ import basestation_msgs.msg as bsm
 from basestation_gui_python.msg import GuiMessage
 from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 from visualization_msgs.msg import InteractiveMarkerFeedback
 
 from gui_utils import COLORS
@@ -42,7 +47,8 @@ from gui_utils import COLORS
 
 
 class RobotCommandPlugin(Plugin):
-    rob_command_trigger = pyqtSignal(object)  # to keep the drawing on the proper thread
+    tree_trigger = pyqtSignal(object, object)
+    status_trigger = pyqtSignal(object, object)
 
     def __init__(self, context):
         super(RobotCommandPlugin, self).__init__(context)
@@ -51,7 +57,19 @@ class RobotCommandPlugin(Plugin):
         self.timer_buttons = []
         self.positions = dict()
         self.waypoints = dict()
+        self.treeWidgets = dict()
+        self.prevTrees = dict()
+        self.batteryStatus = dict()
+        self.commsStatus = dict()
+        self.mobilityStatus = dict()
+        self.cpuStatus = dict()
+        self.diskSpaceStatus = dict()
+        self.rssiStatus = dict()
         self.waypt_robot = None
+        self.subscriptions = []
+
+        self.tree_trigger.connect(self.onTreeUpdateMonitor)
+        self.status_trigger.connect(self.onStatusUpdateMonitor)
 
         def pub(to, what, size):
             return rospy.Publisher(to, what, queue_size=size)
@@ -76,24 +94,36 @@ class RobotCommandPlugin(Plugin):
             robot.radio = send
             robot.radioStop = stop
 
-        self.subs = [
-            rospy.Subscriber(
-                "/define_waypoint/feedback", InteractiveMarkerFeedback, self.onWaypoint
-            )
-        ]
+        def sub(topic, what, callback, extra=None):
+            if extra == None:
+                s = rospy.Subscriber(topic, what, callback)
+            else:
+                s = rospy.Subscriber(topic, what, callback, extra)
+            self.subscriptions.append(s)
+
+        sub("/define_waypoint/feedback", InteractiveMarkerFeedback, self.onWaypoint)
 
         for r in self.config.robots:
-            t = "/{0}/{1}".format(r.topic_prefix, r.topics["odometry"])
-            self.subs.append(rospy.Subscriber(t, Odometry, self.onOdometry, r))
+            odom = "/{0}/{1}".format(r.topic_prefix, r.topics["odometry"])
+            btree = "/{0}/{1}".format(r.topic_prefix, r.topics["behavior_tree"])
+            status = "/{0}/{1}".format(r.topic_prefix, r.topics["status_update"])
             radioize(r)
+            self.treeWidgets[r.uuid] = xdot.DotWidget()
+            self.prevTrees[r.uuid] = ""
+            sub(odom, Odometry, self.onOdometry, r)
+            sub(btree, String, self.onTreeUpdate, r)
+            sub(status, bsm.StatusUpdate, self.onStatusUpdate, r)
 
         context.add_widget(self.createPanel())
 
     def shutdown_plugin(self):
-        for s in self.subs:
+        for s in self.subscriptions:
             s.unregister()
         for b in self.timer_buttons:
             b.uncheck()
+
+    def removeWaypoint(self):
+        self.waypoint_marker_off_pub.publish(Point(-1, -1, -1))
 
     def publishWaypoint(self, robot):
         """Callback to publish a waypoint for the robot to move to."""
@@ -101,14 +131,14 @@ class RobotCommandPlugin(Plugin):
             w = self.waypoints[robot.uuid]
             d = "{0},{1},{2}".format(w[0], w[1], w[2])
             robot.radio(bsm.Radio.MESSAGE_TYPE_DEFINE_WAYPOINT, d)
-            # Publish an invalid point to turn off the interactive marker in Rviz.
-            self.waypoint_marker_off_pub.publish(Point(-1, -1, -1))
             self.waypt_robot = None
+            return ""
         else:
             m = GuiMessage()
             m.data = "No waypoint received from RViz."
             m.color = m.COLOR_GRAY
             self.gui_message_pub.publish(m)
+            return m.data
 
     def moveWaypoint(self, robot):
         """Callback to have RViz place an interactive marker to define a waypoint."""
@@ -116,13 +146,14 @@ class RobotCommandPlugin(Plugin):
             p = self.positions.get(robot.uuid)
             self.waypt_robot = robot
             self.waypoint_marker_on_pub.publish(Point(p[0], p[1], p[2]))
-            return False
+            return ""
         else:
+            text = "No odometry received for {0}.  Check topic from setup file."
             m = GuiMessage()
-            m.data = "No odometry received for {0}.  Check topic.".format(robot.name)
+            m.data = text.format(robot.name)
             m.color = m.COLOR_GRAY
             self.gui_message_pub.publish(m)
-            return True
+            return m.data
 
     def onWaypoint(self, msg):
         """
@@ -139,11 +170,50 @@ class RobotCommandPlugin(Plugin):
         p = odom.pose.pose.position
         self.positions[robot.uuid] = [p.x, p.y, p.z]
 
+    def onTreeUpdate(self, msg, robot):
+        self.tree_trigger.emit(msg, robot)
+
+    def onTreeUpdateMonitor(self, msg, robot):
+        pt = self.prevTrees[robot.uuid]
+        if msg.data != pt:
+            w = self.treeWidgets[robot.uuid]
+            w.set_dotcode(msg.data)
+            if pt == "":
+                w.zoom_to_fit()
+        self.prevTrees[robot.uuid] = msg.data
+
+    def onStatusUpdate(self, msg, robot):
+        self.status_trigger.emit(msg, robot)
+
+    def onStatusUpdateMonitor(self, msg, robot):
+        SU = bsm.StatusUpdate
+        status = None
+
+        if msg.what == SU.WHAT_BATTERY:
+            status = self.batteryStatus[robot.uuid]
+        elif msg.what == SU.WHAT_COMMS:
+            status = self.commsStatus[robot.uuid]
+        elif msg.what == SU.WHAT_MOBILITY:
+            status = self.mobilityStatus[robot.uuid]
+        elif msg.what == SU.WHAT_CPU:
+            status = self.cpuStatus[robot.uuid]
+        elif msg.what == SU.WHAT_DISK_SPACE:
+            status = self.diskSpaceStatus[robot.uuid]
+        elif msg.what == SU.WHAT_RSSI:
+            status = self.rssiStatus[robot.uuid]
+
+        status.setText(msg.value)
+        if msg.severity == SU.SEVERITY_CRITICAL:
+            status.setStyleSheet(COLORS.LIGHT_RED)
+        elif msg.severity == SU.SEVERITY_WARNING:
+            status.setStyleSheet(COLORS.YELLOW)
+        else:
+            status.setStyleSheet(None)
+
     def createPanel(self):
         widget = QWidget()
         layout = qt.QGridLayout()
         tabs = QTabWidget()
-        waypt_links = []
         stoppers = []
 
         layout.addWidget(tabs)
@@ -157,102 +227,104 @@ class RobotCommandPlugin(Plugin):
 
             return fn
 
-        MAX_ROWS = 5
-        for robot in self.config.robots:
-            row, col = 0, 0
-            grid = qt.QGridLayout()
-            tab = QWidget()
-            buttons = []
-            confirm = ConfirmButton("Confirm", COLORS.GREEN)
-            cancel = ConfirmButton("Cancel", COLORS.RED)
-            waypt = DefineWaypointButton(robot, self.moveWaypoint, self.publishWaypoint)
-            blue = ShowBluetoothButton()
-            goHome = ReturnHomeButton(robot)
-            resend = RadioButton(
-                "Re-send Artifacts", robot, bsm.Radio.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
-            )
-
-            for w in waypt_links:
-                w.link([waypt])
-                waypt.link([w])
-            waypt_links.append(waypt)
-
-            tab.setLayout(grid)
-            tabs.addTab(tab, robot.name)
-
-            if robot.is_aerial:
-                hover = HoverButton(robot)
-                takeoff = TakeoffButton(robot)
-                hard = AerialHardEStopButton(confirm, cancel, robot)
-                land = LandButton(confirm, cancel, robot)
-                toComms = ExploreButton("Land in Comms", robot)
-
-                stoppers.append(land)
-                self.timer_buttons.append(hard)
-                hover.link([takeoff, hard, land, goHome])
-                takeoff.link([hover, hard, land, goHome])
-                hard.link([hover, takeoff, land, goHome])
-                land.link([hover, takeoff, hard, goHome])
-                goHome.link([hover, takeoff, land, hard])
-
-                commands = [
-                    hover,
-                    takeoff,
-                    land,
-                    hard,
-                    waypt,
-                    goHome,
-                    toComms,
-                    resend,
-                    confirm,
-                    cancel,
-                ]
-            else:
-                commands = []
-                resume = ResumeButton(robot)
-                soft = SoftEStopButton(robot)
-                hard = HardEStopButton(confirm, cancel, robot)
-                toComms = ExploreButton("Return to Comms", robot)
-
-                stoppers.append(soft)
-                resume.link([soft, hard, goHome])
-                soft.link([resume, hard, goHome])
-                hard.link([resume, soft, goHome])
-                goHome.link([resume, soft, hard])
-
-                commands.extend([resume, soft, hard, waypt, goHome])
-                if robot.has_comms:
-                    mt = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
-                    commands.append(RadioButton("Drop Comms", robot, mt))
-                commands.extend([blue, toComms, resend, confirm, cancel])
-
-            for c in commands:
-                buttons.append(c)
-                grid.addWidget(c, row, col)
-                if row == MAX_ROWS:
-                    row = 0
-                    col += 1
-                else:
-                    row += 1
-
-            max_time = (2 * robot.max_travel_time) + 1
-            times = [str(n / 2.0) for n in range(0, max_time)]
-            box = qt.QComboBox()
-            for speed in times:
-                box.addItem(speed)
-            box.currentTextChanged.connect(make_adjuster(box, robot))
-            grid.addWidget(box, row, col)
-
         def stopAll():
+            MB = qt.QMessageBox
+            answer = MB.question(
+                None,
+                "Basestation",
+                "Really Soft E-Stop all robots?",
+                buttons=MB.Yes | MB.Cancel,
+                defaultButton=MB.Yes,
+            )
+            if answer == MB.Cancel:
+                return
             for s in stoppers:
                 s.forceStop()
 
-        all_stop = qt.QPushButton("Soft E-Stop All")
-        all_stop.setStyleSheet(COLORS.RED)
-        all_stop.clicked.connect(stopAll)
-        layout.addWidget(all_stop)
+        for robot in self.config.robots:
+            grid = qt.QGridLayout()
+            tab = QWidget()
+            cmd = CommandWidget(robot.is_aerial)
+            tree = self.treeWidgets[robot.uuid]
+            resendType = bsm.Radio.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
+            resend = RadioButton("Resend Artifacts", robot, resendType)
+            resume = ResumeButton(robot)
+            home = ReturnHomeButton(robot)
+            explore = ExploreButton(robot)
+            soft = SoftEStopButton(robot)
+            hard = HardEStopButton(robot)
+            waypt = DefineWaypointButton(
+                robot, self.moveWaypoint, self.publishWaypoint, self.removeWaypoint
+            )
+
+            self.batteryStatus[robot.uuid] = cmd.batteryLabel
+            self.commsStatus[robot.uuid] = cmd.commsLabel
+            self.mobilityStatus[robot.uuid] = cmd.mobilityLabel
+            self.cpuStatus[robot.uuid] = cmd.cpuLabel
+            self.diskSpaceStatus[robot.uuid] = cmd.diskSpaceLabel
+            self.rssiStatus[robot.uuid] = cmd.rssiLabel
+
+            stoppers.append(soft)
+            resume.link([soft, hard, home, explore])
+            home.link([resume, soft, hard, explore])
+            soft.link([hard, resume, home, explore])
+            hard.link([resume, soft, home, explore])
+            explore.link([resume, soft, hard, home])
+
+            cmd.leftButtons.addWidget(resume)
+            cmd.leftButtons.addWidget(home)
+            cmd.leftButtons.addWidget(soft)
+            cmd.leftButtons.addWidget(hard)
+            cmd.rightButtons.addWidget(waypt)
+            cmd.rightButtons.addWidget(explore)
+            cmd.rightButtons.addWidget(resend)
+
+            if robot.is_aerial:
+                hover = HoverButton(robot)
+                hover.link([resume, soft, hard, home, explore])
+                resume.link([hover])
+                home.link([hover])
+                soft.link([hover])
+                hard.link([hover])
+                explore.link([hover])
+                cmd.rightButtons.addWidget(hover)
+            else:
+                mt = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
+                btn = RadioButton("Drop Comms", robot, mt)
+                cmd.rightButtons.addWidget(btn)
+                # If the ground robot doesn't have a comm dropper then
+                # we'll hide the button but first the size policy must
+                # be retained; otherwise, the other buttons will fill
+                # the space of the hidden button.
+                if not robot.has_comms:
+                    sp = btn.sizePolicy()
+                    sp.setRetainSizeWhenHidden(True)
+                    btn.setSizePolicy(sp)
+                    btn.setVisible(False)
+
+            cmd.eStopAllButton.clicked.connect(stopAll)
+            cmd.treeLayout.addWidget(tree)
+            tab.setLayout(grid)
+            tabs.addTab(tab, robot.name)
+            grid.addWidget(cmd)
+
+            max_time = (2 * robot.max_travel_time) + 1
+            times = [str(n / 2.0) for n in range(0, max_time)]
+            box = cmd.travelTimeComboBox
+            for speed in times:
+                box.addItem(speed)
+            box.currentTextChanged.connect(make_adjuster(box, robot))
 
         return widget
+
+
+class CommandWidget(qt.QWidget):
+    def __init__(self, isAerial):
+        super(CommandWidget, self).__init__()
+        self.setObjectName("CommandWidget")
+        bs = rospkg.RosPack().get_path("basestation_gui_python")
+        main = os.path.join(bs, "resources", "robot_command.ui")
+        loadUi(main, self, {})
 
 
 ################################################################################
@@ -278,37 +350,6 @@ class RadioButton(qt.QPushButton):
         self.clicked.connect(onClick)
 
 
-class ConfirmButton(qt.QPushButton):
-    """
-    ConfirmButton is special purpose button to implement "Confirm/Cancel" buttons for
-    other actions that need confirmation.  A ConfirmButton can be activated and
-    de-activated (i.e. enabled/disabled).  When activated a callback can be set that
-    will be called if the user clicks this button.
-    """
-
-    def __init__(self, text, color):
-        super(ConfirmButton, self).__init__(text)
-        self.setEnabled(False)
-        self.setStyleSheet(COLORS.GRAY)
-        self.color = color
-        self.callback = None
-        self.clicked.connect(self.execute)
-
-    def execute(self):
-        if self.callback != None:
-            self.callback()
-
-    def activate(self, callback):
-        self.callback = callback
-        self.setEnabled(True)
-        self.setStyleSheet(self.color)
-
-    def deactivate(self):
-        self.callback = None
-        self.setEnabled(False)
-        self.setStyleSheet(COLORS.GRAY)
-
-
 class LinkableButton(qt.QPushButton):
     """
     LinkableButton overrides a regular QT button that allows other buttons to be linked
@@ -327,13 +368,16 @@ class LinkableButton(qt.QPushButton):
         if not isChecked:
             self.uncheck()
             return
-        self.updateLinks()
-        self.execute()
+        executed = self.execute()
+        if executed:
+            self.updateLinks()
+        else:
+            self.setChecked(False)
 
     def updateLinks(self):
         for btn in self.linked:
             btn.setChecked(False)
-            btn.updateLink()
+            btn.uncheck()
 
     def link(self, buttons):
         """
@@ -348,134 +392,75 @@ class LinkableButton(qt.QPushButton):
         """
         pass
 
-    def updateLink(self):
-        """Notify derived classes that one of their linked buttons has been checked."""
-        pass
-
     def execute(self):
         """
         Execute needs to be implemented by derived classes to execute custom behavior
-        for when the button is checked.
+        for when the button is checked.  Should return true if the action was
+        successful/confirmed.
         """
         raise NotImplementedError()
 
 
-class LinkableConfirmButton(LinkableButton):
-    """
-    LinkableConfirmButton is like a LinkableButton but uses confirm and cancel buttons
-    before calling execute on its derived class.
-    """
-
-    def __init__(self, text, confirm, cancel):
-        super(LinkableConfirmButton, self).__init__(text)
-        self.confirm = confirm
-        self.cancel = cancel
-
-    def onClick(self, isChecked):
-        if not isChecked:
-            self.uncheck()
-            return
-        self.activate()
-
-    def activate(self):
-        self.confirm.activate(self.onConfirm)
-        self.cancel.activate(self.onCancel)
-
-    def deactivate(self):
-        self.confirm.deactivate()
-        self.cancel.deactivate()
-
-    def onCancel(self):
-        self.deactivate()
-        self.setChecked(False)
-
-    def onConfirm(self):
-        self.deactivate()
-        self.updateLinks()
-        self.execute()
-
-
 class ResumeButton(LinkableButton):
     def __init__(self, robot):
-        super(ResumeButton, self).__init__("Resume")
+        text = "Resume"
+        if robot.is_aerial:
+            text = "Resume/Takeoff"
+        super(ResumeButton, self).__init__(text)
         self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
 
     def execute(self):
         self.robot.radioStop(bsm.Radio.ESTOP_RESUME)
-
-
-class TakeoffButton(LinkableButton):
-    def __init__(self, robot):
-        super(TakeoffButton, self).__init__("Resume/Takeoff")
-        self.robot = robot
-        self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
-
-    def execute(self):
-        self.robot.radioStop(bsm.Radio.ESTOP_RESUME)
+        return True
 
 
 class SoftEStopButton(LinkableButton):
     def __init__(self, robot):
-        super(SoftEStopButton, self).__init__("Soft E-Stop")
+        self.text = "Soft E-Stop"
+        if robot.is_aerial:
+            self.text = "Land"
+        super(SoftEStopButton, self).__init__(self.text)
         self.robot = robot
 
-    def execute(self):
+    def execute(self, bypassConfirm=False):
+        if not self.robot.is_aerial:
+            self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
+            return True
+
+        if not bypassConfirm:
+            MB = qt.QMessageBox
+            answer = MB.question(
+                None,
+                "Basestation",
+                "Really {0} the robot?".format(self.text),
+                buttons=MB.Yes | MB.Cancel,
+                defaultButton=MB.Yes,
+            )
+            if answer == MB.Cancel:
+                return False
+
         self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
+        return True
 
     # Allows programmatical way to activate this button from a mega E-Stop button.
     def forceStop(self):
         self.updateLinks()
         self.setChecked(True)
-        self.execute()
+        self.execute(bypassConfirm=True)
 
 
-class LandButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, robot):
-        super(LandButton, self).__init__("Land", confirm, cancel)
-        self.robot = robot
-
-    def execute(self):
-        self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
-
-    # Allows programmatical way to activate this button from a mega E-Stop button.
-    def forceStop(self):
-        self.updateLinks()
-        self.setChecked(True)
-        self.execute()
-
-
-def darpa_estop(where, what):
-    try:
-        with serial.Serial(where) as s:
-            s.write(what)
-    except Exception as e:
-        rospy.logerr("[Robot Command] Hard E-Stop: %s", e)
-
-
-class HardEStopButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, robot):
-        super(HardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
-        self.robot = robot
-
-    def uncheck(self):
-        darpa_estop(self.robot.estop_serial_port, self.robot.estop_disengage)
-
-    def execute(self):
-        self.robot.radioStop(bsm.Radio.ESTOP_HARD)
-        darpa_estop(self.robot.estop_serial_port, self.robot.estop_engage)
-
-
-class AerialHardEStopButton(LinkableConfirmButton):
-    def __init__(self, confirm, cancel, robot):
-        super(AerialHardEStopButton, self).__init__("Hard E-Stop", confirm, cancel)
+class HardEStopButton(LinkableButton):
+    def __init__(self, robot):
+        super(HardEStopButton, self).__init__("Hard E-Stop")
         self.robot = robot
         self.was_darpa_estopped = False
         # Not started but initialized to avoid checking for None in uncheck.
-        self.timer = threading.Timer(1, self.execute)
+        if self.robot.is_aerial:
+            self.timer = threading.Timer(1, self.execute)
 
     def uncheck(self):
-        self.timer.cancel()
+        self.cancelTimer()
         # Due to the timer, the plugin has to forcefully uncheck this button, regardless
         # if it was previously checked, in order to properly shutdown the timer.
         # However, this can inadvertently send a DARPA disengage command which may not
@@ -488,17 +473,59 @@ class AerialHardEStopButton(LinkableConfirmButton):
         #
         # Hence, why the 'was_darpa_estopped' flag is used to avoid this behavior.
         if self.was_darpa_estopped:
-            darpa_estop(self.estop_serial_port, self.estop_disengage)
+            self.darpa_estop(self.robot.estop_disengage)
             self.was_darpa_estopped = False
 
     def execute(self):
-        self.timer.cancel()
+        self.cancelTimer()
+
+        MB = qt.QMessageBox
+        answer = MB.question(
+            None,
+            "Basestation",
+            "Really Hard E-Stop the robot?",
+            buttons=MB.Yes | MB.Cancel,
+            defaultButton=MB.Yes,
+        )
+        if answer == MB.Cancel:
+            return False
+
         self.robot.radioStop(bsm.Radio.ESTOP_HARD)
-        darpa_estop(self.robot.estop_serial_port, self.robot.estop_engage)
-        self.was_darpa_estopped = True
+        self.was_darpa_estopped = self.darpa_estop(self.robot.estop_engage)
+        self.startTimer()
+        return True
+
+    def repeatRadioStop(self):
+        self.cancelTimer()
+        self.robot.radioStop(bsm.Radio.ESTOP_HARD)
+        self.startTimer()
+
+    def cancelTimer(self):
+        if self.robot.is_aerial:
+            self.timer.cancel()
+
+    def startTimer(self):
+        if not self.robot.is_aerial:
+            return
         SECOND = 1
-        self.timer = threading.Timer(2 * SECOND, self.execute)
+        self.timer = threading.Timer(2 * SECOND, self.repeatRadioStop)
         self.timer.start()
+
+    def darpa_estop(self, what):
+        try:
+            with serial.Serial(self.robot.estop_serial_port) as s:
+                s.write(what)
+                return True
+        except Exception as e:
+            MB = qt.QMessageBox
+            MB.critical(
+                None,
+                "Basestation",
+                "DARPA Hard E-Stop error: {0}: ".format(e),
+                buttons=MB.Ok,
+                defaultButton=MB.Ok,
+            )
+            return False
 
 
 class HoverButton(LinkableButton):
@@ -508,6 +535,7 @@ class HoverButton(LinkableButton):
 
     def execute(self):
         self.robot.radioStop(bsm.Radio.ESTOP_PAUSE)
+        return True
 
 
 class ReturnHomeButton(LinkableButton):
@@ -518,73 +546,69 @@ class ReturnHomeButton(LinkableButton):
 
     def execute(self):
         self.robot.radio(bsm.Radio.MESSAGE_TYPE_RETURN_HOME, "")
+        return True
 
 
 class ExploreButton(LinkableButton):
-    def __init__(self, text, robot):
+    def __init__(self, robot):
+        text = "Return to Comms"
+        if robot.is_aerial:
+            text = "Land In Comms"
         super(ExploreButton, self).__init__(text)
         self.text = text
         self.robot = robot
         self.msg_type = bsm.Radio.MESSAGE_TYPE_LANDING_BEHAVIOR
+        self.setStyleSheet("QPushButton:checked {" + COLORS.BLUE + "}")
 
     def uncheck(self):
-        self.setText(self.text)
         self.robot.radio(self.msg_type, bsm.Radio.LAND_AT_HOME)
 
     def execute(self):
-        self.setText("Explore")
         self.robot.radio(self.msg_type, bsm.Radio.LAND_IN_COMMS)
+        return True
 
 
-class DefineWaypointButton(LinkableButton):
+class DefineWaypointButton(qt.QPushButton):
     """
-    DefineWaypointButton, unlike the other button commands, needs help from its
-    owner to actually move a waypoint in RViz and publish it when complete.
-    This button takes callbacks, 'moveWaypoint' and 'publishWaypoint', to perform
-    the actual heavy lifting of manipulating a waypoint.  This design decision
-    was to avoid pulling in subcription callbacks that need to manipulate internal
-    state of defining actual waypoint data for individual robots.
+    DefineWaypointButton, unlike the other button commands, needs help from its owner to
+    actually move a waypoint in RViz and publish it when complete.  This button takes
+    callbacks, 'moveWaypoint', 'publishWaypoint', and 'removeWaypoint', to perform the
+    actual heavy lifting of manipulating a waypoint.  This design decision was to avoid
+    pulling in subcription callbacks that need to manipulate internal state of defining
+    actual waypoint data for individual robots.
 
-    The 'moveWaypoint' callback should return True if an error occurred.  This allows
-    the button to display its error form to allow the user to investigate the cause.
+    The 'moveWaypoint' callback should return a message if an error occurred.  This
+    allows the button to display the error to allow the user to investigate the cause.
 
-    It is important that each DefineWaypointButton for every robot should be linked
-    together incase the user begins to define a waypoint for one robot and then changes
-    their mind and decides to define a waypoint for another.  Since only one marker can
-    be displayed in RViz at a time we would like to reset every other waypoint button
-    when this occurs.
+    The 'removeWaypoint' is called whenever there is an error or when the user is done
+    manipulating the waypoint.  This callback should have RViz remove the waypoint from
+    its display.
     """
 
-    def __init__(self, robot, moveWaypoint, publishWaypoint):
+    def __init__(self, robot, moveWaypoint, publishWaypoint, removeWaypoint):
         super(DefineWaypointButton, self).__init__("Define Waypoint")
         self.robot = robot
         self.moveWaypoint = moveWaypoint
         self.publishWaypoint = publishWaypoint
-        self.has_error = False
-
-    def updateLink(self):
-        self.setText("Define Waypoint")
-
-    def uncheck(self):
-        self.setText("Define Waypoint")
-        if self.has_error == False:
-            self.publishWaypoint(self.robot)
+        self.removeWaypoint = removeWaypoint
+        self.clicked.connect(self.execute)
 
     def execute(self):
-        self.setText("Move RViz Marker")
-        self.setStyleSheet("QPushButton:checked {" + COLORS.BLUE + "}")
-        self.has_error = self.moveWaypoint(self.robot)
-        if self.has_error:
-            self.setText("Waypoint Error")
-            self.setStyleSheet("QPushButton:checked {" + COLORS.RED + "}")
+        MB = qt.QMessageBox
+        who = "Basestation"
+        error = self.moveWaypoint(self.robot)
+        if error != "":
+            self.removeWaypoint()
+            MB.critical(None, who, error, buttons=MB.Ok, defaultButton=MB.Ok)
+            return
 
-
-class ShowBluetoothButton(qt.QPushButton):
-    def __init__(self):
-        super(ShowBluetoothButton, self).__init__("Show Bluetooth")
-        self.setStyleSheet("QPushButton:pressed {" + COLORS.RED + "}")
-        self.clicked.connect(self.onClick)
-
-    def onClick(self):
-        # The original implementation didn't do anything with this command.
-        pass
+        what = "Move marker in RViz then click 'Apply'."
+        btns = MB.Cancel | MB.Apply
+        answer = MB.information(None, who, what, buttons=btns, defaultButton=MB.Apply)
+        if answer == MB.Cancel:
+            self.removeWaypoint()
+            return
+        error = self.publishWaypoint(self.robot)
+        if error != "":
+            MB.warning(None, who, error, buttons=MB.Ok, defaultButton=MB.Ok)
+        self.removeWaypoint()

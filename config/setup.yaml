@@ -39,6 +39,8 @@
 #            wifi_detection: Subscription to receive incoming detected artifact images via WIFI.
 #            status_update:  Subscription to receive heath monitoring info from various nodes.
 #            radio_command:  Where to publish outgoing radio command messages.
+#            behavior_tree:  Subscription for the robot's current behavior tree in DOT GraphViz form.
+#
 robots:
   -
     name: Ground1
@@ -56,6 +58,7 @@ robots:
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
+      behavior_tree: behavior_tree_graphviz
   -
     name: Ground2
     uuid: eb6ec779-2d3a-4f9a-9bb0-e11a7ce8e501
@@ -75,6 +78,7 @@ robots:
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
+      behavior_tree: behavior_tree_graphviz
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
@@ -91,6 +95,7 @@ robots:
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
+      behavior_tree: behavior_tree_graphviz
 
 
 # The DARPA section specifies how the GUI should communicate with DARPA
