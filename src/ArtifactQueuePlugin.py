@@ -12,6 +12,7 @@ import rospkg
 import threading
 import robots
 import os
+import requests
 
 import python_qt_binding.QtWidgets as qt
 import python_qt_binding.QtCore as core
@@ -32,6 +33,7 @@ from basestation_gui_python.msg import (
     Artifact,
     ArtifactUpdate,
     ArtifactVisualizerUpdate,
+    ArtifactSubmissionReply,
 )
 
 # Table columns -- each entry describes its column width and column name
@@ -67,8 +69,8 @@ class ArtifactQueuePlugin(Plugin):
         super(ArtifactQueuePlugin, self).__init__(context)
         self.setObjectName("ArtifactQueuePlugin")
         self.robots = dict()
+        self.all_artifacts = dict()
         self.displayed_artifact_id = None
-        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
         self.refined_waypoint = [0, 0, 0]
 
         config = robots.Config()
@@ -81,7 +83,11 @@ class ArtifactQueuePlugin(Plugin):
         fake.uuid = FAKE_ROBOT_UUID
         self.robots[fake.uuid] = fake
 
-        self.artifact_categories = config.darpa.artifact_categories
+        d = config.darpa
+        self.report_url = "{0}:{1}{2}".format(d.ip_address, d.port, d.report_uri)
+        self.headers = {"Authorization": "Bearer {0}".format(d.auth_bearer_token)}
+        self.artifact_categories = d.artifact_categories
+
         self.initPanel(context)
 
         self.queue_trigger.connect(self.addArtifactMonitor)
@@ -102,7 +108,7 @@ class ArtifactQueuePlugin(Plugin):
             "/gui/duplicate_artifact", String, queue_size=10
         )  # duplicate the message we're clicked on
         self.artifact_submit_pub = rospy.Publisher(
-            "/gui/submit_artifact_from_queue", String, queue_size=10
+            "/gui/submit_artifact", ArtifactSubmissionReply, queue_size=10
         )  # submit artifacts from queue
         self.focus_on_artifact_pub = rospy.Publisher(
             "/gui/focus_on_artifact", String, queue_size=10
@@ -232,6 +238,8 @@ class ArtifactQueuePlugin(Plugin):
         elif type(data) == str:
             if col == CATEGORY:
                 self.queue_table.item(row, col).setText(data)
+                a = self.all_artifacts[msg.unique_id]
+                a.category = data
             else:
                 # to remove the green background if its the unread element
                 self.queue_table.item(row, col).setBackground(gui.QColor(255, 255, 255))
@@ -261,12 +269,62 @@ class ArtifactQueuePlugin(Plugin):
 
     def submitAllArtifacts(self):
         """Submit all of the queued artifacts to DARPA."""
-        msg = String()
+        # Skip is for rows of failed submissions.  Since it has failed then
+        # that row will be at the top of the table; hence, we skip over it.
+        skip = 0
         for row in range(self.queue_table.rowCount()):
-            msg.data = self.queue_table.item(row, UNIQUE_ID).text()
-            self.artifact_submit_pub.publish(msg)
-        # remove all of the rows from the table
-        self.queue_table.setRowCount(0)
+            item = self.queue_table.item(skip, UNIQUE_ID)
+            uid = item.text()
+            err = self.submitArtifact(uid)
+            if err == "":
+                self.all_artifacts.pop(uid, None)
+                self.queue_table.removeRow(item.row())
+            else:
+                skip += 1
+        if skip > 0:
+            m = "Failed to submit all artifacts.  Check log file."
+            MB = qt.QMessageBox
+            MB.critical(None, "Basestation", m, MB.Ok, MB.Ok)
+
+    def submitArtifact(self, unique_id):
+        """
+        Submits the artifact with given unique_id to DARPA for scoring.  Returns True if
+        the submission was successful or if the artifact doesn't exist within the queue.
+        """
+        if not self.all_artifacts.has_key(unique_id):
+            return True
+        artifact = self.all_artifacts[unique_id]
+        pos = artifact.curr_pose.position
+        report = {"type": artifact.category, "x": pos.x, "y": pos.y, "z": pos.z}
+        result = ""
+        try:
+            req = requests.post(self.report_url, headers=self.headers, json=report)
+            if req.ok:
+                try:
+                    resp = req.json()
+                    reply = ArtifactSubmissionReply()
+                    reply.unique_id = unique_id
+                    reply.submission_time_raw = float(resp["run_clock"])
+                    reply.artifact_type = str(resp["type"])
+                    reply.x = float(resp["x"])
+                    reply.y = float(resp["y"])
+                    reply.z = float(resp["z"])
+                    reply.score_change = int(resp["score_change"])
+                    reply.report_status = str(resp["report_status"])
+                    reply.http_response = str(req.status_code)
+                    reply.http_reason = str(req.reason)
+                    self.artifact_submit_pub.publish(reply)
+                except ValueError as e:
+                    rospy.logerr("[Artifact Queue] JSON encoding error: %s", e)
+                    result = str(e)
+            else:
+                m = "[Artifact Queue] Bad request -- Code %s, Reason: %s"
+                rospy.logerr(m, req.status_code, req.reason)
+                result = "{0} (Code {1})".format(req.reason, req.status_code)
+        except Exception as e:
+            rospy.logerr("[Artifact Queue] POST failed: %s", e)
+            result = str(e)
+        return result
 
     ############################################################################################
     # Functions adding/removing artifacts from the queue
@@ -298,13 +356,8 @@ class ArtifactQueuePlugin(Plugin):
                 m.color = m.COLOR_GREEN
                 self.message_pub.publish(m)
                 self.queue_table.removeRow(self.queue_table.item(row, 0).row())
+                self.all_artifacts.pop(msg.data, None)
                 return
-
-        # If we get to this point, we did not find the artifact to delete.
-        m = GuiMessage()
-        m.data = "Artifact(ID {0}) not found and not removed.".format(msg.data)
-        m.color = m.COLOR_RED
-        self.message_pub.publish(m)
 
     def addArtifact(self, msg):
         """For proper threading. See function below."""
@@ -319,6 +372,7 @@ class ArtifactQueuePlugin(Plugin):
         if not isinstance(threading.current_thread(), threading._MainThread):
             rospy.logerr("[Artifact Queue] Not rendering on main thread.")
 
+        self.all_artifacts[msg.unique_id] = msg
         self.queue_table.setSortingEnabled(False)  # to avoid corrupting the table
         self.queue_table.insertRow(self.queue_table.rowCount())
 
@@ -348,13 +402,14 @@ class ArtifactQueuePlugin(Plugin):
                 item = self.queue_table.item(row, UNIQUE_ID)
                 if item.text() == msg.unique_id:
                     self.queue_table.removeRow(item.row())
+                    self.all_artifacts.pop(msg.unique_id, None)
                     break
 
         def delete():
             MB = qt.QMessageBox
             answer = MB.warning(
                 None,
-                "Delete Artifact",
+                "Basestation",
                 "Really delete artifact?  This can not be undone.",
                 buttons=MB.Yes | MB.Cancel,
                 defaultButton=MB.Yes,
@@ -415,26 +470,27 @@ class ArtifactQueuePlugin(Plugin):
             self.update_artifact_info_pub.publish(u)
 
         def submit():
-            if self.connect_to_command_post:
-                MB = qt.QMessageBox
-                answer = MB.warning(
-                    None,
-                    "Submit Artifact",
-                    "Really submit artifact?",
-                    buttons=MB.Yes | MB.Cancel,
-                    defaultButton=MB.Yes,
-                )
-                if answer == MB.Cancel:
-                    return
-                s = String()
-                s.data = msg.unique_id
-                self.artifact_submit_pub.publish(s)
+            MB = qt.QMessageBox
+            answer = MB.warning(
+                None,
+                "Basestation",
+                "Really submit artifact?",
+                buttons=MB.Yes | MB.Cancel,
+                defaultButton=MB.Yes,
+            )
+            if answer == MB.Cancel:
+                return
+            err = self.submitArtifact(msg.unique_id)
+            if err == "":
                 remove_row()
             else:
-                g = GuiMessage()
-                g.data = "Not connected to DARPA.  Artifact not submitted."
-                g.color = g.COLOR_ORANGE
-                self.message_pub.publish(g)
+                MB.critical(
+                    None,
+                    "Basestation",
+                    "Artifact submission failed: " + err,
+                    MB.Ok,
+                    MB.Ok,
+                )
 
         def add_btn(column, theme, callback, toolTip):
             b = qt.QToolButton()
@@ -445,9 +501,7 @@ class ArtifactQueuePlugin(Plugin):
 
         add_btn(DUPLICATE, "gtk-copy", duplicate, "Duplicate artifact")
         add_btn(DELETE, "gtk-delete", delete, "Remove artifact from table")
-        add_btn(
-            REFINE, "stock_refresh", refine, "Refine artifact to a different position"
-        )
+        add_btn(REFINE, "stock_refresh", refine, "Move artifact to a new position")
         add_btn(SUBMIT, "go-home", submit, "Submit artifact to DARPA for scoring")
 
         # color the unread green

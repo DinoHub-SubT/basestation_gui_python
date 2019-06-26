@@ -1,4 +1,5 @@
 # message containing darpa's reply after artifact submission
+string unique_id
 float32 submission_time_raw
 string artifact_type
 float32 x

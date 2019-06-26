@@ -14,11 +14,9 @@ import cv2
 import time
 import robots
 
-from cv_bridge import CvBridge
-from darpa_command_post.TeamClient import TeamClient, ArtifactReport
-
 import basestation_msgs.msg as bsm
 
+from cv_bridge import CvBridge
 from std_msgs.msg import String, UInt8, Bool
 from sensor_msgs.msg import Image
 from basestation_gui_python.msg import (
@@ -61,13 +59,11 @@ class ArtifactHandler(BaseNode):
         self.submitted_artifacts = {}
 
         config = robots.Config()
-
         # categories from robot are 1-based. so element 0 is unknown
         self.artifact_categories = ["Unknown"]
         for category in config.darpa.artifact_categories:
             self.artifact_categories.append(category)
 
-        self.http_client = TeamClient()  # client to interact with darpa scoring server
         self.br = CvBridge()  # bridge from opencv to ros image messages
 
         # used to submit stuff with information on the gui (and not necessarily in the artifact object)
@@ -125,11 +121,7 @@ class ArtifactHandler(BaseNode):
         # if we duplicated an artifact from the queue
         sub("/gui/duplicate_artifact", String, self.duplicateArtifact)
         # if we want to submit an artifact from the queue
-        sub(
-            "/gui/submit_artifact_from_queue",
-            String,
-            self.buildArtifactSubmissionFromQueue,
-        )
+        sub("/gui/submit_artifact", ArtifactSubmissionReply, self.submitArtifact)
         # to handle button presses iterating over artifact images
         sub("/gui/change_disp_img", RetreiveArtifactImage, self.getArtifactImage)
         # for updates from the manipulation panel
@@ -434,114 +426,44 @@ class ArtifactHandler(BaseNode):
     # Functions to support DARPA artifact proposals
     ##############################################################################
 
-    def buildArtifactSubmissionFromQueue(self, msg):
+    def submitArtifact(self, reply):
         """
-        Build an artifact report to DARPA from the queue
+        Process an artifact submission reply from DARPA by forwarding the reply and
+        update internal bookkeeping.
 
-        msg is just a string that's the unqiue_id of the artifact to submit
+        Reply is of message type ArtifactSubmissionReply.
         """
-        artifact = self.all_artifacts[msg.data]
-        if artifact != None:
-            artifact_report = ArtifactReport(
-                x=float(artifact.pose[0]),
-                y=float(artifact.pose[1]),
-                z=float(artifact.pose[2]),
-                type=str(artifact.category),
-            )
-            self.submitArtifact(artifact_report, artifact.unique_id)
-        else:  # we could not find the artifact unique_id
-            update_msg = GuiMessage()
-            update_msg.data = (
-                "Artifact with unique id: "
-                + str(msg.data)
-                + " not found. Artifact not submitted."
-            )
-            update_msg.color = update_msg.COLOR_RED
-            self.message_pub.publish(update_msg)
+        uid = reply.unique_id
+        artifact = self.all_artifacts[uid]
+        if artifact == None:
+            m = "Artifact with unique ID {0} not found. Artifact not submitted."
+            g = GuiMessage()
+            g.data = m.format(str(msg.data))
+            g.color = g.COLOR_RED
+            self.message_pub.publish(g)
+            rospy.logerr("[Artifact Handler] " + g.data)
+            return
 
-    def submitArtifact(self, artifact_report, artifact_unique_id):
-        """
-        Submit an artifact report to DARPA.
+        self.submission_reply_pub.publish(reply)
 
-        artifact_report is a custom dataype just containing the relevat info for an artifact submission
-        i.e. position and category
+        # Remove the artifact from the book keeping it may have
+        # already been removed if the artifact was deleted.
+        if uid in self.queued_artifacts.keys():
+            self.queued_artifacts.pop(uid)
+            self.clear_displayed_img_pub.publish(Bool(True))
 
-        artifact_unique_id is a string that is the artifact unique id. used for bookeeping after a successful submission
-        """
-        results = self.http_client.send_artifact_report(artifact_report)
-        if results != []:  # we actually get something back
-            artifact_report_reply, http_status, http_reason = results
-            proposal_return = [
-                artifact_report_reply["run_clock"],
-                artifact_report_reply["type"],
-                artifact_report_reply["x"],
-                artifact_report_reply["y"],
-                artifact_report_reply["z"],
-                artifact_report_reply["report_status"],
-                artifact_report_reply["score_change"],
-                http_status,
-                http_reason,
-            ]
-            self.publishSubmissionReply(proposal_return)
+        self.submitted_artifacts[uid] = self.all_artifacts[uid]
 
-            # remove the artifact from the book keeping
-            # it may have already been removed if the artifact was deleted.
-            if artifact_unique_id in self.queued_artifacts.keys():
-                self.queued_artifacts.pop(artifact_unique_id)
-                # clear the displayed image
-                self.clear_displayed_img_pub.publish(Bool(True))
+        # Remove the artifact update message from the image visualizer plugin
+        # if it is still visible.
+        viz = ArtifactVisualizerUpdate()
+        viz.data = ArtifactVisualizerUpdate.HIDE
+        self.update_label_pub.publish(viz)
 
-            self.submitted_artifacts[artifact_unique_id] = self.all_artifacts[
-                artifact_unique_id
-            ]
-
-            # remove the artifact update message from the image visualizer plugin
-            # if it is still visible
-            update_msg = ArtifactVisualizerUpdate()
-            update_msg.data = ArtifactVisualizerUpdate.HIDE
-            self.update_label_pub.publish(update_msg)
-
-            # nothing is being displayed, so reset bookeeping
-            self.displayed_pose = [None, None, None]
-            self.displayed_category = None
-            self.displayed_artifact_id = None
-
-            return True
-
-        # if we got back nothing from DARPA, unlikely to happen...
-        return False
-
-    def publishSubmissionReply(self, proposal_return):
-        """
-        Publish the information returned by DARPA about our artifact submission
-
-        proposal_return is a list containing info from darpa about oru artifact submission
-        """
-        [
-            submission_time_raw,
-            artifact_type,
-            x,
-            y,
-            z,
-            report_status,
-            score_change,
-            http_response,
-            http_reason,
-        ] = proposal_return
-
-        # publish the message to display in thesubmission reply plugin
-        reply_msg = ArtifactSubmissionReply()
-        reply_msg.submission_time_raw = float(submission_time_raw)
-        reply_msg.artifact_type = str(artifact_type)
-        reply_msg.x = x
-        reply_msg.y = y
-        reply_msg.z = z
-        reply_msg.report_status = str(report_status)
-        reply_msg.score_change = score_change
-        reply_msg.http_response = str(http_response)
-        reply_msg.http_reason = str(http_reason)
-
-        self.submission_reply_pub.publish(reply_msg)
+        # Nothing is being displayed, so reset bookeeping.
+        self.displayed_pose = [None, None, None]
+        self.displayed_category = None
+        self.displayed_artifact_id = None
 
     ##############################################################################
     # Functions to support artifact manipulation/visualization

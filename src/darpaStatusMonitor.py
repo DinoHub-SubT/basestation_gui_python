@@ -11,11 +11,12 @@ import rospy
 import threading
 import time
 import robots
+import requests
 
-from basestation_gui_python.msg import DarpaStatus
-from darpa_command_post.TeamClient import TeamClient
-
+from basestation_gui_python.msg import DarpaStatus, GuiMessage
 from base_py import BaseNode
+
+MAX_ERRORS = 3
 
 
 class DarpaBridge(BaseNode):
@@ -23,63 +24,69 @@ class DarpaBridge(BaseNode):
         super(DarpaBridge, self).__init__("DarpaBridge")
 
     def initialize(self):
+        d = robots.Config().darpa
+        self.uri = "{0}:{1}{2}".format(d.ip_address, d.port, d.scoring_uri)
+        self.headers = {"Authorization": "Bearer {0}".format(d.auth_bearer_token)}
+        self.status_thread = None
+        self.error_count = 0
 
-        darpa = robots.Config().darpa
+        # Start a schedule which runs "get status" every few seconds.
+        connect = rospy.get_param("/connect_to_command_post")
+        if not connect:
+            return True
 
-        self.auth_bearer_token = darpa.auth_bearer_token
-        self.request_info_uri = darpa.request_info_uri
-
-        # have an initial darpa status update
-        self.darpa_status_update = {}
-        self.darpa_status_update["run_clock"] = 999
-        self.darpa_status_update["score"] = None
-        self.darpa_status_update["remaining_reports"] = None
-
-        # if we're also simulating the darpa command post
-        self.connect_to_command_post = rospy.get_param("/connect_to_command_post")
-
-        # start a schedule which runs "get status" every few seconds
-        self.get_status_thread = None
-        self.http_client = None
-        if self.connect_to_command_post:
-            self.http_client = TeamClient()
-            self.get_status_thread = threading.Timer(1.0, self.getStatus)
-            self.get_status_thread.start()
-            self.status_pub = rospy.Publisher(
-                "/gui/darpa_status", DarpaStatus, queue_size=10
-            )
-
+        self.message_pub = rospy.Publisher(
+            "/gui/message_print", GuiMessage, queue_size=10
+        )
+        self.status_pub = rospy.Publisher(
+            "/gui/darpa_status", DarpaStatus, queue_size=10
+        )
+        self.startThread()
         return True
 
+    def startThread(self):
+        self.status_thread = threading.Timer(1.0, self.getStatus)
+        self.status_thread.start()
+
     def getStatus(self):
-        """
-	Function that calls the http code to get the status and published to appropriate ros topic
-        """
-        self.darpa_status_update = self.http_client.get_status_from_command_post()
+        """Queries the current score from the DARPA server."""
+        try:
+            req = requests.get(self.uri, headers=self.headers)
+            if req.ok:
+                self.error_count = 0
+                try:
+                    resp = req.json()
+                    s = DarpaStatus()
+                    s.score = resp["score"]
+                    s.time_elapsed = float(resp["run_clock"])
+                    s.remaining_reports = resp["remaining_reports"]
+                    self.status_pub.publish(s)
+                except ValueError as e:
+                    rospy.logerr("[DARPA Status] JSON encoding error: %s", e)
+            else:
+                m = "[DARPA Status] Bad request -- Code %s, Reason: %s"
+                rospy.logerr(m, req.status_code, req.reason)
+        except Exception as e:
+            m = "[DARPA Status] GET failed [%d of %d]: %s"
+            self.error_count += 1
+            rospy.logerr(m, self.error_count, MAX_ERRORS, e)
 
-        msg = DarpaStatus()
-        msg.time_elapsed = float(self.darpa_status_update["run_clock"])
-        msg.score = self.darpa_status_update["score"]
-        msg.remaining_reports = self.darpa_status_update["remaining_reports"]
-        self.status_pub.publish(msg)
-
-        # restart the thread to call this function again
-        self.get_status_thread = threading.Timer(1.0, self.getStatus)
-        self.get_status_thread.start()
-
-    def shutdownHttpServer(self):
-        """Closes the http connection."""
-        # stop the thread that keeps reuesting the status
-        if self.get_status_thread:
-            self.get_status_thread.cancel()
-        if self.http_client:
-            self.http_client.exit()
+        if self.error_count < MAX_ERRORS:
+            self.startThread()
+        else:
+            m = "[DARPA Status] Too many errors encountered when querying scoring status from DARPA command post.  Restart Basestation Application to try again."
+            g = GuiMessage()
+            g.data = m
+            g.color = g.COLOR_ORANGE
+            self.message_pub.publish(g)
+            rospy.loginfo(m)
 
     def execute(self):
         return True
 
     def shutdown(self):
-        self.shutdownHttpServer()
+        if self.status_thread:
+            self.status_thread.cancel()
         rospy.loginfo("[Darpa Status Monitor] shutting down")
 
 

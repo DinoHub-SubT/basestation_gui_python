@@ -87,9 +87,11 @@ class Config(object):
 
         darpaCfg = config["darpa"]
         darpa = Darpa()
+        darpa.ip_address = require(darpaCfg, "ip_address", "darpa")
+        darpa.port = require(darpaCfg, "port", "darpa")
         darpa.auth_bearer_token = require(darpaCfg, "auth_bearer_token", "darpa")
-        darpa.request_info_uri = require(darpaCfg, "request_info_uri", "darpa")
-        darpa.scoring_uris = require(darpaCfg, "scoring_uris", "darpa")
+        darpa.scoring_uri = require(darpaCfg, "scoring_uri", "darpa")
+        darpa.report_uri = require(darpaCfg, "report_uri", "darpa")
         darpa.artifact_categories = require(darpaCfg, "artifact_categories", "darpa")
         if not req_err[0]:
             self.darpa = darpa
@@ -128,9 +130,11 @@ class Darpa(object):
     """
 
     def __init__(self):
+        self.ip_address = '127.0.0.1'
+        self.port = 8090
         self.auth_bearer_token = None
-        self.scoring_uris = None
-        self.scoring_uris = []
+        self.scoring_uri = None
+        self.report_uri = None
         self.artifact_categories = []
 
     def __repr__(self):

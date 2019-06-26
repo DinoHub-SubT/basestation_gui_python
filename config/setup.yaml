@@ -98,20 +98,22 @@ robots:
       behavior_tree: behavior_tree_graphviz
 
 
-# The DARPA section specifies how the GUI should communicate with DARPA
-# systems.
+# The DARPA section specifies how the GUI should communicate with the remote
+# DARPA scoring server.
 #
-#    auth_bearer_token:   [required] Authentication token to communicate with the DARPA web server.
-#    request_info_uri:    [required] URI to GET the current DARPA status.
-#    scoring_uris:        [required] URI to POST artifact reports to DARPA.
+#    ip_address:          [required] IP address with protocol of the remote DARPA server.
+#    port:                [required] Port number of the remote DARPA server.
+#    auth_bearer_token:   [required] Authentication token to communicate with the DARPA server.
+#    scoring_uri:         [required] URI to GET the current DARPA score status.
+#    report_uris:         [required] URI to POST artifact reports to DARPA.
 #    artifact_categories: [required] Various artifact categories that any robot should report.
-#    artifact_priorities: [required] Priority to assign a received artifact.
 #
 darpa:
+  ip_address: 'http://127.0.0.1'
+  port: 8090
   auth_bearer_token: 'flux230{showroom'
-  request_info_uri: 'http://api/status/'
-  scoring_uris:
-    - 'http://api/artifact_reports/'
+  scoring_uri: '/api/status/'
+  report_uri: '/api/artifact_reports/'
   artifact_categories:
     - Backpack
     - Drill

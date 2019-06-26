@@ -1,177 +1,90 @@
-# Overview
-A GUI for sending command to the robots and receiving information other than map data. Based on John's state machine gui package.
+Overview
+========
+
+Primary application for the Basestation operator to interact with the SubT robots.
 
 
+Installation
+============
 
-# How to install
-Install dependencies
-```bash
-sudo apt-get install ros-melodic-mavros
-```
-
-Make new workspace
+Create a workspace to host the Basestation repository and its required dependencies:
 ```bash
 mkdir -p basestation_ws/src
 cd basestation_ws/src
 ```
 
-First, you'll need Graeme's DARPA command post simulator 
-```bash
-git clone git@bitbucket.org:cmusubt/darpa_command_post.git
-```
-
-You will also need Ji's entrance_calib package. 
-```bash
-git clone git@bitbucket.org:cmusubt/entrance_calib.git
-```
+Then clone the repository:
+`git clone git@bitbucket.org:cmusubt/basestation_gui_python.git`
 
 
+ROS Dependencies
+----------------
 
-Install gui repo
-```bash
-git clone git@bitbucket.org:cmusubt/basestation_gui_python.git
-cd ..
-catkin build
-source devel/setup.bash
-```
+- Standard ROS packages:
+  `sudo apt-get install ros-melodic-mavros`
 
-# How to run
-(Optional) If you want to simulate the darpa command post, run:
-```bash
-rosrun darpa_command_post CommandPostScoring.py
-```
+- (Opitonal) DARPA command post simulator for GUI testing:
+  `git clone git@bitbucket.org:cmusubt/darpa_command_post.git`
 
-If you wish to simulate artifact detections, run the fake publisher first in a sourced terminal:
-```bash
-rosrun basestation_gui_python fake_artifact_detections.py 
-```
-
-In another sourced terminal, run:
-```bash
-roslaunch basestation_gui_python gui.launch connect_to_command_post:=false simulating_artifact_detections:=true
-```
-
-The ```simulating_darpa_command_post``` argument is a boolean one to designate whether the simulated darpa command post is running. The default is "false". If you make it true, you must launch the CommandPostScoring first.
-
-The ```simulating_artifact_detections``` argument is a boolean one to designate whether to publish fake artifact detections (as radio messages). The default is "false".
-
-In the "Plugins" menu at the top "Basestation Gui" will be listed and when you click it, it gets added to rqt. If its not an option, close the window and run:
-```bash
-rqt --force-discover
-```
-
-Basestation Gui should now appear as an option in the Plugins dropdown. If it doesn't, ensure you're running the launch command in the same terminal as the one that has been sourced.  
-
-You may get some red text involving "TypeError: coercing to Unicode: need string or buffer, NoneType found". Ignore it. 
-
-The first time you may have to click the "Open Config..." button in the GUI and select the config/gui_params.yaml file. This will get saved as the default when you run it in the future.
-
-# Artifact Refinement
-
-To do artifact refinement, two markers in RViz need to be subscribed to:
-
-```bash
-/basic_controls/update
-```
-which is an interactive marker for updating the artifact location. And
-
-```bash
-/refinement_marker_orig_pos
-```
-
-which is a MarkerArray of two markers. A green sphere to designate the original location of the artifact and a red arrow pointing to the artifact location. 
-
-Once these are subscribed to, back in the GUI, select an artifact to display in the artifact panel (by double-clicking on the artifact in the queue). Then, in the middle of the GUI there is a Show Refinement Marker button, click it. A large red arrow should appear in RViz, which points down to indicate the location of the refinement. Below it will be the orange interactive marker and hidden beneath the orange sphere is a static green sphere which is the original position marker.
+- The *entrance_calib* package is required to perform robot calibrations:
+  `git clone git@bitbucket.org:cmusubt/entrance_calib.git`
 
 
-# Defining waypoints
+Python2.7 Dependencies
+----------------------
 
-To define a waypoint, you need to add the interatice marker topic
-```bash
-/define_waypoint/update
-```
-to RViz. This marker will become visible upon selecting 1+ of the "Define waypoint" buttons in the gui. Its starting location is set as the robot pose. This marker then can be moved around to its final location by clicking and dragging in RViz. Once its final location is set, de-select the button in the gui, this de-selection will publish a RadioMsg waypoint to the robot. 
+- *pyserial*:  For DARPA E-Stop commands
+  `pip2 install pyserial`
 
-# To add a new plugin
+- *requests*:  To communicate with the DARPA command post
+  `pip2 install requests`
 
-Generate a .py file following the convention of the Gui.py format (inherit from the Plugin class, etc.). An barebones example is in src/SkeletonPlugin.py
 
-In the basestation_gui_python/plugin.xml file add the plugin as a new class. Keep it in the same group as the other plugins (Basestation Gui).
+Development Dependencies
+------------------------
 
-In package.xml, add the following line within the existing export tag:
-```bash
-<rqt_gui plugin="${prefix}/plugin.xml"/>
-```
-
-Launch the gui using the normal launch command. If the pluging does not show up in the dropdown:
-	-Close the gui
-	-Run rqt --force-discover. 
-	-It should now show up in the drop-down for plugins. 
-
-To ensure that its displayed everytime the gui is roslaunched, add it to the perspective. To do this:
-	-Position all of the plugins how you want them in the rqt window
-	-On the top bar there is a Perspective tab. Click it
-	-Export the perspective
-	-Save it as whatever the gui.launch file calls. Probably /config/subt_test_perspective or something like that. 
-
-# Known issues / TODO
-
-* (D) Saving/loading of gui from CSV. In case the gui crashes, we want to be able to load from a saved .csv or something like that. Either load from button press or tab on top 
-
-* (D) Artifacts, upon pressing "submit" are deleted from the queue. This could be a problem if, for example, the artifact tries to be submitted and the connection to the command post breaks. This artifact is then effectively "lost". It sits in the ArtifactHandler archived. It might be best to only delete from the table once the confirmation from darpa comes back? If the unique_id is still persisitent. Otherwise some other solution. 
-
-** This is, depending on how you look at it, an effect of a bigger problem: if you close the artifact queue, that info will be out of sync with the artifact handler. some way to refresh with artifacthandler info? Either by button press or maybe automatically at 1Hz or so
-
-* (D+V) Handling bluetooth/audio detections
-
-=======
-# Development
-
-Formatting
-----------
-
-Basestation_gui is developed using rospy and thus requires Python2.7.  However, for
+Basestation is developed using rospy and thus requires Python2.7.  However, for
 consistency of development amongst several developers we use
-[black](https://github.com/python/black) for all formatting of Python source code which
-requires Python3.6.  Playing with different Python installations isn't fun so the
-following instructions will make it easy to format the source code:
+[black](https://github.com/python/black) for formatting of Python source code which
+requires Python3.6.  The following will help with this and allow the two to co-exist:
 
-* Install Python3 and pip3 if it's not already installed:
+- Install Python3 and pip3 if it's not already installed:
   `sudo apt-get install python3 python3-pip`
-* Install _black_ with Python3's pip: `pip3 install black`
-* (Optional) Ensure Python3's site-packages directory is on your path if you can't run
+
+- Install _black_ with Python3's pip: `pip3 install black`
+
+- (Optional) Ensure Python3's site-packages directory is on your path if you can't run
   _black_ after installing (see last bullet).  Running Ubuntu you should have a _.profile_
   file in your home directory.  In that file, somewhere at the bottom you should add the
   line: `export PATH="$HOME/.local/lib/python3.6/site-packages:$PATH"`
-* If you modified your _.profile_ then re-source it: `source ~/.profile`
-* Now you can run _black_ on your code: `black my_python_file.py`
+
+- If you modified your _.profile_ then re-source it: `source ~/.profile`
+
+- Now you can run _black_ on your code: `black my_python_file.py`
 
 Note that we use _black's_ defaults for formatting thus allowing for zero configuration
 and keeping things simple.  If you wish to integrate _black_ within your editor workflow
 then check out its project page from the link above for setup with your editor of choice.
 
-Library Dependencies
---------------------
 
-Basestation_gui third-party dependencies and how to get them are listed here:
+Building
+========
 
-* *pyserial*:  Required for DARPA E-Stop commands -- `pip2 install pyserial`
-
-
-=======
-# Troubleshooting
-For some reason, sometimes it wants to launch twice (you'll see 2 messages about an HTTP server being launched). To fix this error for now, run 
+From the workspace that was created in the step above:
 ```bash
-rqt --clear-config 
+catkin build
+source devel/setup.bash
 ```
-and re-launch the gui
 
 
-# Quick Start Guide
+Quick Start
+===========
 
-##Window 1
+The following demonstrates how to run the Basestation application along with the DARPA
+command post simulator.
 
-
+Window 1
+--------
 
 ```bash
 cd home/name/workspaces/gui/
@@ -179,15 +92,108 @@ source devel/setup.bash
 rosrun darpa_command_post CommandPostScoring.py
 ```
 
-
-##Window 2
+Window 2
+--------
 
 ```bash
 cd home/name/workspaces/gui/
 source devel/setup.bash
-roslaunch basestation_gui_python gui.launch connect_to_command_post:=false simulating_artifact_detections:=true
+roslaunch basestation_gui_python gui.launch connect_to_command_post:=true
 ```
 
 
-# Who to contact
+Running
+=======
+
+(Optional) To simulate the DARPA command post:
+`rosrun darpa_command_post CommandPostScoring.py`
+
+To simulate artifact detections in another sourced terminal:
+`rosrun basestation_gui_python fake_artifact_detections.py`
+
+For the Basestation Application:
+`roslaunch basestation_gui_python gui.launch connect_to_command_post:=false simulating_artifact_detections:=true`
+
+The `simulating_darpa_command_post` argument designates whether the simulated DARPA
+command post is running.  The default is *false* but when set to *true* the command post
+should be run first.
+
+The `simulating_artifact_detections` argument designates whether to publish fake artifact
+detections (as radio messages).  The default is *false*.
+
+The _Plugins_ menu of the running application contains a _Basestation_ sub-menu that
+contains all the Basestation specific plugins, which are all loaded by default.  If it is
+not listed then run `bash rqt --force-discover` and restart the application.
+
+
+RViz Interaction
+================
+
+The Basestation application offers a couple of features that can interact with a running
+RViz instance.  For this to work correctly the *interactiveMarkerProcessing* node needs to
+have its *reference_frame* match the one that is listed in RViz.  This is inside the
+*gui.launch* file for the Basestation application.  With that set one, within the
+Basestation application, can define a waypoint to order a robot to move to a specific
+position, or can change the location of a discovered artifact.
+
+Defining Waypoints
+------------------
+
+To define a waypoint add the `/define_waypoint/update` topic inside of RViz.  When the
+*Define Waypoint* for a specific robot is pressed a pop-up will inform the user to move
+the interactive marker in RViz.  Move the marker inside RViz and once the desired position
+is set then click _Ok_ from the pop-up of the Basestation application.  The robot will now
+be ordered to move to that application if possible.  If one wishes to cancel the marker
+placement simply press the _Cancel_ button inside of the pop-up.
+
+Artifact Refinement
+-------------------
+
+To change the location of a discovered artifact add the `/artifact_refinement/update`
+topic inside of RViz.  Then for any artifact click its _Refine_ button to bring up a
+pop-up that allows the changing of a location manually or by using RViz.  To use RViz
+click the _Show RViz Marker_ button, move the marker inside RViz to the desired location,
+and click the same button again.  Upon clicking the button a second time the text fields
+inside the pop-up will be populated with the selected location.  Click _Ok_ to accept the
+new position or _Cancel_ to keep the original position.
+
+
+Adding New Plugins
+==================
+
+Generate a .py file following the convention of the Gui.py format (inherit from the Plugin
+class, etc.).  An barebones example is in src/SkeletonPlugin.py or see one of the existing
+plugins.
+
+In the basestation_gui_python/plugin.xml file add the plugin as a new class. Keep it in
+the same group as the other plugins (i.e. *Basestation*).
+
+Launch the application using the normal launch command.  If the pluging does not show up in
+the dropdown:
+
+- Close the application.
+- Run `rqt --force-discover`.
+- Restart the Basestation application.
+
+To have the plugin loaded with the default Basestation application plugin layout:
+
+- Position all of the plugins how you want them in the rqt window.
+- Under the _Perspectives_ menu select *Export*
+- Name the perspective file and save.  The default perspective file is
+  *subt_tests_gui.perspective*, which is under the _config_ directory of the Basestation
+  repository, if you wish to override the default.
+
+
+Known Issues / TODO
+===================
+
+* (D) Saving/loading of gui from CSV.  In case the gui crashes, we want to be able to load
+from a saved .csv or something like that.  Either load from button press or tab on top.
+
+* (D+V) Handling bluetooth/audio detections
+
+
+Contact
+=======
+
 Bob DeBortoli: debortor@oregonstate.edu

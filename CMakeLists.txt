@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   rqt_gui
   rqt_gui_py
-  darpa_command_post
   sensor_msgs
   basestation_msgs
 )
