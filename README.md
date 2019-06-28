@@ -23,6 +23,9 @@ ROS Dependencies
 - Standard ROS packages:
   `sudo apt-get install ros-melodic-mavros`
 
+- Basestation messages package to communicate with robots:
+  `git clone git@bitbucket.org:cmusubt/basestation_msgs.git`
+
 - (Opitonal) DARPA command post simulator for GUI testing:
   `git clone git@bitbucket.org:cmusubt/darpa_command_post.git`
 
