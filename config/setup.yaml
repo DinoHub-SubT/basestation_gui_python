@@ -110,13 +110,13 @@ robots:
 #
 darpa:
   ip_address: 'http://127.0.0.1'
-  port: 8090
+  port: 8080
   auth_bearer_token: 'flux230{showroom'
   scoring_uri: '/api/status/'
   report_uri: '/api/artifact_reports/'
   artifact_categories:
     - Backpack
     - Drill
-    - Fire Extinguisher
-    - Survivor
-    - Cell Phone
+    - Extinguisher
+    - Human
+    - Phone
