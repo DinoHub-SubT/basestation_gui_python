@@ -101,9 +101,9 @@ class ArtifactQueuePlugin(Plugin):
         self.message_pub = rospy.Publisher(
             "/gui/message_print", GuiMessage, queue_size=10
         )  # print a message
-        self.archive_artifact_pub = rospy.Publisher(
-            "/gui/archive_artifact", String, queue_size=10
-        )  # archive a message
+        self.delete_artifact_pub = rospy.Publisher(
+            "/gui/delete_artifact", String, queue_size=10
+        )
         self.duplicate_pub = rospy.Publisher(
             "/gui/duplicate_artifact", String, queue_size=10
         )  # duplicate the message we're clicked on
@@ -418,7 +418,7 @@ class ArtifactQueuePlugin(Plugin):
                 return
             s = String()
             s.data = msg.unique_id
-            self.archive_artifact_pub.publish(s)
+            self.delete_artifact_pub.publish(s)
             remove_row()
 
         def duplicate():

@@ -8,11 +8,17 @@ Copyright Carnegie Mellon University / Oregon State University <2019>
 This code is proprietary to the CMU SubT challenge. Do not share or distribute without express permission of a project lead (Sebastion or Matt).
 """
 import rospy
-import copy
 import rospkg
+import copy
 import cv2
 import time
 import robots
+import json
+import base64
+import pickle
+import os
+import re
+import threading
 
 import basestation_msgs.msg as bsm
 
@@ -73,6 +79,24 @@ class ArtifactHandler(BaseNode):
         # variables to hold darpa info in this handler
         self.time_elapsed, self.score, self.remaining_reports = -1, -1, -1
 
+        # Load existing received/submitted artifacts from disk.
+        def loadArtifact(where, what, store):
+            for p in os.listdir(where):
+                p = os.path.join(where, p)
+                if os.path.isfile(p) and re.match(r".*\.json$", p):
+                    try:
+                        with open(p, "r") as f:
+                            d = json.load(f)
+                            g = GuiArtifact.from_dict(d)
+                            self.all_artifacts[g.unique_id] = g
+                            store[g.unique_id] = g
+                    except Exception as e:
+                        m = "[Artifact Handler] Failed to load %s artifact in %s: %s"
+                        rospy.logerr(m, what, p, e)
+
+        loadArtifact(self.receivedDirectory(), "received", self.queued_artifacts)
+        loadArtifact(self.submittedDirectory(), "submitted", self.submitted_artifacts)
+
         # subscriber and publishers
         self.message_pub = rospy.Publisher(
             "/gui/message_print", GuiMessage, queue_size=10
@@ -116,8 +140,8 @@ class ArtifactHandler(BaseNode):
         )
         # if we selected an artifact from the queue
         sub("/gui/focus_on_artifact", String, self.setDisplayedArtifact)
-        # if we archived an artifact from the queue
-        sub("/gui/archive_artifact", String, self.archiveArtifact)
+        # if we deleted an artifact from the queue
+        sub("/gui/delete_artifact", String, self.deleteArtifact)
         # if we duplicated an artifact from the queue
         sub("/gui/duplicate_artifact", String, self.duplicateArtifact)
         # if we want to submit an artifact from the queue
@@ -152,6 +176,14 @@ class ArtifactHandler(BaseNode):
             detect = "/{0}/{1}".format(r.topic_prefix, r.topics.get("wifi_detection"))
             sub(detect, bsm.WifiDetection, onDetect(r.uuid))
 
+        # We would like to display existing persisted artifacts immediately after the
+        # handler is loaded; however, there is a ROS/rqt bootstrap delay that appears to
+        # get in the way.  An attempt was made to have various artifact plugins send a
+        # 'ready' message at the end of their __init__ call but the message was never
+        # received despite it reporting that its initialized had been completed.  With
+        # that being said, we can see this ugly hack here of waiting for two seconds
+        # before sending all known queued and submitted artifacts.
+        threading.Timer(2, self.broadcastArtifacts).start()
         return True
 
     ##############################################################################
@@ -259,6 +291,7 @@ class ArtifactHandler(BaseNode):
             ]
             self.displayed_pose = artifact.pose
             self.displayed_category = artifact.category
+            self.persistArtifact(artifact, self.receivedDirectory())
             self.update_artifact_in_queue_pub.publish(msg)
             idx = -1
             if len(artifact.imgs) > 0:
@@ -342,14 +375,10 @@ class ArtifactHandler(BaseNode):
 
         msg is a WifiDetection message containing info about the artifact detected
         """
-        # decode the type
-        artifact_category = self.artifact_categories[
-            msg.artifact_type
-        ]  # msg.category is an int using a agreed-upon convention
-
+        # msg.category is an int using a agreed-upon convention
+        artifact_category = self.artifact_categories[msg.artifact_type]
         # put timestamps on the images and extract timestamp info
         imgs, img_stamps = self.timestampsOnImgs(msg.imgs)
-
         artifact = GuiArtifact(
             robot_uuid=robot_uuid,
             original_timestamp=msg.artifact_stamp.secs,
@@ -444,15 +473,28 @@ class ArtifactHandler(BaseNode):
             rospy.logerr("[Artifact Handler] " + g.data)
             return
 
+        artifact.darpa_submit_time = reply.submission_time_raw
+        artifact.darpa_artifact_type = reply.artifact_type
+        artifact.darpa_score_change = reply.score_change
+        artifact.darpa_report_status = reply.report_status
+        artifact.darpa_response = reply.http_response
+        artifact.darpa_reason = reply.http_reason
+        artifact.darpa_x = reply.x
+        artifact.darpa_y = reply.y
+        artifact.darpa_z = reply.z
+
         self.submission_reply_pub.publish(reply)
 
         # Remove the artifact from the book keeping it may have
         # already been removed if the artifact was deleted.
         if uid in self.queued_artifacts.keys():
             self.queued_artifacts.pop(uid)
+            self.removePersistedArtifact(artifact, self.receivedDirectory())
             self.clear_displayed_img_pub.publish(Bool(True))
 
-        self.submitted_artifacts[uid] = self.all_artifacts[uid]
+        self.all_artifacts[uid] = artifact
+        self.submitted_artifacts[uid] = artifact
+        self.persistArtifact(artifact, self.submittedDirectory())
 
         # Remove the artifact update message from the image visualizer plugin
         # if it is still visible.
@@ -571,19 +613,40 @@ class ArtifactHandler(BaseNode):
         time_offset = current_time - self.time_elapsed
         return robot_time - time_offset
 
-    def archiveArtifact(self, msg):
+    def receivedDirectory(self):
+        p = rospkg.RosPack().get_path("basestation_gui_python")
+        return os.path.join(p, "data", "artifacts", "received")
+
+    def submittedDirectory(self):
+        p = rospkg.RosPack().get_path("basestation_gui_python")
+        return os.path.join(p, "data", "artifacts", "submitted")
+
+    def persistArtifact(self, artifact, directory):
+        p = os.path.join(directory, artifact.filename())
+        with open(p, "w") as f:
+            d = artifact.to_dict()
+            json.dump(d, f)
+
+    def removePersistedArtifact(self, artifact, directory):
+        p = os.path.join(directory, artifact.filename())
+        try:
+            os.remove(p)
+        except Exception as e:
+            m = "[Artifact Handler] Failed to remove artifact file %s: %s"
+            rospy.logerr(m, p, e)
+
+    def deleteArtifact(self, msg):
         """
         Used when an artifact should be removed from the queue.
-        May require a separate plugin to manage such items.
 
         msg is a string of the unique_id
         """
         # go find the artifact
         artifact = self.all_artifacts[msg.data]
         if artifact != None:
-            self.archived_artifacts[artifact.unique_id] = artifact
             # default return value is None if key not found
             self.queued_artifacts.pop(artifact.unique_id)
+            self.removePersistedArtifact(artifact, self.receivedDirectory())
 
             g = GuiMessage()
             g.data = "Artifact removed: " + artifact.unique_id
@@ -600,6 +663,25 @@ class ArtifactHandler(BaseNode):
             g.color = g.COLOR_RED
             self.message_pub.publish(g)
 
+    def broadcastArtifacts(self):
+        """Publishes all known recieved and submitted artifacts."""
+        for uid, art in self.queued_artifacts.iteritems():
+            m = self.guiArtifactToRos(art)
+            self.to_queue_pub.publish(m)
+        for uid, art in self.submitted_artifacts.iteritems():
+            r = ArtifactSubmissionReply()
+            r.unique_id = art.unique_id
+            r.submission_time_raw = art.darpa_submit_time
+            r.artifact_type = art.darpa_artifact_type
+            r.x = art.darpa_x
+            r.y = art.darpa_y
+            r.z = art.darpa_z
+            r.report_status = art.darpa_report_status
+            r.score_change = art.darpa_score_change
+            r.http_response = art.darpa_response
+            r.http_reason = art.darpa_reason
+            self.submission_reply_pub.publish(r)
+
     def bookeepAndPublishNewArtifact(self, artifact):
         """
         Add the new artifact to the various lists and publish the
@@ -609,6 +691,7 @@ class ArtifactHandler(BaseNode):
         """
         self.all_artifacts[artifact.unique_id] = artifact
         self.queued_artifacts[artifact.unique_id] = artifact
+        self.persistArtifact(artifact, self.receivedDirectory())
 
         # publish this message to be visualized by plugins
         # necessary step to fill in some defaults (i.e. category)
@@ -647,20 +730,119 @@ class GuiArtifact:
         self.robot_uuid = robot_uuid
         self.source_robot_id = source_robot_id
         self.artifact_report_id = artifact_report_id
-        self.time_from_robot = (
-            time_from_robot if time_from_robot is not None else -1
-        )  # time the detection has come in from the robot. TODO: change to be something different?
+        # time the detection has come in from the robot. TODO: change to be something different?
+        self.time_from_robot = time_from_robot if time_from_robot is not None else -1
         self.time_to_darpa = -1  # time submitted to darpa
         self.unread = True
+        self.darpa_submit_time = 0.0
+        self.darpa_artifact_type = ""
+        self.darpa_score_change = 0
+        self.darpa_report_status = ""
         self.darpa_response = ""
+        self.darpa_reason = ""
+        self.darpa_x = 0.0
+        self.darpa_y = 0.0
+        self.darpa_z = 0.0
         self.imgs = imgs if imgs is not None else []
-        self.img_stamps = (
-            img_stamps if img_stamps is not None else []
-        )  # time stamps of the images
+        # time stamps of the images
+        self.img_stamps = img_stamps if img_stamps is not None else []
         self.original_timestamp = original_timestamp
         self.unique_id = GuiArtifact.message_id(
             robot_uuid, artifact_report_id, original_timestamp
         )
+
+    def filename(self):
+        return self.unique_id.replace("/", "_") + ".json"
+
+    def to_dict(self):
+        """
+        Encode a GuiArtifact to a python dictionary that is suitable for JSON encoding.
+        """
+        d = {
+            "category": self.category,
+            "pose": self.pose,
+            "orig_pose": self.orig_pose,
+            "robot_uuid": self.robot_uuid,
+            "source_robot_id": self.source_robot_id,
+            "artifact_report_id": self.artifact_report_id,
+            "time_from_robot": self.time_from_robot,
+            "time_to_darpa": self.time_to_darpa,
+            "unread": self.unread,
+            "darpa_submit_time": self.darpa_submit_time,
+            "darpa_artifact_type": self.darpa_artifact_type,
+            "darpa_score_change": self.darpa_score_change,
+            "darpa_report_status": self.darpa_report_status,
+            "darpa_repsonse": self.darpa_response,
+            "darpa_reason": self.darpa_reason,
+            "darpa_x": self.darpa_x,
+            "darpa_y": self.darpa_y,
+            "darpa_z": self.darpa_z,
+            "original_timestamp": self.original_timestamp,
+            "unique_id": self.unique_id,
+        }
+        imgs = []
+        for i in self.imgs:
+            s = i.dumps()
+            b = base64.b64encode(s)
+            imgs.append(b)
+        d["imgs"] = imgs
+
+        img_stamps = []
+        for stamp in self.img_stamps:
+            s = stamp.to_sec()
+            img_stamps.append(s)
+        d["img_stamps"] = img_stamps
+
+        return d
+
+    @staticmethod
+    def from_dict(d):
+        """
+        Decode a python dictionary that was created with GuiArtifact.to_dict.
+        """
+        imgs = []
+        for b64 in d["imgs"]:
+            s = base64.b64decode(b64)
+            i = pickle.loads(s)
+            imgs.append(i)
+
+        img_stamps = []
+        for stamp in d["img_stamps"]:
+            t = rospy.Time.from_sec(stamp)
+            img_stamps.append(t)
+
+        uid = d["robot_uuid"]
+        orig_ts = d["original_timestamp"]
+        report_id = d["artifact_report_id"]
+
+        # Performing partial construction here in order to modifying the GuiArtifact
+        # constructor.  It needs these parameters to not throw an error when
+        # constructing the artifacts unique ID despite us overridding the value from the
+        # previous serialized value.
+        g = GuiArtifact(
+            original_timestamp=orig_ts, artifact_report_id=report_id, robot_uuid=uid
+        )
+        g.imgs = imgs
+        g.img_stamps = img_stamps
+        g.category = d["category"]
+        g.pose = d["pose"]
+        g.orig_pose = d["orig_pose"]
+        g.source_robot_id = d["source_robot_id"]
+        g.time_from_robot = d["time_from_robot"]
+        g.time_to_darpa = d["time_to_darpa"]
+        g.unread = d["unread"]
+        g.darpa_submit_time = d["darpa_submit_time"]
+        g.darpa_artifact_type = d["darpa_artifact_type"]
+        g.darpa_score_change = d["darpa_score_change"]
+        g.darpa_report_status = d["darpa_report_status"]
+        g.darpa_response = d["darpa_repsonse"]
+        g.darpa_reason = d["darpa_reason"]
+        g.darpa_x = d["darpa_x"]
+        g.darpa_y = d["darpa_y"]
+        g.darpa_z = d["darpa_z"]
+        g.unique_id = d["unique_id"]
+
+        return g
 
     @staticmethod
     def message_id(robot_uuid, report_id, secs):
@@ -674,7 +856,5 @@ class GuiArtifact:
 
 
 if __name__ == "__main__":
-    time.sleep(0.5)  # give the gui time to launch and setup the proper subscribers
-
     node = ArtifactHandler()
     node.run()

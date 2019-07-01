@@ -84,13 +84,14 @@ Quick Start
 ===========
 
 The following demonstrates how to run the Basestation application along with the DARPA
-command post simulator.
+command post simulator.  This assumes you created `basestation_ws/src` workspace
+directory listed in the _install_ step above.
 
 Window 1
 --------
 
 ```bash
-cd home/name/workspaces/gui/
+cd ~/basestation_ws
 source devel/setup.bash
 rosrun darpa_command_post CommandPostScoring.py
 ```
@@ -99,7 +100,7 @@ Window 2
 --------
 
 ```bash
-cd home/name/workspaces/gui/
+cd ~/basestation_ws
 source devel/setup.bash
 roslaunch basestation_gui_python gui.launch connect_to_command_post:=true
 ```
@@ -135,9 +136,9 @@ RViz Interaction
 The Basestation application offers a couple of features that can interact with a running
 RViz instance.  For this to work correctly the *interactiveMarkerProcessing* node needs to
 have its *reference_frame* match the one that is listed in RViz.  This is inside the
-*gui.launch* file for the Basestation application.  With that set one, within the
-Basestation application, can define a waypoint to order a robot to move to a specific
-position, or can change the location of a discovered artifact.
+*gui.launch* file for the Basestation application.  With that set, within the Basestation
+application, one can define a waypoint to order a robot to move to a specific position, or
+can change the location of a discovered artifact.
 
 Defining Waypoints
 ------------------
@@ -189,9 +190,6 @@ To have the plugin loaded with the default Basestation application plugin layout
 
 Known Issues / TODO
 ===================
-
-* (D) Saving/loading of gui from CSV.  In case the gui crashes, we want to be able to load
-from a saved .csv or something like that.  Either load from button press or tab on top.
 
 * (D+V) Handling bluetooth/audio detections
 

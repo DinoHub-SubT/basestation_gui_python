@@ -2,4 +2,4 @@
 custom_logs/*
 *lock*#
 ji_pose.csv
-data/calibration/*.json
+data/**/*.json
