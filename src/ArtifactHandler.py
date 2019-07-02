@@ -413,18 +413,17 @@ class ArtifactHandler(BaseNode):
         artifact_to_dup = self.all_artifacts[msg.data]
         if artifact_to_dup != None:
             # find a unique negative id. manually generated artifacts have a negative id
-            negative_id_list = []
+            artifact_id = -1
             for art in self.all_artifacts.keys():
-                if self.all_artifacts[art].artifact_report_id < 0:
-                    negative_id_list.append(self.all_artifacts[art].artifact_report_id)
+                r_id = self.all_artifacts[art].artifact_report_id
+                if r_id < 0 and r_id < artifact_id:
+                    artifact_id = r_id
 
-            artifact_id = (len(negative_id_list) + 1) * -1
-
-            # make the robot_id negative as well.
-            art_source_id = (
-                artifact_to_dup.source_robot_id + 1
-            ) * -1  #'+1' because one of the robot ids is 0, which won't go negative
-            # with '*-1'
+            artifact_id -= 1
+            # Make the robot_id negative as well.  We add '+1' because
+            # one of the robot ids is 0, which won't go negative with
+            # '*-1'.
+            art_source_id = (artifact_to_dup.source_robot_id + 1) * -1
 
             # generate the artifact object
             artifact = GuiArtifact(
@@ -438,18 +437,7 @@ class ArtifactHandler(BaseNode):
                 time_from_robot=copy.deepcopy(artifact_to_dup.time_from_robot),
                 robot_uuid=copy.deepcopy(artifact_to_dup.robot_uuid),
             )
-
-            # add the artifact to the list of queued objects and to the all_artifacts list
-            self.queued_artifacts[artifact.unique_id] = artifact
-            self.all_artifacts[artifact.unique_id] = artifact
-
-            # publish this message to be visualized by plugins
-            # necessary step to fill in some defaults (i.e. category)
-            # to be used by other parts of the gui
-            ros_msg = self.guiArtifactToRos(artifact)
-
-            # add the artifact to the queue
-            self.to_queue_pub.publish(ros_msg)
+            self.bookeepAndPublishNewArtifact(artifact)
 
     ##############################################################################
     # Functions to support DARPA artifact proposals
