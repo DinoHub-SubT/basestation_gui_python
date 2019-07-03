@@ -72,6 +72,7 @@ class Config(object):
             require_topic(robot.topics, "status_update")
             require_topic(robot.topics, "radio_command")
             require_topic(robot.topics, "behavior_tree")
+            require_topic(robot.topics, "point_cloud")
             if req_err[0]:
                 continue
             else:
@@ -87,11 +88,16 @@ class Config(object):
 
         darpaCfg = config["darpa"]
         darpa = Darpa()
-        darpa.ip_address = require(darpaCfg, "ip_address", "darpa")
-        darpa.port = require(darpaCfg, "port", "darpa")
-        darpa.auth_bearer_token = require(darpaCfg, "auth_bearer_token", "darpa")
-        darpa.scoring_uri = require(darpaCfg, "scoring_uri", "darpa")
-        darpa.report_uri = require(darpaCfg, "report_uri", "darpa")
+        darpa.score_address = require(darpaCfg, "score_address", "darpa")
+        darpa.score_port = require(darpaCfg, "score_port", "darpa")
+        darpa.score_bearer_token = require(darpaCfg, "score_bearer_token", "darpa")
+        darpa.score_status_uri = require(darpaCfg, "score_status_uri", "darpa")
+        darpa.score_report_uri = require(darpaCfg, "score_report_uri", "darpa")
+        darpa.map_address = require(darpaCfg, "map_address", "darpa")
+        darpa.map_port = require(darpaCfg, "map_port", "darpa")
+        darpa.map_bearer_token = require(darpaCfg, "map_bearer_token", "darpa")
+        darpa.map_cloud_uri = require(darpaCfg, "map_cloud_uri", "darpa")
+        darpa.map_pose_uri = require(darpaCfg, "map_pose_uri", "darpa")
         darpa.artifact_categories = require(darpaCfg, "artifact_categories", "darpa")
         if not req_err[0]:
             self.darpa = darpa
@@ -130,15 +136,21 @@ class Darpa(object):
     """
 
     def __init__(self):
-        self.ip_address = '127.0.0.1'
-        self.port = 8090
-        self.auth_bearer_token = None
-        self.scoring_uri = None
-        self.report_uri = None
+        self.score_address = '127.0.0.1'
+        self.score_port = 8080
+        self.score_bearer_token = None
+        self.score_status_uri = None
+        self.score_report_uri = None
+        self.map_address = '127.0.0.1'
+        self.map_port = 8080
+        self.map_bearer_token = None
+        self.map_cloud_uri = None
+        self.map_pose_uri = None
         self.artifact_categories = []
 
     def __repr__(self):
         return str(self)
 
     def __str__(self):
-        return "[DARPA] Token: {0}".format(self.auth_bearer_token)
+        m = "[DARPA] Score Token: {0}, Map Token: {1}"
+        return m.format(self.score_bearer_token, self.map_bearer_token)

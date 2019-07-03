@@ -84,8 +84,10 @@ class ArtifactQueuePlugin(Plugin):
         self.robots[fake.uuid] = fake
 
         d = config.darpa
-        self.report_url = "{0}:{1}{2}".format(d.ip_address, d.port, d.report_uri)
-        self.headers = {"Authorization": "Bearer {0}".format(d.auth_bearer_token)}
+        self.report_url = "{0}:{1}{2}".format(
+            d.score_address, d.score_port, d.score_report_uri
+        )
+        self.headers = {"Authorization": "Bearer {0}".format(d.score_bearer_token)}
         self.artifact_categories = d.artifact_categories
 
         self.initPanel(context)

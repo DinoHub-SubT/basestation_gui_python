@@ -40,6 +40,7 @@
 #            status_update:  Subscription to receive heath monitoring info from various nodes.
 #            radio_command:  Where to publish outgoing radio command messages.
 #            behavior_tree:  Subscription for the robot's current behavior tree in DOT GraphViz form.
+#            point_cloud:    Subscription for the robot's 3D point cloud.
 #
 robots:
   -
@@ -59,6 +60,7 @@ robots:
       status_update: status_update
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz
+      point_cloud: frame/decode_global_cloud
   -
     name: Ground2
     uuid: eb6ec779-2d3a-4f9a-9bb0-e11a7ce8e501
@@ -79,6 +81,7 @@ robots:
       status_update: status_update
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz
+      point_cloud: frame/decode_global_cloud
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
@@ -96,24 +99,35 @@ robots:
       status_update: status_update
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz
+      point_cloud: frame/decode_global_cloud
 
 
 # The DARPA section specifies how the GUI should communicate with the remote
 # DARPA scoring server.
 #
-#    ip_address:          [required] IP address with protocol of the remote DARPA server.
-#    port:                [required] Port number of the remote DARPA server.
-#    auth_bearer_token:   [required] Authentication token to communicate with the DARPA server.
-#    scoring_uri:         [required] URI to GET the current DARPA score status.
-#    report_uris:         [required] URI to POST artifact reports to DARPA.
+#    score_address:       [required] IP address with protocol of the remote DARPA server to get status and send artifact reports.
+#    score_port:          [required] Port number of the remote DARPA server to get status and send artifact reports.
+#    score_bearer_token:  [required] Authentication token to communicate with the DARPA server to get status and send artifact reports.
+#    score_status_uri:    [required] URI to GET the current DARPA score status.
+#    score_report_uri:    [required] URI to POST artifact reports to DARPA.
+#    map_address:         [required] IP address with protocol of the remote DARPA server to send map information.
+#    map_port:            [required] Port number of the remote DARPA server to send map information.
+#    map_bearer_token:    [required] Authentication token to communicate with the DARPA server to send map information.
+#    map_cloud_uris:      [required] URI to POST point cloud information to DARPA.
+#    map_pose_uris:       [required] URI to POST robot positions to DARPA.
 #    artifact_categories: [required] Various artifact categories that any robot should report.
 #
 darpa:
-  ip_address: 'http://127.0.0.1'
-  port: 8080
-  auth_bearer_token: 'flux230{showroom'
-  scoring_uri: '/api/status/'
-  report_uri: '/api/artifact_reports/'
+  score_address: 'http://127.0.0.1'
+  score_port: 8080
+  score_bearer_token: 'flux230{showroom'
+  score_status_uri: '/api/status/'
+  score_report_uri: '/api/artifact_reports/'
+  map_address: 'http://127.0.0.1'
+  map_port: 8080
+  map_bearer_token: 'flux230{showroom'
+  map_cloud_uri: '/map/update/'
+  map_pose_uri: '/state/update/'
   artifact_categories:
     - Backpack
     - Drill

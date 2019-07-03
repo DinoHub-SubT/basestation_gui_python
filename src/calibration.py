@@ -47,6 +47,9 @@ class Robot(object):
     A 4x4 matrix that can transform CMU's Subt coordinate frame to DARPA's coordinate
     frame.  The default is the identity matrix.
 
+    - quaternion:
+    The rotation portion of 'transform' represented in quaternion form.
+
     - darpa_tf_pub:
     ROS publisher of where to publish an Odometry message to the robot to utilize
     the calibrated DARPA transform.
@@ -60,6 +63,7 @@ class Robot(object):
         self.uuid = cfgRobot.uuid
         self.mean_error = 0
         self.transform = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        self.quaternion = [0, 0, 0, 1]
         self.darpa_tf_pub = None
 
     def encode_to_json(self):
@@ -72,6 +76,7 @@ class Robot(object):
         d["last_save"] = self.last_save
         d["mean_error"] = self.mean_error
         d["transform"] = self.transform
+        d["quaternion"] = self.quaternion
         return d
 
     def decode_from_json(self, obj):
@@ -86,6 +91,7 @@ class Robot(object):
         self.last_save = obj["last_save"]
         self.mean_error = obj["mean_error"]
         self.transform = obj["transform"]
+        self.quaternion = obj["quaternion"]
 
 
 class Calibration(Plugin):
@@ -180,7 +186,7 @@ class Calibration(Plugin):
     def robot_dir(self):
         """Robot_dir returns the directory where Robot objects are archived."""
         p = rospkg.RosPack().get_path("basestation_gui_python")
-        return os.path.join(p, "data/calibration")
+        return os.path.join(p, "data", "calibration")
 
     def robot_filename(self, robot):
         """Robot_filename returns the full file path of where a Robot object should be archived."""
@@ -329,7 +335,6 @@ class Calibration(Plugin):
         robot.transform[1] = r1
         robot.transform[2] = r2
         robot.mean_error = mean_error
-        self.persist(robot)
 
         # The robot accepts transform as a combination of the translation
         # vector and a quaternion for the rotation.
@@ -341,8 +346,11 @@ class Calibration(Plugin):
         qt = Quaternion(qx, qy, qz, qw)
         tf = Odometry()
 
+        robot.quaternion = [qx, qy, qz, qw]
         tf.pose.pose.position = pt
         tf.pose.pose.orientation = qt
+
+        self.persist(robot)
         robot.darpa_tf_pub.publish(tf)
 
         return (False, robot)

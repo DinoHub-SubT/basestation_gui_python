@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   rqt_gui
   rqt_gui_py
   sensor_msgs
+  geometry_msgs
   basestation_msgs
 )
 
