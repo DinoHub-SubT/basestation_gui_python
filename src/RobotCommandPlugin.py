@@ -61,7 +61,6 @@ class RobotCommandPlugin(Plugin):
         self.prevTrees = dict()
         self.batteryStatus = dict()
         self.commsStatus = dict()
-        self.mobilityStatus = dict()
         self.cpuStatus = dict()
         self.diskSpaceStatus = dict()
         self.rssiStatus = dict()
@@ -193,14 +192,16 @@ class RobotCommandPlugin(Plugin):
             status = self.batteryStatus[robot.uuid]
         elif msg.what == SU.WHAT_COMMS:
             status = self.commsStatus[robot.uuid]
-        elif msg.what == SU.WHAT_MOBILITY:
-            status = self.mobilityStatus[robot.uuid]
         elif msg.what == SU.WHAT_CPU:
             status = self.cpuStatus[robot.uuid]
         elif msg.what == SU.WHAT_DISK_SPACE:
             status = self.diskSpaceStatus[robot.uuid]
         elif msg.what == SU.WHAT_RSSI:
             status = self.rssiStatus[robot.uuid]
+        elif msg.what == SU.WHAT_MOBILITY:
+            # Mobility provides redundant information to the behavior tree
+            # so it is removed to save GUI space.
+            return
 
         status.setText(msg.value)
         if msg.severity == SU.SEVERITY_CRITICAL:
@@ -241,6 +242,12 @@ class RobotCommandPlugin(Plugin):
             for s in stoppers:
                 s.forceStop()
 
+        def hideButton(btn):
+            sp = btn.sizePolicy()
+            sp.setRetainSizeWhenHidden(True)
+            btn.setSizePolicy(sp)
+            btn.setVisible(False)
+
         for robot in self.config.robots:
             grid = qt.QGridLayout()
             tab = QWidget()
@@ -248,7 +255,9 @@ class RobotCommandPlugin(Plugin):
             tree = self.treeWidgets[robot.uuid]
             resendType = bsm.Radio.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
             resend = RadioButton("Resend Artifacts", robot, resendType)
+            hidden = RadioButton("Hidden", robot, resendType)
             resume = ResumeButton(robot)
+            joystick = JoystickButton(robot)
             home = ReturnHomeButton(robot)
             explore = ExploreButton(robot)
             soft = SoftEStopButton(robot)
@@ -257,36 +266,40 @@ class RobotCommandPlugin(Plugin):
                 robot, self.moveWaypoint, self.publishWaypoint, self.removeWaypoint
             )
 
+            hideButton(hidden)
+
             self.batteryStatus[robot.uuid] = cmd.batteryLabel
             self.commsStatus[robot.uuid] = cmd.commsLabel
-            self.mobilityStatus[robot.uuid] = cmd.mobilityLabel
             self.cpuStatus[robot.uuid] = cmd.cpuLabel
             self.diskSpaceStatus[robot.uuid] = cmd.diskSpaceLabel
             self.rssiStatus[robot.uuid] = cmd.rssiLabel
 
             stoppers.append(soft)
-            resume.link([soft, hard, home, explore])
-            home.link([resume, soft, hard, explore])
-            soft.link([hard, resume, home, explore])
-            hard.link([resume, soft, home, explore])
-            explore.link([resume, soft, hard, home])
+            resume.link([soft, hard, home, explore, joystick])
+            home.link([resume, soft, hard, explore, joystick])
+            soft.link([hard, resume, home, explore, joystick])
+            hard.link([resume, soft, home, explore, joystick])
+            explore.link([resume, soft, hard, home, joystick])
+            joystick.link([resume, soft, hard, home, explore])
 
             cmd.leftButtons.addWidget(resume)
             cmd.leftButtons.addWidget(home)
             cmd.leftButtons.addWidget(soft)
             cmd.leftButtons.addWidget(hard)
+            cmd.leftButtons.addWidget(joystick)
             cmd.rightButtons.addWidget(waypt)
             cmd.rightButtons.addWidget(explore)
             cmd.rightButtons.addWidget(resend)
 
             if robot.is_aerial:
                 hover = HoverButton(robot)
-                hover.link([resume, soft, hard, home, explore])
+                hover.link([resume, soft, hard, home, explore, joystick])
                 resume.link([hover])
                 home.link([hover])
                 soft.link([hover])
                 hard.link([hover])
                 explore.link([hover])
+                joystick.link([hover])
                 cmd.rightButtons.addWidget(hover)
             else:
                 mt = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
@@ -297,11 +310,9 @@ class RobotCommandPlugin(Plugin):
                 # be retained; otherwise, the other buttons will fill
                 # the space of the hidden button.
                 if not robot.has_comms:
-                    sp = btn.sizePolicy()
-                    sp.setRetainSizeWhenHidden(True)
-                    btn.setSizePolicy(sp)
-                    btn.setVisible(False)
+                    hideButton(btn)
 
+            cmd.rightButtons.addWidget(hidden)
             cmd.eStopAllButton.clicked.connect(stopAll)
             cmd.treeLayout.addWidget(tree)
             tab.setLayout(grid)
@@ -412,6 +423,17 @@ class ResumeButton(LinkableButton):
 
     def execute(self):
         self.robot.radioStop(bsm.Radio.ESTOP_RESUME)
+        return True
+
+
+class JoystickButton(LinkableButton):
+    def __init__(self, robot):
+        super(JoystickButton, self).__init__("Joystick Control")
+        self.robot = robot
+        self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+
+    def execute(self):
+        self.robot.radioStop(bsm.Radio.ESTOP_JOYSTICK)
         return True
 
 
