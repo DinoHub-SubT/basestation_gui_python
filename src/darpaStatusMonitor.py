@@ -105,7 +105,10 @@ class DarpaBridge(BaseNode):
     def getStatus(self):
         """Queries the current score from the DARPA server."""
         try:
-            req = requests.get(self.status_uri, headers=self.status_headers)
+            MILLIS = 0.001
+            req = requests.get(
+                self.status_uri, headers=self.status_headers, timeout=300 * MILLIS
+            )
             self.error_count = 0
             if req.ok:
                 try:
@@ -162,7 +165,13 @@ class DarpaBridge(BaseNode):
             },
         }
         try:
-            req = requests.post(self.cloud_uri, headers=self.map_headers, json=cloud)
+            MILLIS = 0.001
+            req = requests.post(
+                self.cloud_uri,
+                headers=self.map_headers,
+                json=cloud,
+                timeout=300 * MILLIS,
+            )
             self.error_count = 0
             if not req.ok:
                 m = "[DARPA Status] Bad request -- Code %s, Reason: %s"
@@ -216,7 +225,10 @@ class DarpaBridge(BaseNode):
             ],
         }
         try:
-            req = requests.post(self.pose_uri, headers=self.map_headers, json=msg)
+            MILLIS = 0.001
+            req = requests.post(
+                self.pose_uri, headers=self.map_headers, json=msg, timeout=300 * MILLIS
+            )
             self.error_count = 0
             if not req.ok:
                 m = "[DARPA Status] Bad request -- Code %s, Reason: %s"

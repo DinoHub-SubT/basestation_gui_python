@@ -300,7 +300,10 @@ class ArtifactQueuePlugin(Plugin):
         report = {"type": artifact.category, "x": pos.x, "y": pos.y, "z": pos.z}
         result = ""
         try:
-            req = requests.post(self.report_url, headers=self.headers, json=report)
+            MILLIS = 0.001
+            req = requests.post(
+                self.report_url, headers=self.headers, json=report, timeout=300 * MILLIS
+            )
             if req.ok:
                 try:
                     resp = req.json()
