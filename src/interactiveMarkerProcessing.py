@@ -114,7 +114,7 @@ class MarkerServer(object):
         self.menu = MenuHandler()
         self.tfCaster = TransformBroadcaster()
         self.counter = 0
-        self.ref_frame = rospy.get_param("~reference_frame")
+        self.ref_frame = rospy.get_param("reference_frame")
 
         self.menu.insert("First Entry", callback=self.onFeedback)
         self.menu.insert("Second Entry", callback=self.onFeedback)

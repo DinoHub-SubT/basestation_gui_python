@@ -1,6 +1,8 @@
 <launch>
     <!-- Setup YAML file which specifies robot and DARPA info. -->
     <param name="gui_setup" value="setup.yaml"/>
+    <!-- Frame ID for pushing markers to RViz.  -->
+    <param name="reference_frame" value="/darpa_map" />
 
 	<!-- set arguement for if we're going to simulate the command post or not -->
 	<arg name="connect_to_command_post" default="false"/>
@@ -20,7 +22,6 @@
     <!--launch the interactive marker processing node-->
     <node name="interactiveMarkerProcessing" pkg="basestation_gui_python" type="interactiveMarkerProcessing.py" output="screen">
         <param name="execute_target" type="double" value="1." />
-        <param name="reference_frame" value="/darpa_map" />
     </node>
 
     <!--launch the darpa status monitor node-->

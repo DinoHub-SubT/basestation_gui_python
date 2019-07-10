@@ -25,6 +25,7 @@ import basestation_msgs.msg as bsm
 from cv_bridge import CvBridge
 from std_msgs.msg import String, UInt8, Bool
 from sensor_msgs.msg import Image
+from visualization_msgs.msg import Marker, MarkerArray
 from basestation_gui_python.msg import (
     Artifact,
     GuiMessage,
@@ -58,7 +59,8 @@ class ArtifactHandler(BaseNode):
         self.img_ind_displayed = 0
         # artifact image index in the set of images to be displayed
         self.img_displayed = 0
-        # dictionary ofartifacts deleted from queue but we may want to keep aroun
+        # reference frame for pushing markers to RViz
+        self.ref_frame = rospy.get_param("reference_frame")
 
         # (future gui development needed to actually use this info)
         self.archived_artifacts = {}
@@ -125,6 +127,9 @@ class ArtifactHandler(BaseNode):
         self.submit_tell_queue_pub = rospy.Publisher(
             "/gui/submit_tell_queue", String, queue_size=10
         )  # tell the queue we submitted an artifact
+        self.rviz_artifacts_pub = rospy.Publisher(
+            "/gui/rviz_artifacts", MarkerArray, queue_size=10
+        )  # inform RViz of all known artifacts
 
         self.subscriptions = []
 
@@ -297,6 +302,7 @@ class ArtifactHandler(BaseNode):
             if len(artifact.imgs) > 0:
                 idx = self.img_ind_displayed
             self.publishImgToDisplay(idx)
+        self.updateRViz()
 
     ##############################################################################
     # Functions to support generating artifacts from wifi detections,
@@ -367,6 +373,8 @@ class ArtifactHandler(BaseNode):
             update_msg = ArtifactVisualizerUpdate()
             update_msg.data = ArtifactVisualizerUpdate.UPDATE
             self.update_label_pub.publish(update_msg)
+
+        self.updateRViz()
 
     def generateNewArtifactWifi(self, msg, robot_uuid):
         """
@@ -494,10 +502,74 @@ class ArtifactHandler(BaseNode):
         self.displayed_pose = [None, None, None]
         self.displayed_category = None
         self.displayed_artifact_id = None
+        self.updateRViz()
 
     ##############################################################################
     # Functions to support artifact manipulation/visualization
     ##############################################################################
+
+    def updateRViz(self):
+        array = MarkerArray()
+
+        for key, artifact in self.all_artifacts.iteritems():
+            x, y, z = 0, 0, 0
+            r, g, b = 0, 0, 0
+            if key in self.submitted_artifacts.keys():
+                x = artifact.darpa_x
+                y = artifact.darpa_y
+                z = artifact.darpa_z
+                if artifact.darpa_score_change == 0:
+                    r = 0.8
+                    g = 0.2
+                    b = 0.2
+                else:
+                    r = 0.1
+                    g = 0.9
+                    b = 0.2
+            else:
+                x = artifact.pose[0]
+                y = artifact.pose[1]
+                z = artifact.pose[2]
+                b = 0.8
+                g = 0.3
+
+            mk = Marker()
+            mk.header.frame_id = self.ref_frame
+            mk.header.stamp = rospy.Time.now()
+            mk.type = mk.CUBE
+            mk.action = mk.MODIFY
+            mk.ns = "gui_artifact"
+            mk.id = len(array.markers)
+            mk.scale.x = 0.2
+            mk.scale.y = 0.2
+            mk.scale.z = 0.4
+            mk.color.a = 1.0
+            mk.color.r = r
+            mk.color.g = g
+            mk.color.b = b
+            mk.pose.position.x = x
+            mk.pose.position.y = y
+            mk.pose.position.z = z
+            mk.pose.orientation.w = 1
+
+            tx = Marker()
+            tx.header.frame_id = mk.header.frame_id
+            tx.header.stamp = mk.header.stamp
+            tx.ns = "gui_artifact_text"
+            tx.id = mk.id
+            tx.type = mk.TEXT_VIEW_FACING
+            tx.text = artifact.category
+            tx.color = mk.color
+            tx.scale.z = 0.4
+            tx.pose.position.x = mk.pose.position.x
+            tx.pose.position.y = mk.pose.position.y
+            tx.pose.position.z = mk.pose.position.z + 0.5
+            tx.pose.orientation = mk.pose.orientation
+
+            array.markers.append(mk)
+            array.markers.append(tx)
+
+        self.rviz_artifacts_pub.publish(array)
 
     def setDisplayedArtifact(self, msg):
         """
@@ -645,6 +717,7 @@ class ArtifactHandler(BaseNode):
                 u = ArtifactVisualizerUpdate()
                 u.data = ArtifactVisualizerUpdate.DELETE
                 self.update_label_pub.publish(u)
+            self.updateRViz()
         else:
             g = GuiMessage()
             g.data = "[Artifact Handler] No such artifact"
@@ -669,6 +742,7 @@ class ArtifactHandler(BaseNode):
             r.http_response = art.darpa_response
             r.http_reason = art.darpa_reason
             self.submission_reply_pub.publish(r)
+        self.updateRViz()
 
     def bookeepAndPublishNewArtifact(self, artifact):
         """
@@ -687,6 +761,7 @@ class ArtifactHandler(BaseNode):
         ros_msg = self.guiArtifactToRos(artifact)
         # add the artifact to the queue
         self.to_queue_pub.publish(ros_msg)
+        self.updateRViz()
 
     def execute(self):
         return True
