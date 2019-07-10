@@ -377,7 +377,7 @@ class LinkableButton(qt.QPushButton):
 
     def onClick(self, isChecked):
         if not isChecked:
-            self.uncheck()
+            self.uncheck(True)
             return
         executed = self.execute()
         if executed:
@@ -387,8 +387,8 @@ class LinkableButton(qt.QPushButton):
 
     def updateLinks(self):
         for btn in self.linked:
+            btn.uncheck(False)
             btn.setChecked(False)
-            btn.uncheck()
 
     def link(self, buttons):
         """
@@ -397,9 +397,12 @@ class LinkableButton(qt.QPushButton):
         """
         self.linked.extend(buttons)
 
-    def uncheck(self):
+    def uncheck(self, wasClicked):
         """
         Allow derived classes to execute custom logic when the button is unchecked.
+
+        WasClicked indicates if this call was due to the button being physically
+        clicked.
         """
         pass
 
@@ -481,7 +484,7 @@ class HardEStopButton(LinkableButton):
         if self.robot.is_aerial:
             self.timer = threading.Timer(1, self.execute)
 
-    def uncheck(self):
+    def uncheck(self, wasClicked):
         self.cancelTimer()
         # Due to the timer, the plugin has to forcefully uncheck this button, regardless
         # if it was previously checked, in order to properly shutdown the timer.
@@ -582,8 +585,9 @@ class ExploreButton(LinkableButton):
         self.msg_type = bsm.Radio.MESSAGE_TYPE_LANDING_BEHAVIOR
         self.setStyleSheet("QPushButton:checked {" + COLORS.BLUE + "}")
 
-    def uncheck(self):
-        self.robot.radio(self.msg_type, bsm.Radio.LAND_AT_HOME)
+    def uncheck(self, wasClicked):
+        if wasClicked:
+            self.robot.radio(self.msg_type, bsm.Radio.LAND_AT_HOME)
 
     def execute(self):
         self.robot.radio(self.msg_type, bsm.Radio.LAND_IN_COMMS)
