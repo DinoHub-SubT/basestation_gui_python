@@ -242,6 +242,7 @@ class ArtifactQueuePlugin(Plugin):
                 self.queue_table.item(row, col).setText(data)
                 a = self.all_artifacts[msg.unique_id]
                 a.category = data
+                a.curr_pose = msg.curr_pose
             else:
                 # to remove the green background if its the unread element
                 self.queue_table.item(row, col).setBackground(gui.QColor(255, 255, 255))

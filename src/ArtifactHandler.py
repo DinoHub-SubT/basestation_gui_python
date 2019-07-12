@@ -346,20 +346,22 @@ class ArtifactHandler(BaseNode):
         # if a field has something other than the default value sent back, we need to update
         # the artifact
         updated = False  # if it has been updated, send a notification to the queue
+        queue_msg = ArtifactUpdate()
 
         if msg.artifact_type != 0:
             artifact.category = self.artifact_categories[msg.artifact_type]
             updated = True
             # publish to change the value in the queue. we only do this for changes in the type
             # because that's the only relevant property that the queue displays
-            queue_msg = ArtifactUpdate()
             queue_msg.unique_id = artifact.unique_id
             queue_msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
             queue_msg.category = artifact.category
-            self.update_artifact_in_queue_pub.publish(queue_msg)
 
         if (msg.artifact_x != 0) or (msg.artifact_y != 0) or (msg.artifact_z != 0):
             artifact.pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
+            queue_msg.curr_pose.position.x = msg.artifact_x
+            queue_msg.curr_pose.position.y = msg.artifact_y
+            queue_msg.curr_pose.position.z = msg.artifact_z
             updated = True
 
         # over-write all of the images!! probably should be fixed.
@@ -373,6 +375,7 @@ class ArtifactHandler(BaseNode):
             update_msg = ArtifactVisualizerUpdate()
             update_msg.data = ArtifactVisualizerUpdate.UPDATE
             self.update_label_pub.publish(update_msg)
+            self.update_artifact_in_queue_pub.publish(queue_msg)
 
         self.updateRViz()
 
