@@ -59,6 +59,9 @@ SUBMIT = 7
 
 FAKE_ROBOT_UUID = "4e21937b-b55e-49d7-8493-129c9f4e112c"
 
+ROW_NOT_INSPECTED = gui.QColor(0, 255, 0)
+ROW_INSPECTED = gui.QColor(255, 255, 255)
+
 
 class ArtifactQueuePlugin(Plugin):
     queue_trigger = pyqtSignal(object)
@@ -118,9 +121,6 @@ class ArtifactQueuePlugin(Plugin):
         self.update_label_pub = rospy.Publisher(
             "/gui/update_art_label", ArtifactVisualizerUpdate, queue_size=10
         )  # update image update panel to indicate change to artifact
-        self.restart_manip_plugin_pub = rospy.Publisher(
-            "/gui/disable_confirm_cancel_manip_plugin", Bool, queue_size=10
-        )  # disable confirm/cancel sequence in manipulation plugin
         self.update_artifact_info_pub = rospy.Publisher(
             "/gui/update_artifact_info", ArtifactUpdate, queue_size=10
         )  # for if we get more info from robot
@@ -243,9 +243,13 @@ class ArtifactQueuePlugin(Plugin):
                 a = self.all_artifacts[msg.unique_id]
                 a.category = data
                 a.curr_pose = msg.curr_pose
+                # Mark the name back to the unread color.
+                item = self.queue_table.item(row, ROBOT_NAME)
+                if not item.isSelected():
+                    item.setBackground(ROW_NOT_INSPECTED)
             else:
                 # to remove the green background if its the unread element
-                self.queue_table.item(row, col).setBackground(gui.QColor(255, 255, 255))
+                self.queue_table.item(row, ROBOT_NAME).setBackground(ROW_INSPECTED)
         else:
             g = GuiMessage()
             g.data = "Artifact update with non-string value.  Artifact not updated."
@@ -511,7 +515,7 @@ class ArtifactQueuePlugin(Plugin):
         add_btn(SUBMIT, "go-home", submit, "Submit artifact to DARPA for scoring")
 
         # color the unread green
-        self.queue_table.item(row, ROBOT_NAME).setBackground(gui.QColor(0, 255, 0))
+        self.queue_table.item(row, ROBOT_NAME).setBackground(ROW_NOT_INSPECTED)
 
         # make the cells not editable and make the text centered
         for i in range(self.queue_table.columnCount()):
@@ -544,9 +548,6 @@ class ArtifactQueuePlugin(Plugin):
         msg = ArtifactVisualizerUpdate()
         msg.data = ArtifactVisualizerUpdate.HIDE
         self.update_label_pub.publish(msg)
-        # Dectivate the proper buttons in the manipulation panel, we're viewing another
-        # artifact, so restart the Confirm/Cancel sequence.
-        self.restart_manip_plugin_pub.publish(Bool(True))
         # remove the unread indicator from the last column
         msg = ArtifactUpdate()
         msg.unique_id = self.displayed_artifact_id

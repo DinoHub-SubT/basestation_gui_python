@@ -164,7 +164,7 @@ class ArtifactHandler(BaseNode):
                 if msg_id in self.queued_artifacts.keys():
                     # we're removing an artifact not adding one
                     if msg.artifact_type == bsm.WifiDetection.ARTIFACT_REMOVE:
-                        self.archiveArtifact(String(msg_id))
+                        self.deleteArtifact(String(msg_id))
                         # remove the artifact from the queue
                         remove_msg = String()
                         remove_msg.data = msg_id
@@ -347,35 +347,35 @@ class ArtifactHandler(BaseNode):
         # the artifact
         updated = False  # if it has been updated, send a notification to the queue
         queue_msg = ArtifactUpdate()
+        queue_msg.unique_id = artifact.unique_id
+        queue_msg.category = artifact.category
+        queue_msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
 
         if msg.artifact_type != 0:
-            artifact.category = self.artifact_categories[msg.artifact_type]
             updated = True
-            # publish to change the value in the queue. we only do this for changes in the type
-            # because that's the only relevant property that the queue displays
-            queue_msg.unique_id = artifact.unique_id
-            queue_msg.update_type = ArtifactUpdate.PROPERTY_CATEGORY
+            artifact.category = self.artifact_categories[msg.artifact_type]
             queue_msg.category = artifact.category
 
         if (msg.artifact_x != 0) or (msg.artifact_y != 0) or (msg.artifact_z != 0):
+            updated = True
             artifact.pose = [msg.artifact_x, msg.artifact_y, msg.artifact_z]
             queue_msg.curr_pose.position.x = msg.artifact_x
             queue_msg.curr_pose.position.y = msg.artifact_y
             queue_msg.curr_pose.position.z = msg.artifact_z
-            updated = True
 
         # over-write all of the images!! probably should be fixed.
         if len(msg.imgs) > 0:
             artifact.imgs, artifact.img_stamps = self.timestampsOnImgs(msg.imgs)
             updated = True
 
-        if updated and msg_unique_id == self.displayed_artifact_id:
-            # if we updated the artifact being displayed,
-            # send a message to the image visualization panel to re-select the artifact from the queue
-            update_msg = ArtifactVisualizerUpdate()
-            update_msg.data = ArtifactVisualizerUpdate.UPDATE
-            self.update_label_pub.publish(update_msg)
+        if updated:
             self.update_artifact_in_queue_pub.publish(queue_msg)
+            if msg_unique_id == self.displayed_artifact_id:
+                # If we updated the artifact being displayed, send a message to the
+                # image visualization panel to re-select the artifact from the queue.
+                update_msg = ArtifactVisualizerUpdate()
+                update_msg.data = ArtifactVisualizerUpdate.UPDATE
+                self.update_label_pub.publish(update_msg)
 
         self.updateRViz()
 
@@ -709,6 +709,7 @@ class ArtifactHandler(BaseNode):
         if artifact != None:
             # default return value is None if key not found
             self.queued_artifacts.pop(artifact.unique_id)
+            self.all_artifacts.pop(artifact.unique_id)
             self.removePersistedArtifact(artifact, self.receivedDirectory())
 
             g = GuiMessage()
