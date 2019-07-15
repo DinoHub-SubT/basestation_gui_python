@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   basestation_msgs
   visualization_msgs
+  diagnostics_msgs
 )
 
 ## System dependencies are found with CMake's conventions
