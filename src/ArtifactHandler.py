@@ -173,7 +173,8 @@ class ArtifactHandler(BaseNode):
                         self.updateWifiDetection(msg, msg_id)
                 # this artifact has is a completely new artifact detection
                 elif msg_id not in self.all_artifacts.keys():
-                    self.generateNewArtifactWifi(msg, robot_uuid)
+                    if msg.artifact_type != bsm.WifiDetection.ARTIFACT_REMOVE:
+                        self.generateNewArtifactWifi(msg, robot_uuid)
 
             return callback
 
