@@ -16,6 +16,7 @@ import threading
 import robots
 import serial
 import os
+import zlib
 
 import xdot.xdot_qt as xdot
 import python_qt_binding.QtWidgets as qt
@@ -176,7 +177,7 @@ class RobotCommandPlugin(Plugin):
         pt = self.prevTrees[robot.uuid]
         if msg.data != pt:
             w = self.treeWidgets[robot.uuid]
-            w.set_dotcode(msg.data)
+            w.set_dotcode(zlib.decompress(msg.data))
             if pt == "":
                 w.zoom_to_fit()
         self.prevTrees[robot.uuid] = msg.data

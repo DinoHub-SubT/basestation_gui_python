@@ -59,7 +59,7 @@ robots:
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
-      behavior_tree: behavior_tree_graphviz
+      behavior_tree: behavior_tree_graphviz_compressed
       point_cloud: frame/decode_global_cloud
   -
     name: Ground2
@@ -80,7 +80,7 @@ robots:
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
-      behavior_tree: behavior_tree_graphviz
+      behavior_tree: behavior_tree_graphviz_compressed
       point_cloud: frame/decode_global_cloud
   -
     name: Aerial1
@@ -98,7 +98,7 @@ robots:
       wifi_detection: wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
-      behavior_tree: behavior_tree_graphviz
+      behavior_tree: behavior_tree_graphviz_compressed
       point_cloud: frame/decode_global_cloud
 
 
