@@ -42,6 +42,9 @@ Python2.7 Dependencies
 - *requests*:  To communicate with the DARPA command post
   `pip2 install requests`
 
+- *shapely*:  To coordinate robot exploration areas
+  `pip2 install shapely`
+
 
 Development Dependencies
 ------------------------
@@ -161,6 +164,23 @@ and click the same button again.  Upon clicking the button a second time the tex
 inside the pop-up will be populated with the selected location.  Click _Ok_ to accept the
 new position or _Cancel_ to keep the original position.
 
+Robot Coordination
+------------------
+
+The robot coordination plugin allows the coordination of exploration between several
+robots.  The following controls allow one to resize and position polygons within the
+plugin:
+
+* Click and drag inside a polygon to translate it.
+* Click and drag a polygon vertex to move it.
+* Click and drag a polygon edge to insert a vertex and move it.
+* Right click a polygon vertex to remove it.
+* Scroll wheel to zoom in and out.
+* Click and drag outside a polygon to translate view.
+* Click robot button to enable/disable the movement of the associated polygon.
+* Click reset view to reset the center and the zoom.
+* Click reset robots to reset polygons to initial configuration.
+
 
 Adding New Plugins
 ==================
@@ -192,9 +212,14 @@ Known Issues / TODO
 ===================
 
 * (D+V) Handling bluetooth/audio detections
+* (GB) Overlay map (downsampled point cloud)
+* (GB) Overlay robot locations
+* (GB) Transofrm polygons into map frame
+* (GB) Publish polygons to robots (in map frame)
 
 
 Contact
 =======
 
 Bob DeBortoli: debortor@oregonstate.edu
+Graem Best: bestg@oregonstate.edu

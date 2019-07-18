@@ -107,4 +107,16 @@
       <statustip>Displays received artifact images.</statustip>
     </qtgui>
   </class>
+  <class name="CoordinationPlugin" type="CoordinationPlugin.CoordinationPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>Draw polygons for robots to coordinate their exploration.</description>
+    <qtgui>
+      <group>
+        <label>Basestation</label>
+        <icon type="theme">folder</icon>
+      </group>
+      <label>Robot Coordination</label>
+      <icon type="theme">emblem-draft</icon>
+      <statustip>Draw polygons for robot coordinate.</statustip>
+    </qtgui>
+  </class>
 </library>
