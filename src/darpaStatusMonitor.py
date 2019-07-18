@@ -17,6 +17,7 @@ import requests
 import os
 import json
 import base64
+import math
 
 from sensor_msgs.msg import PointCloud2
 from nav_msgs.msg import Odometry
@@ -36,6 +37,11 @@ class Transform(object):
         self.position = {"x": x, "y": y, "z": z}
 
     def setRotation(self, x, y, z, w):
+        mag = math.sqrt(x*x + y*y + z*z + w*w)
+        x = x / mag
+        y = y / mag
+        z = z / mag
+        w = w / mag
         self.orientation = {"x": x, "y": y, "z": z, "w": w}
 
     def __str__(self):
@@ -188,7 +194,7 @@ class DarpaBridge(BaseNode):
         tx = self.getTransform(robot)
         ts = TransformStamped()
         ts.header.frame_id = "darpa"
-        ts.child_frame_id = "world"
+        ts.child_frame_id = robot.topic_prefix + "_map"
         ts.transform.translation.x = tx.position["x"]
         ts.transform.translation.y = tx.position["y"]
         ts.transform.translation.z = tx.position["z"]
@@ -199,12 +205,12 @@ class DarpaBridge(BaseNode):
 
         ps = PoseStamped()
         ps.pose = odometry.pose.pose
-        ps.header.frame_id = "world"
+        ps.header.frame_id = ts.child_frame_id
 
         tfx = tf.TransformerROS()
         tfx.setTransform(ts)
 
-        ps = tfx.transformPose("darpa", ps)
+        ps = tfx.transformPose(ts.header.frame_id, ps)
         msg = {
             "header": {"stamp": rospy.get_time(), "frame_id": "darpa"},
             "poses": [
