@@ -120,7 +120,7 @@ class RobotCommandPlugin(Plugin):
         for s in self.subscriptions:
             s.unregister()
         for b in self.timer_buttons:
-            b.uncheck()
+            b.uncheck(False)
 
     def removeWaypoint(self):
         self.waypoint_marker_off_pub.publish(Point(-1, -1, -1))
@@ -269,6 +269,7 @@ class RobotCommandPlugin(Plugin):
 
             hideButton(hidden)
 
+            self.timer_buttons.extend([resume, home, soft, hard, joystick])
             self.batteryStatus[robot.uuid] = cmd.batteryLabel
             self.commsStatus[robot.uuid] = cmd.commsLabel
             self.cpuStatus[robot.uuid] = cmd.cpuLabel
@@ -424,10 +425,18 @@ class ResumeButton(LinkableButton):
         super(ResumeButton, self).__init__(text)
         self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+        self.timer = threading.Timer(1, self.execute)
 
     def execute(self):
+        SECOND = 1
+        self.timer.cancel()
         self.robot.radioStop(bsm.Radio.ESTOP_RESUME)
+        self.timer = threading.Timer(1 * SECOND, self.execute)
+        self.timer.start()
         return True
+
+    def uncheck(self, wasClicked):
+        self.timer.cancel()
 
 
 class JoystickButton(LinkableButton):
@@ -435,10 +444,18 @@ class JoystickButton(LinkableButton):
         super(JoystickButton, self).__init__("Joystick Control")
         self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+        self.timer = threading.Timer(1, self.execute)
 
     def execute(self):
+        SECOND = 1
+        self.timer.cancel()
         self.robot.radioStop(bsm.Radio.ESTOP_JOYSTICK)
+        self.timer = threading.Timer(1 * SECOND, self.execute)
+        self.timer.start()
         return True
+
+    def uncheck(self, wasClicked):
+        self.timer.cancel()
 
 
 class SoftEStopButton(LinkableButton):
@@ -448,10 +465,14 @@ class SoftEStopButton(LinkableButton):
             self.text = "Land"
         super(SoftEStopButton, self).__init__(self.text)
         self.robot = robot
+        self.timer = threading.Timer(1, self.repeatRadioStop)
 
     def execute(self, bypassConfirm=False):
+        self.timer.cancel()
+
         if not self.robot.is_aerial:
             self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
+            self.startTimer()
             return True
 
         if not bypassConfirm:
@@ -467,7 +488,21 @@ class SoftEStopButton(LinkableButton):
                 return False
 
         self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
+        self.startTimer()
         return True
+
+    def uncheck(self, wasClicked):
+        self.timer.cancel()
+
+    def repeatRadioStop(self):
+        self.timer.cancel()
+        self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
+        self.startTimer()
+
+    def startTimer(self):
+        SECOND = 1
+        self.timer = threading.Timer(1 * SECOND, self.repeatRadioStop)
+        self.timer.start()
 
     # Allows programmatical way to activate this button from a mega E-Stop button.
     def forceStop(self):
@@ -481,12 +516,10 @@ class HardEStopButton(LinkableButton):
         super(HardEStopButton, self).__init__("Hard E-Stop")
         self.robot = robot
         self.was_darpa_estopped = False
-        # Not started but initialized to avoid checking for None in uncheck.
-        if self.robot.is_aerial:
-            self.timer = threading.Timer(1, self.execute)
+        self.timer = threading.Timer(1, self.repeatRadioStop)
 
     def uncheck(self, wasClicked):
-        self.cancelTimer()
+        self.timer.cancel()
         # Due to the timer, the plugin has to forcefully uncheck this button, regardless
         # if it was previously checked, in order to properly shutdown the timer.
         # However, this can inadvertently send a DARPA disengage command which may not
@@ -503,7 +536,7 @@ class HardEStopButton(LinkableButton):
             self.was_darpa_estopped = False
 
     def execute(self):
-        self.cancelTimer()
+        self.timer.cancel()
 
         MB = qt.QMessageBox
         answer = MB.question(
@@ -522,19 +555,13 @@ class HardEStopButton(LinkableButton):
         return True
 
     def repeatRadioStop(self):
-        self.cancelTimer()
+        self.timer.cancel()
         self.robot.radioStop(bsm.Radio.ESTOP_HARD)
         self.startTimer()
 
-    def cancelTimer(self):
-        if self.robot.is_aerial:
-            self.timer.cancel()
-
     def startTimer(self):
-        if not self.robot.is_aerial:
-            return
         SECOND = 1
-        self.timer = threading.Timer(2 * SECOND, self.repeatRadioStop)
+        self.timer = threading.Timer(1 * SECOND, self.repeatRadioStop)
         self.timer.start()
 
     def darpa_estop(self, what):
@@ -569,10 +596,18 @@ class ReturnHomeButton(LinkableButton):
         super(ReturnHomeButton, self).__init__("Return Home")
         self.robot = robot
         self.setStyleSheet("QPushButton:checked {" + COLORS.GREEN + "}")
+        self.timer = threading.Timer(1, self.execute)
 
     def execute(self):
+        SECOND = 1
+        self.timer.cancel()
         self.robot.radio(bsm.Radio.MESSAGE_TYPE_RETURN_HOME, "")
+        self.timer = threading.Timer(1 * SECOND, self.execute)
+        self.timer.start()
         return True
+
+    def uncheck(self, wasClicked):
+        self.timer.cancel()
 
 
 class ExploreButton(LinkableButton):
