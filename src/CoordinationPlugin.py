@@ -44,14 +44,6 @@ from functools import partial
 
 
 '''
-TODO
-subscribe to
-/ugv1/decode_global_cloud
-- colate data
-- convert to image
-- display image
-- tranform polygons to world frame
-
 see bag file
 rosbag play --clock ~/tmp/stix_data/base_station_2019-04-10-11-29-28_0.bag -r 100
 ( rosparam set /use_sim_time false )
@@ -73,11 +65,16 @@ class CoordinationPlugin(Plugin):
         for r in config.robots:
             robot_names.append(r.topic_prefix)
         
-        global_widget = GlobalWidget()
-        context.add_widget(global_widget)
+        self.global_widget = GlobalWidget()
+        context.add_widget(self.global_widget)
 
     def shutdown_plugin(self):
-        pass
+        try:
+            self.global_widget
+        except NameError:
+            self.global_widget = None
+        if self.global_widget:
+            self.global_widget.shutdown()
 
 
 class GlobalWidget(QtWidgets.QWidget):
@@ -97,6 +94,13 @@ class GlobalWidget(QtWidgets.QWidget):
 
         self.setLayout(self.layout)
 
+    def shutdown(self):
+        try:
+            self.widget_partition
+        except NameError:
+            self.widget_partition = None
+        if self.widget_partition:
+            self.widget_partition.shutdown()
 
     def isChecked(self, idx):
         return self.widget_buttons.isChecked(idx)
@@ -257,7 +261,11 @@ class MapWidget(QtWidgets.QWidget):
         self.scroll_wheel_scaling = 1
         self.resetTransform()
 
-        self.keypose_sub = rospy.Subscriber("/integrated_to_map", Odometry,self.keypose_callback)
+        # subscribe to /integrated_to_map from each robot (and do one without prefix just in case
+        self.keypose_sub_without_prefix = rospy.Subscriber("/integrated_to_map", Odometry,self.keypose_callback)
+        self.keypose_sub = []
+        for r in range(len(robot_names)):
+            self.keypose_sub.append(rospy.Subscriber("/" + robot_names[r] + "/integrated_to_map", Odometry,self.keypose_callback))
         self.pose_list = QtGui.QPolygonF()
 
         for p in self.partitions:
@@ -265,10 +273,17 @@ class MapWidget(QtWidgets.QWidget):
         	setattr(self, publisher_name, rospy.Publisher('/' + p.name + '/coordination_polygon' , PolygonStamped, queue_size=10))
 
         # setup a timer
-        rospy.Timer(rospy.Duration(1), self.publishTimerCallback)
+        self.timer_publisher = rospy.Timer(rospy.Duration(1), self.publishTimerCallback)
 
         self.never_drawn = True
 
+    def shutdown(self):
+        try:
+            self.timer_publisher
+        except NameError:
+            self.timer_publisher = None
+        if self.timer_publisher:
+            self.timer_publisher.shutdown()
 
     def keypose_callback(self, msg):
         self.pose_list.append(QtCore.QPointF(msg.pose.pose.position.x, msg.pose.pose.position.y))
