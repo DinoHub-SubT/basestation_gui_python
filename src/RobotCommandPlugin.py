@@ -95,8 +95,9 @@ class RobotCommandPlugin(Plugin):
             cloud = pub(t, Float32, 10)
 
             def clear():
+                # The number 42 was arbitrarily chosen by the team.
                 msg = Float32()
-                msg.data = 0
+                msg.data = 42.0
                 cloud.publish(msg)
 
             robot.radio = send
