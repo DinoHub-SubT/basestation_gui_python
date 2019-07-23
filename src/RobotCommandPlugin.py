@@ -33,7 +33,7 @@ import basestation_msgs.msg as bsm
 from basestation_gui_python.msg import GuiMessage
 from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from visualization_msgs.msg import InteractiveMarkerFeedback
 
 from gui_utils import COLORS
@@ -91,8 +91,17 @@ class RobotCommandPlugin(Plugin):
             def stop(what):
                 send(bsm.Radio.MESSAGE_TYPE_ESTOP, what)
 
+            t = "/{0}/{1}".format(robot.topic_prefix, robot.topics["clear_cloud"])
+            cloud = pub(t, Float32, 10)
+
+            def clear():
+                msg = Float32()
+                msg.data = 0
+                cloud.publish(msg)
+
             robot.radio = send
             robot.radioStop = stop
+            robot.clearCloud = clear
 
         def sub(topic, what, callback, extra=None):
             if extra == None:
@@ -256,18 +265,16 @@ class RobotCommandPlugin(Plugin):
             tree = self.treeWidgets[robot.uuid]
             resendType = bsm.Radio.MESSAGE_TYPE_RESEND_ALL_ARTIFACTS
             resend = RadioButton("Resend Artifacts", robot, resendType)
-            hidden = RadioButton("Hidden", robot, resendType)
             resume = ResumeButton(robot)
             joystick = JoystickButton(robot)
             home = ReturnHomeButton(robot)
             explore = ExploreButton(robot)
             soft = SoftEStopButton(robot)
             hard = HardEStopButton(robot)
+            terrain = ResetTerrainAnalysisButton(robot)
             waypt = DefineWaypointButton(
                 robot, self.moveWaypoint, self.publishWaypoint, self.removeWaypoint
             )
-
-            hideButton(hidden)
 
             self.timer_buttons.extend([resume, home, soft, hard, joystick])
             self.batteryStatus[robot.uuid] = cmd.batteryLabel
@@ -292,6 +299,7 @@ class RobotCommandPlugin(Plugin):
             cmd.rightButtons.addWidget(waypt)
             cmd.rightButtons.addWidget(explore)
             cmd.rightButtons.addWidget(resend)
+            cmd.rightButtons.addWidget(terrain)
 
             if robot.is_aerial:
                 hover = HoverButton(robot)
@@ -314,7 +322,6 @@ class RobotCommandPlugin(Plugin):
                 if not robot.has_comms:
                     hideButton(btn)
 
-            cmd.rightButtons.addWidget(hidden)
             cmd.eStopAllButton.clicked.connect(stopAll)
             cmd.treeLayout.addWidget(tree)
             tab.setLayout(grid)
@@ -674,3 +681,15 @@ class DefineWaypointButton(qt.QPushButton):
         if error != "":
             MB.warning(None, who, error, buttons=MB.Ok, defaultButton=MB.Ok)
         self.removeWaypoint()
+
+
+class ResetTerrainAnalysisButton(qt.QPushButton):
+    def __init__(self, robot):
+        super(ResetTerrainAnalysisButton, self).__init__("Reset Terrain Analysis")
+        self.robot = robot
+        self.setStyleSheet("QPushButton:clicked {" + COLORS.BLUE + "}")
+        self.clicked.connect(self.execute)
+
+    def execute(self):
+        self.robot.clearCloud()
+        return True

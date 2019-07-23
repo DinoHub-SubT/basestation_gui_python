@@ -73,6 +73,7 @@ class Config(object):
             require_topic(robot.topics, "radio_command")
             require_topic(robot.topics, "behavior_tree")
             require_topic(robot.topics, "point_cloud")
+            require_topic(robot.topics, "clear_cloud")
             if req_err[0]:
                 continue
             else:

@@ -41,6 +41,7 @@
 #            radio_command:  Where to publish outgoing radio command messages.
 #            behavior_tree:  Subscription for the robot's current behavior tree in DOT GraphViz form.
 #            point_cloud:    Subscription for the robot's 3D point cloud.
+#            clear_cloud:    Publish a Float32 message to clear the robot's current terrain analysis.
 #
 robots:
   -
@@ -61,6 +62,7 @@ robots:
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz_compressed
       point_cloud: frame/decode_global_cloud
+      clear_cloud: cloud_clearing
   -
     name: Ground2
     uuid: eb6ec779-2d3a-4f9a-9bb0-e11a7ce8e501
@@ -82,6 +84,7 @@ robots:
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz_compressed
       point_cloud: frame/decode_global_cloud
+      clear_cloud: cloud_clearing
   -
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
@@ -100,6 +103,7 @@ robots:
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz_compressed
       point_cloud: frame/decode_global_cloud
+      clear_cloud: cloud_clearing
 
 
 # The DARPA section specifies how the GUI should communicate with the remote
