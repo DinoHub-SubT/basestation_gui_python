@@ -57,7 +57,7 @@ robots:
       odometry: frame/integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
-      wifi_detection: wifi_detection
+      wifi_detection: frame/wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz_compressed
@@ -79,7 +79,7 @@ robots:
       darpa_tf: transform
       artifact_wifi: real_artifact_imgs
       artifact_radio: real_artifact_detections
-      wifi_detection: wifi_detection
+      wifi_detection: frame/wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz_compressed
@@ -98,7 +98,7 @@ robots:
       odometry: frame/integrated_to_map
       calibration: integrated_to_map
       darpa_tf: transform
-      wifi_detection: wifi_detection
+      wifi_detection: frame/wifi_detection
       status_update: status_update
       radio_command: radio_command_bst
       behavior_tree: behavior_tree_graphviz_compressed
