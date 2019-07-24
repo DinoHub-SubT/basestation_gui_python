@@ -251,18 +251,34 @@ class DarpaBridge(BaseNode):
         """
         path = rospkg.RosPack().get_path("basestation_gui_python")
         path = os.path.join(path, "data", "calibration", robot.uuid + ".json")
-        stat = os.lstat(path)
+        stat = None
+        tx = Transform()
+
+        try:
+            stat = os.lstat(path)
+        except Exception:
+            tx.setTranslation(0, 0, 0)
+            tx.setRotation(0, 0, 0, 1)
+            self.last_modified[robot.uuid] = None
+            self.transforms[robot.uuid] = tx)
+            return tx
+
         last = self.last_modified.get(robot.uuid)
         if last == None or stat.st_mtime > last:
-            tx = Transform()
-            with open(path, "r") as f:
-                d = json.load(f)
-                q = d["quaternion"]
-                t = d["transform"]
-                tx.setTranslation(t[0][3], t[1][3], t[2][3])
-                tx.setRotation(q[0], q[1], q[2], q[3])
+            try:
+                with open(path, "r") as f:
+                    d = json.load(f)
+                    q = d["quaternion"]
+                    t = d["transform"]
+                    tx.setTranslation(t[0][3], t[1][3], t[2][3])
+                    tx.setRotation(q[0], q[1], q[2], q[3])
+                    self.last_modified[robot.uuid] = stat.st_mtime
+            except Exception:
+                tx.setTranslation(0, 0, 0)
+                tx.setRotation(0, 0, 0, 1)
+                self.last_modified[robot.uuid] = None
             self.transforms[robot.uuid] = tx
-            self.last_modified[robot.uuid] = stat.st_mtime
+
         return self.transforms[robot.uuid]
 
     def execute(self):

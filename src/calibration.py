@@ -194,9 +194,19 @@ class Calibration(Plugin):
 
     def persist(self, robot):
         """Persist archives _robot_ as json to the path specificed by robot_filename."""
-        fn = self.robot_filename(robot)
-        with open(fn, "w") as f:
-            json.dump(robot.encode_to_json(), f)
+        try:
+            fn = self.robot_filename(robot)
+            with open(fn, "w") as f:
+                json.dump(robot.encode_to_json(), f)
+        except Exception as e:
+            MB = qt.QMessageBox
+            MB.critical(
+                None,
+                "Basestation",
+                "Calibration persist error: {0}: ".format(e),
+                buttons=MB.Ok,
+                defaultButton=MB.Ok,
+            )
 
     #################### CalibrationView interface methods ####################
     def name_changed(self, robot):
@@ -216,7 +226,19 @@ class Calibration(Plugin):
     def on_reset(self, robot):
         robot.points = []
         robot.last_save = ""
+        robot.transform = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        robot.quaternion = [0, 0, 0, 1]
+
+        qt = Quaternion(0, 0, 0, 1)
+        tf = Odometry()
+
+        tf.pose.pose.position.x = 0
+        tf.pose.pose.position.y = 0
+        tf.pose.pose.position.z = 0
+        tf.pose.pose.orientation = qt
+
         self.persist(robot)
+        robot.darpa_tf_pub.publish(tf)
         return robot
 
     def on_calibrate(self, robot):
