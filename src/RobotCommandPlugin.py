@@ -440,7 +440,8 @@ class ResumeButton(LinkableButton):
         self.timer.cancel()
         self.robot.radioStop(bsm.Radio.ESTOP_RESUME)
         self.timer = threading.Timer(1 * SECOND, self.execute)
-        self.timer.start()
+        if not self.robot.is_aerial:
+            self.timer.start()
         return True
 
     def uncheck(self, wasClicked):
@@ -459,7 +460,8 @@ class JoystickButton(LinkableButton):
         self.timer.cancel()
         self.robot.radioStop(bsm.Radio.ESTOP_JOYSTICK)
         self.timer = threading.Timer(1 * SECOND, self.execute)
-        self.timer.start()
+        if not self.robot.is_aerial:
+            self.timer.start()
         return True
 
     def uncheck(self, wasClicked):
@@ -496,7 +498,8 @@ class SoftEStopButton(LinkableButton):
                 return False
 
         self.robot.radioStop(bsm.Radio.ESTOP_SOFT)
-        self.startTimer()
+        if not self.robot.is_aerial:
+            self.startTimer()
         return True
 
     def uncheck(self, wasClicked):
@@ -559,7 +562,8 @@ class HardEStopButton(LinkableButton):
 
         self.robot.radioStop(bsm.Radio.ESTOP_HARD)
         self.was_darpa_estopped = self.darpa_estop(self.robot.estop_engage)
-        self.startTimer()
+        if not self.robot.is_aerial:
+            self.startTimer()
         return True
 
     def repeatRadioStop(self):
@@ -611,7 +615,8 @@ class ReturnHomeButton(LinkableButton):
         self.timer.cancel()
         self.robot.radio(bsm.Radio.MESSAGE_TYPE_RETURN_HOME, "")
         self.timer = threading.Timer(1 * SECOND, self.execute)
-        self.timer.start()
+        if not self.robot.is_aerial:
+            self.timer.start()
         return True
 
     def uncheck(self, wasClicked):
