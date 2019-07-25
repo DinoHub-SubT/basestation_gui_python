@@ -260,7 +260,7 @@ class DarpaBridge(BaseNode):
             tx.setTranslation(0, 0, 0)
             tx.setRotation(0, 0, 0, 1)
             self.last_modified[robot.uuid] = None
-            self.transforms[robot.uuid] = tx)
+            self.transforms[robot.uuid] = tx
             return tx
 
         last = self.last_modified.get(robot.uuid)
