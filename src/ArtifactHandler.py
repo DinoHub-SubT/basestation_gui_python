@@ -203,7 +203,7 @@ class ArtifactHandler(BaseNode):
         artifact is a guiArtifact object
         """
         msg = Artifact()
-        msg.category = artifact.category
+        msg.category = str(artifact.category)
         msg.curr_pose.position.x = artifact.pose[0]
         msg.curr_pose.position.y = artifact.pose[1]
         msg.curr_pose.position.z = artifact.pose[2]
