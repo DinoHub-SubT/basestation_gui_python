@@ -3,7 +3,7 @@ string category
 geometry_msgs/Pose curr_pose
 geometry_msgs/Pose orig_pose
 uint8 source_robot_id
-uint8 artifact_report_id
+uint16 artifact_report_id
 float32 time_from_robot
 float32 time_to_darpa
 bool unread
