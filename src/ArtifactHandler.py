@@ -534,8 +534,9 @@ class ArtifactHandler(BaseNode):
                 x = artifact.pose[0]
                 y = artifact.pose[1]
                 z = artifact.pose[2]
-                b = 0.8
-                g = 0.3
+                r = 0.5
+                b = 0.9
+                g = 0.7
 
             mk = Marker()
             mk.header.frame_id = self.ref_frame
