@@ -31,7 +31,7 @@
        <item>
         <layout class="QHBoxLayout" name="travelTimeLayout" stretch="1,1">
          <item>
-          <widget class="QLabel" name="label">
+          <widget class="QLabel" name="travelTimeLabel">
            <property name="text">
             <string>Comms Timeout (minutes)</string>
            </property>
