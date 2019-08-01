@@ -332,6 +332,8 @@ class RobotCommandPlugin(Plugin):
             max_time = (2 * robot.max_travel_time) + 1
             times = [str(n / 2.0) for n in range(0, max_time)]
             box = cmd.travelTimeComboBox
+            if robot.is_aerial:
+                cmd.travelTimeLabel.setText("Max Travel Time (minutes)")
             for speed in times:
                 box.addItem(speed)
             box.currentTextChanged.connect(make_adjuster(box, robot))
