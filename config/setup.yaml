@@ -13,7 +13,7 @@
 #          To generate a UUID open a python prompt and then:
 #              >>> import uuid
 #              >>> str(uuid.uuid4())
-##
+#
 #    has_comms: [optional] Can this robot drop comm nodes?  Influences UI.
 #
 #    is_aerial: [optional] Set to true if the robot is an aerial drone.
@@ -21,6 +21,9 @@
 #    max_travel_time: [optional] Set to an integer for the max travel (flight) time
 #                     the robot is allowed to be away from comms.  If not specified
 #                     then the default is 10.
+#
+#    max_flight_speed: [optional] Max speed of an aerial drone.  Influences UI and if not
+#                      specified then a default value of 1.0 will be used.
 #
 #    estop_serial_port: [required] Serial device to route DARPA hard E-Stop commands.
 #    estop_engage:      [required] Command to engage the hard E-Stop on the DARPA serial port.
@@ -89,7 +92,8 @@ robots:
     name: Aerial1
     uuid: 1c9f02d3-14af-4bdc-9840-77d1ba279c4e
     is_aerial: true
-    max_travel_time: 10
+    max_travel_time: 20
+    max_flight_speed: 1.0
     estop_serial_port: '/dev/ttyUSB0'
     estop_disengage: '7E 00 10 17 AB 00 13 A2 00 40 DA 8F E1 FF FE 02 44 30 04 87'
     estop_engage: '7E 00 10 17 01 00 13 A2 00 41 90 8A 87 FF FE 02 44 31 05 D7'

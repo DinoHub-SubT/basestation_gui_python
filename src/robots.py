@@ -85,6 +85,8 @@ class Config(object):
             robot.has_comms = option(r, "has_comms")
             if r.has_key("max_travel_time"):
                 robot.max_travel_time = int(r.get("max_travel_time"))
+            if r.has_key("max_flight_speed"):
+                robot.max_flight_speed = float(r.get("max_flight_speed"))
             self.robots.append(robot)
 
         darpaCfg = config["darpa"]
@@ -116,6 +118,7 @@ class Robot(object):
         self.is_aerial = False
         self.has_comms = False
         self.max_travel_time = 10
+        self.max_flight_speed = 1.0
         self.estop_serial_port = None
         self.estop_engage = None
         self.estop_disengage = None

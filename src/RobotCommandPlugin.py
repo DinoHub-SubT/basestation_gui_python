@@ -16,6 +16,7 @@ import threading
 import robots
 import serial
 import os
+import re
 import zlib
 
 import xdot.xdot_qt as xdot
@@ -49,7 +50,6 @@ from gui_utils import COLORS
 
 class RobotCommandPlugin(Plugin):
     tree_trigger = pyqtSignal(object, object)
-    status_trigger = pyqtSignal(object, object)
 
     def __init__(self, context):
         super(RobotCommandPlugin, self).__init__(context)
@@ -60,16 +60,10 @@ class RobotCommandPlugin(Plugin):
         self.waypoints = dict()
         self.treeWidgets = dict()
         self.prevTrees = dict()
-        self.batteryStatus = dict()
-        self.commsStatus = dict()
-        self.cpuStatus = dict()
-        self.diskSpaceStatus = dict()
-        self.rssiStatus = dict()
         self.waypt_robot = None
         self.subscriptions = []
 
         self.tree_trigger.connect(self.onTreeUpdateMonitor)
-        self.status_trigger.connect(self.onStatusUpdateMonitor)
 
         def pub(to, what, size):
             return rospy.Publisher(to, what, queue_size=size)
@@ -116,13 +110,11 @@ class RobotCommandPlugin(Plugin):
         for r in self.config.robots:
             odom = "/{0}/{1}".format(r.topic_prefix, r.topics["odometry"])
             btree = "/{0}/{1}".format(r.topic_prefix, r.topics["behavior_tree"])
-            status = "/{0}/{1}".format(r.topic_prefix, r.topics["status_update"])
             radioize(r)
             self.treeWidgets[r.uuid] = xdot.DotWidget()
             self.prevTrees[r.uuid] = ""
             sub(odom, Odometry, self.onOdometry, r)
             sub(btree, String, self.onTreeUpdate, r)
-            sub(status, bsm.StatusUpdate, self.onStatusUpdate, r)
 
         context.add_widget(self.createPanel())
 
@@ -192,36 +184,6 @@ class RobotCommandPlugin(Plugin):
                 w.zoom_to_fit()
         self.prevTrees[robot.uuid] = msg.data
 
-    def onStatusUpdate(self, msg, robot):
-        self.status_trigger.emit(msg, robot)
-
-    def onStatusUpdateMonitor(self, msg, robot):
-        SU = bsm.StatusUpdate
-        status = None
-
-        if msg.what == SU.WHAT_BATTERY:
-            status = self.batteryStatus[robot.uuid]
-        elif msg.what == SU.WHAT_COMMS:
-            status = self.commsStatus[robot.uuid]
-        elif msg.what == SU.WHAT_CPU:
-            status = self.cpuStatus[robot.uuid]
-        elif msg.what == SU.WHAT_DISK_SPACE:
-            status = self.diskSpaceStatus[robot.uuid]
-        elif msg.what == SU.WHAT_RSSI:
-            status = self.rssiStatus[robot.uuid]
-        elif msg.what == SU.WHAT_MOBILITY:
-            # Mobility provides redundant information to the behavior tree
-            # so it is removed to save GUI space.
-            return
-
-        status.setText(msg.value)
-        if msg.severity == SU.SEVERITY_CRITICAL:
-            status.setStyleSheet(COLORS.LIGHT_RED)
-        elif msg.severity == SU.SEVERITY_WARNING:
-            status.setStyleSheet(COLORS.YELLOW)
-        else:
-            status.setStyleSheet(None)
-
     def createPanel(self):
         widget = QWidget()
         layout = qt.QGridLayout()
@@ -236,6 +198,61 @@ class RobotCommandPlugin(Plugin):
             def fn():
                 d = str(float(combo_box.currentText()) * 60)
                 robot.radio(bsm.Radio.MESSAGE_TYPE_MAX_FLIGHT_TIME, d)
+
+            return fn
+
+        def make_send_velocity(combo_box, robot):
+            def fn():
+                d = combo_box.currentText()
+                robot.radio(bsm.Radio.MESSAGE_TYPE_MAX_FLIGHT_VELOCITY, d)
+
+            return fn
+
+        def make_send_comms(line_edit, robot):
+            def fn():
+                MB = qt.QMessageBox
+                text = line_edit.text()
+                nums = re.split(r'\D+', text)
+                count = 0
+                data = []
+                if len(nums) < 2:
+                    MB.critical(
+                        None,
+                        "Basestation",
+                        "Must have at least two nodes for robot and basestation.",
+                        buttons=MB.Ok,
+                        defaultButton=MB.Ok,
+                    )
+                    return
+                else:
+                    count = len(nums) - 2
+
+                for num in nums:
+                    n = int(num)
+                    if n == 0:
+                        MB.critical(
+                            None,
+                            "Basestation",
+                            "Node number can't be zero.",
+                            buttons=MB.Ok,
+                            defaultButton=MB.Ok,
+                        )
+                        return
+                    else:
+                        data.append("10.1.1.{0}".format(10 + n))
+
+                answer = MB.question(
+                    None,
+                    "Basestation",
+                    "Really update comms planner and behavior executive?  Ensure robot is not exploring.",
+                    buttons=MB.Yes | MB.Cancel,
+                    defaultButton=MB.Yes,
+                )
+                if answer == MB.Cancel:
+                    return
+
+                robot.radio(bsm.Radio.MESSAGE_TYPE_COMM_NODE_IP_LIST, str(data))
+                robot.radio(bsm.Radio.MESSAGE_TYPE_COMM_NODE_COUNT, str(count))
 
             return fn
 
@@ -278,11 +295,6 @@ class RobotCommandPlugin(Plugin):
             )
 
             self.timer_buttons.extend([resume, home, soft, hard, joystick])
-            self.batteryStatus[robot.uuid] = cmd.batteryLabel
-            self.commsStatus[robot.uuid] = cmd.commsLabel
-            self.cpuStatus[robot.uuid] = cmd.cpuLabel
-            self.diskSpaceStatus[robot.uuid] = cmd.diskSpaceLabel
-            self.rssiStatus[robot.uuid] = cmd.rssiLabel
 
             stoppers.append(soft)
             resume.link([soft, hard, home, explore, joystick])
@@ -312,6 +324,7 @@ class RobotCommandPlugin(Plugin):
                 explore.link([hover])
                 joystick.link([hover])
                 cmd.rightButtons.addWidget(hover)
+                hideButton(cmd.updateCommsButton)
             else:
                 mt = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
                 btn = RadioButton("Drop Comms", robot, mt)
@@ -322,6 +335,12 @@ class RobotCommandPlugin(Plugin):
                 # the space of the hidden button.
                 if not robot.has_comms:
                     hideButton(btn)
+                    hideButton(cmd.updateCommsButton)
+                else:
+                    box = qt.QLineEdit()
+                    cmd.extraInputLayout.addWidget(qt.QLabel("Nodes (Robot, BST, Nodes)"))
+                    cmd.extraInputLayout.addWidget(box)
+                    cmd.updateCommsButton.clicked.connect(make_send_comms(box, robot))
 
             cmd.eStopAllButton.clicked.connect(stopAll)
             cmd.treeLayout.addWidget(tree)
@@ -332,11 +351,20 @@ class RobotCommandPlugin(Plugin):
             max_time = (2 * robot.max_travel_time) + 1
             times = [str(n / 2.0) for n in range(0, max_time)]
             box = cmd.travelTimeComboBox
+            for t in times:
+                box.addItem(t)
+            box.currentTextChanged.connect(make_adjuster(box, robot))
+
             if robot.is_aerial:
                 cmd.travelTimeLabel.setText("Max Travel Time (minutes)")
-            for speed in times:
-                box.addItem(speed)
-            box.currentTextChanged.connect(make_adjuster(box, robot))
+                box = qt.QComboBox()
+                cmd.extraInputLayout.addWidget(qt.QLabel("Flight Speed (m/s)"))
+                cmd.extraInputLayout.addWidget(box)
+                speed = 0.1
+                while speed < robot.max_flight_speed:
+                    box.addItem("{0:.1f}".format(speed))
+                    speed += 0.1
+                box.currentTextChanged.connect(make_send_velocity(box, robot))
 
         return widget
 
