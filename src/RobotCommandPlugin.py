@@ -290,6 +290,12 @@ class RobotCommandPlugin(Plugin):
             soft = SoftEStopButton(robot)
             hard = HardEStopButton(robot)
             terrain = ResetTerrainAnalysisButton(robot)
+            dropType = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
+            dropComms = RadioButton("Drop Comms", robot, dropType)
+            send2dType = bsm.Radio.MESSAGE_TYPE_SEND_2D_MAP
+            send3dType = bsm.Radio.MESSAGE_TYPE_SEND_3D_MAP
+            send2d = RadioButton("Send 2D Map", robot, send2dType)
+            send3d = RadioButton("Send 3D Map", robot, send3dType)
             waypt = DefineWaypointButton(
                 robot, self.moveWaypoint, self.publishWaypoint, self.removeWaypoint
             )
@@ -309,10 +315,13 @@ class RobotCommandPlugin(Plugin):
             cmd.leftButtons.addWidget(soft)
             cmd.leftButtons.addWidget(hard)
             cmd.leftButtons.addWidget(joystick)
+            cmd.leftButtons.addWidget(send2d)
             cmd.rightButtons.addWidget(waypt)
             cmd.rightButtons.addWidget(explore)
             cmd.rightButtons.addWidget(resend)
             cmd.rightButtons.addWidget(terrain)
+            cmd.rightButtons.addWidget(dropComms)
+            cmd.rightButtons.addWidget(send3d)
 
             if robot.is_aerial:
                 hover = HoverButton(robot)
@@ -325,23 +334,15 @@ class RobotCommandPlugin(Plugin):
                 joystick.link([hover])
                 cmd.rightButtons.addWidget(hover)
                 hideButton(cmd.updateCommsButton)
-            else:
-                mt = bsm.Radio.MESSAGE_TYPE_DROP_COMMS
-                btn = RadioButton("Drop Comms", robot, mt)
-                cmd.rightButtons.addWidget(btn)
-                # If the ground robot doesn't have a comm dropper then
-                # we'll hide the button but first the size policy must
-                # be retained; otherwise, the other buttons will fill
-                # the space of the hidden button.
-                if not robot.has_comms:
-                    hideButton(btn)
-                    hideButton(cmd.updateCommsButton)
-                else:
-                    box = qt.QLineEdit()
-                    cmd.extraInputLayout.addWidget(qt.QLabel("Nodes (Robot, BST, Nodes)"))
-                    cmd.extraInputLayout.addWidget(box)
-                    cmd.updateCommsButton.clicked.connect(make_send_comms(box, robot))
 
+            if robot.has_comms:
+                box = qt.QLineEdit()
+                cmd.extraInputLayout.addWidget(qt.QLabel("Nodes (Robot, BST, Nodes)"))
+                cmd.extraInputLayout.addWidget(box)
+                cmd.updateCommsButton.clicked.connect(make_send_comms(box, robot))
+
+            cmd.leftButtons.addStretch()
+            cmd.rightButtons.addStretch()
             cmd.eStopAllButton.clicked.connect(stopAll)
             cmd.treeLayout.addWidget(tree)
             tab.setLayout(grid)
