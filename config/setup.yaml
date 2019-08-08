@@ -126,12 +126,12 @@ robots:
 #    artifact_categories: [required] Various artifact categories that any robot should report.
 #
 darpa:
-  score_address: 'http://127.0.0.1'
+  score_address: 'http://10.1.1.200'
   score_port: 8080
   score_bearer_token: 'flux230{showroom'
   score_status_uri: '/api/status/'
   score_report_uri: '/api/artifact_reports/'
-  map_address: 'http://127.0.0.1'
+  map_address: 'http://10.1.1.200'
   map_port: 8080
   map_bearer_token: 'flux230{showroom'
   map_cloud_uri: '/map/update/'

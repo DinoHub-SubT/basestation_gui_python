@@ -5,7 +5,7 @@
     <param name="reference_frame" value="/darpa_map" />
 
 	<!-- set arguement for if we're going to simulate the command post or not -->
-	<arg name="connect_to_command_post" default="false"/>
+	<arg name="connect_to_command_post" default="true"/>
 	<param name="connect_to_command_post" value= "$(arg connect_to_command_post)" />
 
 	<!-- set arguement for if we should simulate incoming artifact detections -->
