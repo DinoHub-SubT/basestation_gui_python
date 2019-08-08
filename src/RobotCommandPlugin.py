@@ -62,8 +62,6 @@ class RobotCommandPlugin(Plugin):
         self.prevTrees = dict()
         self.waypt_robot = None
         self.subscriptions = []
-        self.send_radio_count = 16
-        self.clear_cloud_count = 16
 
         self.tree_trigger.connect(self.onTreeUpdateMonitor)
 
@@ -77,28 +75,30 @@ class RobotCommandPlugin(Plugin):
         def radioize(robot):
             t = "/{0}/{1}".format(robot.topic_prefix, robot.topics["radio_command"])
             radio_cmd = pub(t, bsm.Radio, 50)
+            send_count = [16]
 
             def send(msg_type, what):
                 cmd = bsm.Radio()
                 cmd.message_type = msg_type
                 cmd.data = what
-                for n in xrange(self.send_radio_count):
+                for n in xrange(send_count[0]):
                     radio_cmd.publish(cmd)
-                self.send_radio_count = 1
+                send_count[0] = 1
 
             def stop(what):
                 send(bsm.Radio.MESSAGE_TYPE_ESTOP, what)
 
             t = "/{0}/{1}".format(robot.topic_prefix, robot.topics["clear_cloud"])
             cloud = pub(t, Float32, 10)
+            clear_count = [16]
 
             def clear():
                 # The number 42 was arbitrarily chosen by the team.
                 msg = Float32()
                 msg.data = 42.0
-                for n in xrange(self.clear_cloud_count):
+                for n in xrange(clear_count[0]):
                     cloud.publish(msg)
-                self.clear_cloud_count = 1
+                clear_count[0] = 1
 
             robot.radio = send
             robot.radioStop = stop
