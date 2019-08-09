@@ -265,12 +265,12 @@ class MapWidget(QtWidgets.QWidget):
         self.keypose_sub_without_prefix = rospy.Subscriber("/integrated_to_map", Odometry,self.keypose_callback)
         self.keypose_sub = []
         for r in range(len(robot_names)):
-            self.keypose_sub.append(rospy.Subscriber("/" + robot_names[r] + "/integrated_to_map", Odometry,self.keypose_callback))
+            self.keypose_sub.append(rospy.Subscriber("/" + robot_names[r] + "/frame/integrated_to_map", Odometry,self.keypose_callback))
         self.pose_list = QtGui.QPolygonF()
 
         for p in self.partitions:
         	publisher_name = '{:s}_pub'.format(p.name)
-        	setattr(self, publisher_name, rospy.Publisher('/' + p.name + '/coordination_polygon' , PolygonStamped, queue_size=10))
+        	setattr(self, publisher_name, rospy.Publisher('/' + p.name + '/coordination_polygon_bst' , PolygonStamped, queue_size=10))
 
         # setup a timer
         self.timer_publisher = rospy.Timer(rospy.Duration(1), self.publishTimerCallback)
@@ -547,7 +547,7 @@ class MapWidget(QtWidgets.QWidget):
        	for p in self.partitions:
        		publisher_name = '{:s}_pub'.format(p.name)
        		poly_msg = PolygonStamped()
-       		poly_msg.header.frame_id = '/map'
+       		poly_msg.header.frame_id = '/darpa_map'
        		for i in p.polygon:
        			point = Point32()
        			point.x = i.x()
