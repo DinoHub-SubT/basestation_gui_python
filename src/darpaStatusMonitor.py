@@ -94,8 +94,10 @@ class DarpaBridge(BaseNode):
             self.transforms[r.uuid] = Transform()
             self.getTransform(r)
             cloud = "/{0}/{1}".format(r.topic_prefix, r.topics.get("point_cloud"))
+            complete = "/{0}/{1}".format(r.topic_prefix, r.topics.get("complete_cloud"))
             pose = "/{0}/{1}".format(r.topic_prefix, r.topics.get("odometry"))
             sub(cloud, PointCloud2, self.onCloud, r)
+            sub(complete, PointCloud2, self.onCloud, r)
             sub(pose, Odometry, self.onOdometry, r)
 
         # Start a schedule which runs "get status" every few seconds.
