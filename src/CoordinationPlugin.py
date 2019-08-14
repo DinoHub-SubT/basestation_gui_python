@@ -2,10 +2,12 @@ import sys, math
 
 import rospy
 import rospkg
+import tf
 import robots
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PolygonStamped
+from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Point32
 import threading
 
@@ -254,6 +256,9 @@ class MapWidget(QtWidgets.QWidget):
         self.mouseMoveEvent=self.mouseMoveEventCallback
         self.TOLERANCE = 20
 
+        # ros tranform listener to tranform odometry
+        self.listener = tf.TransformListener()
+
         self.s_inverse = 1
         self.translation = [0, 0]
         self.transform = QtGui.QTransform()
@@ -286,7 +291,33 @@ class MapWidget(QtWidgets.QWidget):
             self.timer_publisher.shutdown()
 
     def keypose_callback(self, msg):
-        self.pose_list.append(QtCore.QPointF(msg.pose.pose.position.x, msg.pose.pose.position.y))
+        
+        try:
+            # transform from the robot's /<robot>_map frame to /darpa_map frame
+            # so that it is displayed in the same frame as the polygons
+            
+            # create a PoseStamped message
+            pose_stamped = PoseStamped()
+            pose_stamped.header = msg.header
+            pose_stamped.pose = msg.pose.pose
+
+            # transform the message
+            from_frame = pose_stamped.header.frame_id
+            target_frame = '/darpa_map'
+            # time syncing issue if you don't wait until tf arrives
+            self.listener.waitForTransform(from_frame, target_frame, pose_stamped.header.stamp, rospy.Duration(0.1));
+            transformed_pose_stamped = self.listener.transformPose(target_frame, pose_stamped)
+
+            # add tranformed data to list
+            self.pose_list.append(QtCore.QPointF(transformed_pose_stamped.pose.position.x, transformed_pose_stamped.pose.position.y))
+
+            rospy.logwarn('transform correct')
+
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            # just ignore this exception (no keypose will be displayed, everything else works)
+            print(e)
+            rospy.logwarn('CoordinationPlugin: error transforming odometry')
+        
     
     def resetTransform(self):
 
