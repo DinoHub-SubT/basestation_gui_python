@@ -311,8 +311,6 @@ class MapWidget(QtWidgets.QWidget):
             # add tranformed data to list
             self.pose_list.append(QtCore.QPointF(transformed_pose_stamped.pose.position.x, transformed_pose_stamped.pose.position.y))
 
-            rospy.logwarn('transform correct')
-
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
             # just ignore this exception (no keypose will be displayed, everything else works)
             print(e)
