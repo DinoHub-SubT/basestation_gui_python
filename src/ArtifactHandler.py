@@ -22,6 +22,8 @@ import threading
 
 import basestation_msgs.msg as bsm
 
+from basestation_msgs.msg import WifiDetection
+
 from cv_bridge import CvBridge
 from std_msgs.msg import String, UInt8, Bool
 from sensor_msgs.msg import Image
@@ -163,7 +165,7 @@ class ArtifactHandler(BaseNode):
                 msg_id = GuiArtifact.message_id_from_msg(msg, robot_uuid)
                 if msg_id in self.queued_artifacts.keys():
                     # we're removing an artifact not adding one
-                    if msg.artifact_type == bsm.WifiDetection.ARTIFACT_REMOVE:
+                    if msg.artifact_type == WifiDetection.ARTIFACT_REMOVE:
                         self.deleteArtifact(String(msg_id))
                         # remove the artifact from the queue
                         remove_msg = String()
@@ -173,14 +175,14 @@ class ArtifactHandler(BaseNode):
                         self.updateWifiDetection(msg, msg_id)
                 # this artifact has is a completely new artifact detection
                 elif msg_id not in self.all_artifacts.keys():
-                    if msg.artifact_type != bsm.WifiDetection.ARTIFACT_REMOVE:
+                    if msg.artifact_type != WifiDetection.ARTIFACT_REMOVE:
                         self.generateNewArtifactWifi(msg, robot_uuid)
 
             return callback
 
         for r in config.robots:
             detect = "/{0}/{1}".format(r.topic_prefix, r.topics.get("wifi_detection"))
-            sub(detect, bsm.WifiDetection, onDetect(r.uuid))
+            sub(detect, WifiDetection, onDetect(r.uuid))
 
         # We would like to display existing persisted artifacts immediately after the
         # handler is loaded; however, there is a ROS/rqt bootstrap delay that appears to
