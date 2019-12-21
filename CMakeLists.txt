@@ -64,7 +64,6 @@ add_message_files(
    DarpaStatus.msg
    GuiMessage.msg
    GuiRobCommand.msg
-   WifiDetection.msg
    RetreiveArtifactImage.msg
    ArtifactVisualizerUpdate.msg
 )
